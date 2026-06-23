@@ -1,0 +1,10 @@
+# Données SAP réelles (sensibles, ne pas exposer publiquement)
+EXPORT_NC.txt
+EXPORT_*.txt
+
+# Copies/sauvegardes locales redondantes
+KPI Perfo.txt
+*.bak
+
+# Données d'application locales (si jamais présentes ici)
+APP_DATA.txt

@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="x-ua-compatible" content="IE=10">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>KPI Perfo - Analyse NC (QM13) - SAP PEA</title>
+    <hta:application id="oApp" applicationname="KPIPerfo" border="thin" maximizebutton="yes" minimizebutton="yes" scroll="no" windowstate="maximize" />
+
+    <style>
+        /* ====================== STYLE GENERAL ====================== */
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f4f7; color: #1e293b; margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+
+        /* ====================== ECRAN DE CONNEXION ====================== */
+        #loginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #002d45; background-image: -ms-linear-gradient(135deg, #00263a 0%, #014a6f 100%); z-index: 9999; }
+        .login-center { display: table; width: 100%; height: 100%; }
+        .login-cell { display: table-cell; vertical-align: middle; text-align: center; }
+        .login-box { display: inline-block; min-width: 500px; max-width: 560px; background: #ffffff; border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,0.45); text-align: center; padding: 0 0 38px 0; overflow: hidden; }
+        .login-accent { height: 6px; width: 100%; background: #006698; background-image: -ms-linear-gradient(left, #006698 0%, #0ea5e9 100%); }
+        .login-box h1 { color: #002d45; font-size: 26px; margin: 34px 0 4px 0; letter-spacing: 2px; font-weight: 800; }
+        .login-box .login-sub { color: #94a3b8; font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 26px; }
+        .login-box .login-divider { height: 1px; background: #eef2f5; margin: 0 38px 26px 38px; }
+        .spinner-lg { border: 4px solid #e2e8f0; border-top: 4px solid #0284c7; border-radius: 50%; width: 38px; height: 38px; margin: 22px auto 4px auto; animation: spin 1s linear infinite; }
+        .login-status { font-weight: 700; color: #334155; font-size: 14px; padding: 0 30px; line-height: 1.5; }
+        .login-icon { width: 64px; height: 64px; border-radius: 50%; margin: 4px auto 18px auto; line-height: 64px; }
+        .login-icon-ok { background: #ecfdf5; }
+        .login-icon-ko { background: #fef2f2; }
+        .login-title-ok { color: #059669; font-size: 19px; font-weight: 800; margin: 0 0 22px 0; }
+        .login-title-ko { color: #dc2626; font-size: 19px; font-weight: 800; margin: 0 0 12px 0; }
+        .login-btn { display: inline-block; background: #006698; color: #fff; border: none; border-radius: 8px; padding: 13px 30px; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: .3px; box-shadow: 0 4px 12px rgba(0,102,152,0.35); }
+        .login-btn:hover { background: #00557f; }
+        .login-contact { margin: 18px 28px 0 28px; padding: 16px; background: #f8fafc; border: 1px solid #eef2f5; border-radius: 10px; color: #475569; font-size: 13px; line-height: 1.6; }
+        .login-contact .lc-name { font-weight: 700; color: #334155; }
+        .login-contact .lc-mail { color: #006698; font-weight: 700; word-break: break-all; }
+
+        /* ====================== SIDEBAR ====================== */
+        #sidebar { width: 260px; background-color: #002d45; height: 100vh; color: #f8fafc; position: fixed; left: 0; top: 0; z-index: 100; box-shadow: 3px 0 10px rgba(0,0,0,0.25); }
+        #sidebar-header { padding: 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: center; }
+        #sidebar-header .app-logo { font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #ffffff; }
+        #sidebar-header .app-sub { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #7aafc7; margin-top: 6px; }
+        .nav-item { padding: 16px 25px; cursor: pointer; color: #8fb8cc; font-size: 14px; font-weight: 500; display: block; border-left: 3px solid transparent; }
+        .nav-item:hover { background-color: rgba(0,102,152,0.25); color: #ffffff; border-left-color: #006698; }
+        .nav-item.active { background-color: #006698; color: #ffffff; font-weight: 600; border-left-color: #E4342D; }
+        #sidebar-footer { position: absolute; bottom: 0; left: 0; width: 100%; padding: 18px 20px; font-size: 13px; color: #7aafc7; text-align: center; border-top: 1px solid rgba(255,255,255,0.08); font-weight: 500; }
+
+        /* ====================== CONTENU ====================== */
+        #content { margin-left: 260px; padding: 25px 35px; overflow-y: auto; height: 100vh; }
+        .page { display: none; }
+        .page.active { display: block; }
+        h2 { font-size: 22px; margin-top: 0; color: #002d45; margin-bottom: 24px; font-weight: 700; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,45,69,0.08); border: 1px solid #dde6ec; margin-bottom: 20px; padding: 20px 25px; }
+        .card h3 { margin: 0 0 16px 0; font-size: 15px; color: #334155; font-weight: 700; }
+
+        /* ====================== BOUTONS / CHAMPS ====================== */
+        .btn-toolbar { font-weight: 600; font-size: 13px; height: 38px; line-height: 38px; padding: 0 20px; border: none; border-radius: 6px; cursor: pointer; color: white; display: inline-block; vertical-align: bottom; text-align: center; box-sizing: border-box; background-color: #006698; }
+        .btn-toolbar:hover { background-color: #00557f; }
+        .btn-green { background-color: #10b981; } .btn-green:hover { background-color: #059669; }
+        .btn-grey { background-color: #64748b; } .btn-grey:hover { background-color: #475569; }
+        .btn-disabled { background-color: #94a3b8 !important; cursor: wait !important; color: #f1f5f9 !important; }
+        .input-date { border: 1px solid #c5d5de; padding: 8px 12px; height: 38px; border-radius: 6px; font-family: inherit; font-size: 14px; color: #1e293b; background-color: #fff; width: 140px; box-sizing: border-box; cursor: pointer; text-align: center; }
+        .input-text { border: 1px solid #c5d5de; padding: 8px 12px; height: 38px; border-radius: 6px; font-family: inherit; font-size: 14px; color: #1e293b; background-color: #fff; box-sizing: border-box; }
+        .input-text:focus { border-color: #006698; outline: none; background-color: #fffbeb; }
+
+        .msg-box { padding: 16px 20px; border-radius: 6px; margin-top: 12px; font-size: 14px; }
+        .msg-error { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: bold; }
+        .msg-info { background-color: #ffffff; color: #64748b; border: 1px dashed #c5d5de; text-align: center; font-style: italic; }
+        .msg-ok { background-color: #dcfce3; color: #166534; border: 1px solid #86efac; }
+
+        .spinner { border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid #ffffff; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* ====================== KPI CARTES ====================== */
+        .kpi-row { font-size: 0; margin: 0 -8px; }
+        .kpi-card { display: inline-block; vertical-align: top; width: 25%; padding: 0 8px; box-sizing: border-box; }
+        .kpi-inner { background: #ffffff; border: 1px solid #dde6ec; border-top: 3px solid #006698; border-radius: 8px; padding: 18px 14px; text-align: center; box-shadow: 0 1px 4px rgba(0,45,69,0.08); }
+        .kpi-inner .kpi-label { font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px; }
+        .kpi-inner .kpi-value { font-size: 30px; font-weight: 800; line-height: 1; color: #002d45; }
+        .kpi-inner .kpi-unit { font-size: 13px; font-weight: 600; color: #94a3b8; }
+        .kpi-blue { border-top-color: #006698; } .kpi-blue .kpi-value { color: #006698; }
+        .kpi-green { border-top-color: #10b981; } .kpi-green .kpi-value { color: #10b981; }
+        .kpi-orange { border-top-color: #f59e0b; } .kpi-orange .kpi-value { color: #f59e0b; }
+        .kpi-grey { border-top-color: #94a3b8; } .kpi-grey .kpi-value { color: #64748b; }
+
+        /* ====================== BARRES ====================== */
+        .bar-line { margin-bottom: 10px; }
+        .bar-head { font-size: 13px; color: #334155; margin-bottom: 3px; }
+        .bar-head .bar-name { font-weight: 700; }
+        .bar-head .bar-meta { color: #94a3b8; font-weight: 500; }
+        .bar-track { background: #eef2f5; border-radius: 4px; height: 18px; width: 100%; overflow: hidden; }
+        .bar-fill { background: #006698; background-image: -ms-linear-gradient(left, #0284c7 0%, #006698 100%); height: 18px; border-radius: 4px; }
+
+        /* ====================== TABLEAU ====================== */
+        table.data-table { width: 100%; border-collapse: collapse; background: white; border: 2px solid #c5d5de; font-size: 13px; table-layout: fixed; }
+        table.data-table th { background-color: #dde6ec; color: #334155; font-weight: 600; border: 1px solid #94a3b8; padding: 9px 8px; text-align: center; overflow: hidden; text-overflow: ellipsis; }
+        table.data-table td { border: 1px solid #c5d5de; padding: 8px; color: #334155; vertical-align: middle; transition: background-color 0.3s; }
+        table.data-table tr:hover td { background-color: #f5f9fb; }
+        .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-right: 3px; }
+        .badge-st { background: #fed7aa; color: #b45309; }
+        .badge-iq { background: #d1fae5; color: #047857; }
+        .badge-tl { background: #dbeafe; color: #1d4ed8; }
+        .badge-off { background: #fee2e2; color: #b91c1c; }
+
+        .role-select { border: 1px solid #c5d5de; border-radius: 6px; height: 34px; padding: 4px 8px; font-family: inherit; font-size: 13px; background: #fff; color: #1e293b; cursor: pointer; }
+        .role-select:focus { border-color: #006698; outline: none; }
+
+        /* Champs style tableur (comme IC Manager) : sans bordure, transparents, remplissent la cellule */
+        table.data-table td.cell-input { padding: 0 !important; height: 38px; }
+        .cell-wrap { position: relative; width: 100%; height: 36px; }   /* conteneur relatif (IE ne gère pas position:relative sur td) */
+        .excel-input { width: 100%; height: 36px; padding: 0 10px; line-height: 36px; border: none; background: transparent; font-family: inherit; font-size: 13px; color: #1e293b; box-sizing: border-box; }
+        .excel-input:focus { background-color: #fffbeb; outline: none; }
+        /* Masque le bouton "effacer" (X) natif d'IE qui apparaît quand le champ a du texte */
+        input::-ms-clear { display: none; width: 0; height: 0; }
+        /* Couleur grise du texte d'invite (placeholder) */
+        input:-ms-input-placeholder, textarea:-ms-input-placeholder { color: #94a3b8; }
+        /* Bouton réinitialiser/supprimer la ligne (X) - identique à IC Manager (.btn-row-reset) */
+        .btn-del-cell { position: absolute; right: 3px; top: 50%; margin-top: -13px; width: 26px; height: 26px; line-height: 24px; padding: 0; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #f1f5f9; color: #64748b; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; }
+        .btn-del-cell:hover { background-color: #e4342d; border-color: #e4342d; color: #ffffff; }
+        /* Bande titre de carte façon IC Manager : séparateur pleine largeur (bord à bord) */
+        .card-title { padding: 13px 15px; border-bottom: 1px solid #eef2f5; }
+        .param-ttl { font-size: 16px; font-weight: 700; text-align: center; }
+
+        /* ====================== DATEPICKER ====================== */
+        .datepicker-popup { position: absolute; background: #fff; border: 1px solid #c5d5de; box-shadow: 0 4px 6px -1px rgba(0,45,69,0.12); border-radius: 6px; padding: 15px; z-index: 9999; width: 250px; }
+        .dp-header { text-align: center; margin-bottom: 15px; font-weight: bold; color: #002d45; font-size: 14px; }
+        .dp-header button { background: #f0f4f7; border: 1px solid #c5d5de; border-radius: 4px; cursor: pointer; padding: 2px 10px; font-weight: bold; }
+        .dp-header button.prev { float: left; } .dp-header button.next { float: right; }
+        .dp-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; }
+        .dp-table th { color: #64748b; font-weight: 600; padding-bottom: 8px; border: none; }
+        .dp-table td { padding: 2px; cursor: pointer; border: none !important; }
+        .dp-table td span { display: block; padding: 4px 0; border-radius: 4px; }
+        .dp-table td:hover span { background-color: #006698; color: #fff; font-weight: bold; }
+    </style>
+
+    <script language="VBScript">
+        ' ==========================================================
+        ' SAP PEA - PLOMBERIE COMMUNE (réutilisée d'IC Manager)
+        ' Conservée pour l'automatisation QM13 (phase 2).
+        ' ==========================================================
+        Dim oSession   ' session SAP GUI active
+
+        ' Pause sans CPU ni processus réseau (compatible antivirus) via SAPI (silence).
+        Sub PauseVBS(secondes)
+            On Error Resume Next
+            Dim oVoice, oStream
+            Set oVoice = CreateObject("SAPI.SpVoice")
+            Set oStream = CreateObject("SAPI.SpMemoryStream")
+            Set oVoice.AudioOutputStream = oStream
+            oVoice.Speak "<silence msec='" & (secondes * 1000) & "'/>", 9
+            oVoice.WaitUntilDone (secondes * 1000 + 500)
+            Set oStream = Nothing : Set oVoice = Nothing
+            On Error GoTo 0
+        End Sub
+
+        ' Échappe le HTML (pour injecter du texte SAP dans la page sans casser le DOM).
+        Function VBS_EscapeHTML(str)
+            Dim t
+            If IsNull(str) Then VBS_EscapeHTML = "" : Exit Function
+            t = CStr(str)
+            t = Replace(t, "&", "&amp;") : t = Replace(t, "<", "&lt;") : t = Replace(t, ">", "&gt;")
+            t = Replace(t, """", "&quot;") : t = Replace(t, "'", "&#39;")
+            VBS_EscapeHTML = t
+        End Function
+
+        ' Récupère la session SAP GUI active (Nothing si SAP fermé / scripting désactivé).
+        Function GetSAPSession()
+            On Error Resume Next
+            Set GetSAPSession = Nothing
+            Dim SapGuiAuto, appSAP, conn
+            Set SapGuiAuto = GetObject("SAPGUI")
+            If Err.Number <> 0 Then Exit Function
+            Set appSAP = SapGuiAuto.GetScriptingEngine
+            If appSAP.Children.Count = 0 Then Exit Function
+            Set conn = appSAP.Children(0)
+            If conn.Children.Count = 0 Then Exit Function
+            Set GetSAPSession = conn.Children(0)
+        End Function
+
+        ' Attend qu'un élément SAP existe (max N secondes). True si trouvé.
+        Function AttendreElementSAP(cheminID, maxSecondes)
+            Dim tentatives, obj
+            tentatives = 0 : AttendreElementSAP = False
+            On Error Resume Next
+            Do While tentatives < maxSecondes
+                Set obj = oSession.FindById(cheminID, False)
+                If Not obj Is Nothing Then AttendreElementSAP = True : On Error GoTo 0 : Exit Function
+                Call PauseVBS(1)
+                tentatives = tentatives + 1
+            Loop
+            On Error GoTo 0
+        End Function
+
+        ' Test rapide de connexion SAP (renvoie "OK ..." ou "ERREUR : ...").
+        Function VBS_TestConnexionSAP()
+            On Error Resume Next
+            Set oSession = GetSAPSession()
+            If oSession Is Nothing Then
+                VBS_TestConnexionSAP = "ERREUR : SAP inaccessible. Ouvre SAP Logon et connecte-toi."
+                Exit Function
+            End If
+            VBS_TestConnexionSAP = "OK : session SAP détectée (" & oSession.Info.SystemName & ")."
+            On Error GoTo 0
+        End Function
+
+        ' ----------------------------------------------------------
+        ' Extraction QM13 -> EXPORT_NC.txt (variante d'affichage LAROCHE_NC).
+        ' strDateLow = date de début au format JJ.MM.AAAA. Renvoie "OK" ou "ERREUR : ...".
+        ' ----------------------------------------------------------
+        Function VBS_ExtractQM13(strDateLow)
+            On Error Resume Next
+            Dim wsh, fso, folderPath, exportPath, popupCheck, maxRetries, currentRetry, fileReady
+
+            Set wsh = CreateObject("WScript.Shell")
+            folderPath = wsh.ExpandEnvironmentStrings("%APPDATA%") & "\KPI_Perfo"
+            Set fso = CreateObject("Scripting.FileSystemObject")
+            If Not fso.FolderExists(folderPath) Then fso.CreateFolder(folderPath)
+            exportPath = folderPath & "\EXPORT_NC.txt"
+            If fso.FileExists(exportPath) Then fso.DeleteFile exportPath, True
+
+            Set oSession = GetSAPSession()
+            If oSession Is Nothing Then
+                VBS_ExtractQM13 = "ERREUR : SAP inaccessible. Ouvre SAP Logon et connecte-toi."
+                Exit Function
+            End If
+
+            oSession.FindById("wnd[0]").Maximize
+            oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "qm13"
+            oSession.FindById("wnd[0]").SendVKey 0
+            If Not AttendreElementSAP("wnd[0]/tbar[1]/btn[17]", 8) Then
+                VBS_ExtractQM13 = "ERREUR : QM13 n'a pas démarré."
+                Exit Function
+            End If
+
+            ' Variante d'affichage LAROCHE_NC
+            oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
+            If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
+                oSession.FindById("wnd[1]/usr/txtV-LOW").Text = "LAROCHE_NC"
+                oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
+            End If
+
+            ' Date de début + exécution
+            If Not AttendreElementSAP("wnd[0]/usr/ctxtQMDAT-LOW", 5) Then
+                VBS_ExtractQM13 = "ERREUR : champ date introuvable."
+                Exit Function
+            End If
+            oSession.FindById("wnd[0]/usr/ctxtQMDAT-LOW").Text = strDateLow
+            oSession.FindById("wnd[0]/tbar[1]/btn[8]").Press
+
+            ' Export de la liste -> fichier local
+            oSession.FindById("wnd[0]/mbar/menu[0]/menu[3]/menu[2]").Select
+            Set popupCheck = oSession.FindById("wnd[1]", False)
+            If popupCheck Is Nothing Then
+                VBS_ExtractQM13 = "ERREUR : aucune NC à exporter pour cette période."
+                Exit Function
+            End If
+            oSession.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[1,0]").Select
+            oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
+            oSession.FindById("wnd[1]/usr/ctxtDY_PATH").Text = folderPath
+            oSession.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = "EXPORT_NC.txt"
+            oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
+
+            ' Attente de la génération du fichier
+            maxRetries = 40 : currentRetry = 0 : fileReady = False
+            Do While Not fileReady And currentRetry < maxRetries
+                If fso.FileExists(exportPath) Then
+                    If fso.GetFile(exportPath).Size > 0 Then fileReady = True
+                End If
+                If Not fileReady Then
+                    Call PauseVBS(1)
+                    currentRetry = currentRetry + 1
+                End If
+            Loop
+
+            oSession.EndTransaction
+            If Not fileReady Then
+                VBS_ExtractQM13 = "ERREUR : délai dépassé, fichier non généré."
+                Exit Function
+            End If
+            VBS_ExtractQM13 = "OK"
+            On Error GoTo 0
+        End Function
+    </script>
+
+    <script language="javascript">
+    // ==========================================================
+    // CONFIGURATION DE L'APPLICATION
+    // ==========================================================
+        var APP_NAME        = "KPI PERFO";
+        var APP_SOUS_TITRE  = "ANALYSE NC - QM13";
+        var VERSION_ACTUELLE = "1.0";
+        var DOSSIER_DONNEES = "KPI_Perfo";               // %APPDATA%\KPI_Perfo\
+        var CLOTURE_CODE = "APQ0";                       // code SAP de la tâche de clôture (Responsable du tableau 1)
+        var DECISION_CODE = "DEC0";                      // code SAP de la décision technique
+        var DECISION_RESP = "70009001;70005847";         // Responsables CT dont le DEC0 marque la décision technique
+        var LIEN_CONFIG_APP = "https://gist.githubusercontent.com/adrientrucpro-star/366511f0828fbb653853c77b01752a5d/raw";
+        var URL_TELECHARGEMENT_APP = "https://github.com/adrientrucpro-star/IC_Manager";
+
+    // ==========================================================
+    // DONNÉES GLOBALES
+    // ==========================================================
+        var appData = {};        // persisté : { roles:{}, seen:{}, rows:[], lastImport:"" }
+        var ncList = [];         // NC agrégées (recalculé en mémoire)
+
+        function compareVersions(a, b) {
+            var pa = (""+a).split('.'), pb = (""+b).split('.');
+            for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+                var va = parseInt(pa[i] || 0, 10), vb = parseInt(pb[i] || 0, 10);
+                if (va !== vb) return va - vb;
+            }
+            return 0;
+        }
+        function NettoyerChaine(s) { return (s == null) ? "" : (""+s).replace(/^\s+|\s+$/g, ""); }
+        function escapeHtml(t) {
+            if (t == null) return "";
+            return (""+t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+        }
+        function AfficherErreur(msg) { alert(msg); }
+
+    // ==========================================================
+    // PERSISTANCE JSON  (%APPDATA%\<DOSSIER_DONNEES>\APP_DATA.txt)
+    // ==========================================================
+        function getAppDataFilePath() {
+            try {
+                var sh = new ActiveXObject("WScript.Shell");
+                var folder = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES;
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FolderExists(folder)) fso.CreateFolder(folder);
+                return folder + "\\APP_DATA.txt";
+            } catch (e) { return ""; }
+        }
+        function LoadData() {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                var path = getAppDataFilePath();
+                if (path && fso.FileExists(path)) {
+                    var f = fso.OpenTextFile(path, 1, false, -1);
+                    var c = f.ReadAll(); f.Close();
+                    appData = (NettoyerChaine(c) !== "") ? eval('(' + c + ')') : {};
+                } else { appData = {}; }
+            } catch (e) { appData = {}; }
+            if (!appData.roleDesig) appData.roleDesig = [];   // tableau 1 saisi manuellement : [{desig,role}]
+            if (!appData.rows)   appData.rows   = [];
+            if (!appData.teamST) appData.teamST = [];
+            if (!appData.teamTL) appData.teamTL = [];
+            if (!appData.teamIQ) appData.teamIQ = [];
+            if (!appData.comments) appData.comments = {};   // commentaires par NC : { "<avis>": "texte" }
+        }
+        function SaveData() {
+            try {
+                var path = getAppDataFilePath();
+                if (!path) return;
+                // On ne sauvegarde QUE les lignes des NC analysées (éligibles).
+                var eligAvis = {};
+                for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible) eligAvis[ncList[i].avis] = true; }
+                var allRows = appData.rows || [], savedRows = [];
+                for (var j = 0; j < allRows.length; j++) { if (eligAvis[allRows[j].a]) savedRows.push(allRows[j]); }
+                var savedComments = {};
+                if (appData.comments) { for (var a in appData.comments) { if (appData.comments.hasOwnProperty(a) && eligAvis[a]) savedComments[a] = appData.comments[a]; } }
+                var toSave = {
+                    rows: savedRows,
+                    roleDesig: appData.roleDesig || [],
+                    teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
+                    comments: savedComments,
+                    lastImport: appData.lastImport || ""
+                };
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                var tmp = path + ".tmp";
+                var f = fso.CreateTextFile(tmp, true, true);
+                f.Write(toJSON(toSave)); f.Close();
+                if (fso.FileExists(path)) fso.DeleteFile(path);
+                fso.MoveFile(tmp, path);
+            } catch (e) { AfficherErreur("Erreur de sauvegarde : " + e.message); }
+        }
+        // Sérialiseur JSON minimal (JSON.stringify absent en moteur IE ancien).
+        function toJSON(v) {
+            if (v === null || v === undefined) return "null";
+            var t = typeof v;
+            if (t === "number") return isFinite(v) ? (""+v) : "null";
+            if (t === "boolean") return v ? "true" : "false";
+            if (t === "string") return '"' + v.replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\r/g,"\\r").replace(/\n/g,"\\n").replace(/\t/g,"\\t") + '"';
+            if (v instanceof Array) {
+                var a = [];
+                for (var i = 0; i < v.length; i++) a.push(toJSON(v[i]));
+                return "[" + a.join(",") + "]";
+            }
+            var o = [];
+            for (var k in v) { if (v.hasOwnProperty(k)) o.push(toJSON(""+k) + ":" + toJSON(v[k])); }
+            return "{" + o.join(",") + "}";
+        }
+
+    // ==========================================================
+    // CONNEXION : whitelist GitHub + blocage de version
+    // ==========================================================
+        function DemarrerVerificationSysteme() {
+            var statusMsg = document.getElementById("loginStatus");
+            try {
+                var idWindows = "";
+                try { idWindows = NettoyerChaine(new ActiveXObject("WScript.Network").UserName).toLowerCase(); } catch (eU) {}
+                statusMsg.innerText = "Vérification des droits pour : " + idWindows.toUpperCase();
+
+                var xhr = new ActiveXObject("MSXML2.XMLHTTP.6.0");
+                var url = LIEN_CONFIG_APP + "?t=" + new Date().getTime();
+                var timedOut = false;
+                var to = setTimeout(function () { timedOut = true; try { xhr.abort(); } catch (e) {}
+                    AfficherErreurLogin("D&eacute;lai d&eacute;pass&eacute;", "Impossible de joindre le serveur de configuration."); }, 8000);
+                xhr.open("GET", url, true);
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4) return;
+                    clearTimeout(to);
+                    if (timedOut) return;
+                    if (xhr.status !== 200) { AfficherErreurLogin("Erreur r&eacute;seau", "Impossible de joindre le serveur de configuration."); return; }
+
+                    var lignes = NettoyerChaine(xhr.responseText).split(/\r?\n/);
+                    if (lignes.length < 2) { AfficherErreurLogin("Erreur de configuration", "Le fichier de configuration est vide ou mal format&eacute;."); return; }
+
+                    var versionEnLigne = NettoyerChaine(lignes[0]);
+                    var accesAutorise = false;
+                    window.userLogin = "";
+
+                    // Lignes suivantes = un login Windows autorisé par ligne (pas de rôle ni de nom).
+                    for (var i = 1; i < lignes.length; i++) {
+                        var loginLu = NettoyerChaine(lignes[i]).toLowerCase();
+                        if (loginLu === "") continue;
+                        if (loginLu === idWindows) {
+                            accesAutorise = true;
+                            window.userLogin = idWindows;
+                            break;
+                        }
+                    }
+
+                    if (!accesAutorise) {
+                        AfficherErreurLogin("Acc&egrave;s refus&eacute;", "Votre identifiant Windows (" + idWindows.toUpperCase() + ") n'est pas autoris&eacute;.");
+                        return;
+                    }
+
+                    document.getElementById("loginCheckView").style.display = "none";
+                    document.getElementById("loginErrorView").style.display = "none";
+                    document.getElementById("loginSuccess").style.display = "block";
+
+                    if (versionEnLigne !== "" && compareVersions(versionEnLigne, VERSION_ACTUELLE) > 0) {
+                        document.getElementById("nvVersionNum").innerText = versionEnLigne;
+                        document.getElementById("nvUrlInput").value = URL_TELECHARGEMENT_APP;
+                        document.getElementById("newVersionAlert").style.display = "block";
+                        document.getElementById("btnEntrer").style.display = "none";
+                        document.getElementById("loginTitleOk").innerText = "Mise à jour requise";
+                    }
+                };
+                xhr.send();
+            } catch (e) { AfficherErreurLogin("Erreur locale", e.message); }
+        }
+
+        function AfficherErreurLogin(titre, message) {
+            var cv = document.getElementById("loginCheckView"); if (cv) cv.style.display = "none";
+            var sv = document.getElementById("loginSuccess"); if (sv) sv.style.display = "none";
+            document.getElementById("loginErrorTitle").innerHTML = titre;
+            document.getElementById("loginError").innerHTML = message;
+            document.getElementById("loginErrorView").style.display = "block";
+        }
+        function CopierLienDrive(btn) {
+            var u = document.getElementById("nvUrlInput");
+            if (window.clipboardData) { window.clipboardData.setData("Text", u.value);
+                var o = btn.innerHTML; btn.innerHTML = "✔"; setTimeout(function(){ btn.innerHTML = o; }, 1500); }
+        }
+
+        function MaximiserFenetre() {
+            try {
+                window.focus();
+                var sh = new ActiveXObject("WScript.Shell");
+                sh.SendKeys("% ");
+                var lang = (navigator.systemLanguage || navigator.userLanguage || navigator.language || "fr").toLowerCase();
+                sh.SendKeys(lang.indexOf("fr") === 0 ? "n" : "x");
+            } catch (e) {
+                try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e2) {}
+            }
+        }
+
+        function EntrerApplication() {
+            document.getElementById("loginScreen").style.display = "none";
+            document.getElementById("mainApp").style.display = "block";
+            setTimeout(MaximiserFenetre, 40);
+            // Recharge le dernier extract s'il existe (la date s'affiche dans le cadre vert).
+            if (appData.rows && appData.rows.length) {
+                RecomputeAll();
+            }
+            ShowPage("pageDashboard");
+        }
+
+    // ==========================================================
+    // NAVIGATION
+    // ==========================================================
+        var PAGES = ["pageDashboard", "pageAnalyse", "pageParcours", "pageParametres"];
+        function ShowPage(id) {
+            for (var i = 0; i < PAGES.length; i++) {
+                var sfx = PAGES[i].substring(4);
+                var pg = document.getElementById(PAGES[i]); if (pg) pg.className = "page";
+                var nv = document.getElementById("nav" + sfx); if (nv) nv.className = "nav-item";
+            }
+            var sfx2 = id.substring(4);
+            var pageEl = document.getElementById(id); if (pageEl) pageEl.className = "page active";
+            var navEl = document.getElementById("nav" + sfx2); if (navEl) navEl.className = "nav-item active";
+            if (id === "pageParametres") RenderParametres();
+            if (id === "pageDashboard") RenderDashboard();
+            if (id === "pageAnalyse") { RenderListe(); setTimeout(EgaliserHauteursExtraction, 30); }
+            if (id === "pageParcours") RenderParcours();
+        }
+
+    // ==========================================================
+    // DATES (datepicker)
+    // ==========================================================
+        var dpInput = null, dpMonth, dpYear;
+        var moisNoms = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+        function FormatDateString(d) {
+            var dd = d.getDate(), mm = d.getMonth() + 1, yy = d.getFullYear();
+            if (dd < 10) dd = '0' + dd; if (mm < 10) mm = '0' + mm;
+            return dd + '/' + mm + '/' + yy;
+        }
+        function buildCalendar(month, year) {
+            var dp = document.getElementById('custom-datepicker');
+            var html = '<div class="dp-header"><button type="button" class="prev" onclick="changeDpMonth(-1, event)">&lt;</button><span>' + moisNoms[month] + ' ' + year + '</span><button type="button" class="next" onclick="changeDpMonth(1, event)">&gt;</button><div style="clear:both;"></div></div><table class="dp-table"><tr><th>Lu</th><th>Ma</th><th>Me</th><th>Je</th><th>Ve</th><th>Sa</th><th>Di</th></tr><tr>';
+            var firstDay = new Date(year, month, 1).getDay(); if (firstDay === 0) firstDay = 7;
+            for (var i = 1; i < firstDay; i++) html += '<td></td>';
+            var nb = new Date(year, month + 1, 0).getDate(), col = firstDay - 1;
+            for (var d = 1; d <= nb; d++) {
+                html += '<td onclick="pickDpDate(' + d + ',' + month + ',' + year + ')"><span>' + d + '</span></td>';
+                col++; if (col === 7 && d < nb) { html += '</tr><tr>'; col = 0; }
+            }
+            html += '</tr></table>'; dp.innerHTML = html;
+        }
+        function showCalendar(input, event) {
+            dpInput = input; var dp = document.getElementById('custom-datepicker');
+            var parts = (input.value || "").split('/'); var today = new Date();
+            dpMonth = (parts.length === 3) ? parseInt(parts[1],10) - 1 : today.getMonth();
+            dpYear  = (parts.length === 3) ? parseInt(parts[2],10) : today.getFullYear();
+            buildCalendar(dpMonth, dpYear);
+            var r = input.getBoundingClientRect();
+            dp.style.left = r.left + "px"; dp.style.top = (r.bottom + 4) + "px"; dp.style.display = 'block';
+            if (event && event.stopPropagation) event.stopPropagation();
+        }
+        function changeDpMonth(dir, event) {
+            dpMonth += dir; if (dpMonth < 0) { dpMonth = 11; dpYear--; } else if (dpMonth > 11) { dpMonth = 0; dpYear++; }
+            buildCalendar(dpMonth, dpYear); if (event && event.stopPropagation) event.stopPropagation();
+        }
+        function pickDpDate(d, m, y) {
+            var dd = (d < 10 ? '0' : '') + d, mm = ((m + 1) < 10 ? '0' : '') + (m + 1);
+            if (dpInput) dpInput.value = dd + '/' + mm + '/' + y;
+            document.getElementById('custom-datepicker').style.display = 'none';
+            if (dpInput && dpInput.getAttribute('data-filter')) RenderListe();
+        }
+        document.onclick = function (e) {
+            var ev = e || window.event; var t = ev.target || ev.srcElement;
+            var dp = document.getElementById('custom-datepicker');
+            if (dp && dp.style.display === 'block' && !dp.contains(t) && t !== dpInput) dp.style.display = 'none';
+        };
+
+    // ==========================================================
+    // IMPORT & PARSING DE L'EXPORT QM13
+    //  Format : tabulé, ANSI (Windows-1252), 2 tabulations en tête, 12 colonnes :
+    //  Avis | Statut | Description | Respons. | Code | Désignation | Terminé par
+    //      | Date(créé le) | Heure(créé à) | Terminé le | Terminé à | Nº
+    // ==========================================================
+        // Lance l'extraction SAP QM13 puis analyse le fichier généré.
+        function LancerExtractionSAP() {
+            var info = document.getElementById('importInfo');
+            var btn = document.getElementById('btnExtract');
+            var dateVal = NettoyerChaine(document.getElementById('extractDate').value);
+            if (!dateVal) { AfficherErreur("Choisis une date de début d'extraction."); return; }
+            var dateSAP = dateVal.replace(/\//g, '.');   // JJ/MM/AAAA -> JJ.MM.AAAA
+            if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction…"; }
+            info.innerHTML = "<div class='msg-box msg-info'>Extraction SAP en cours… ne touche pas à SAP pendant l'opération.</div>";
+            setTimeout(function () {
+                try {
+                    var res = VBS_ExtractQM13(dateSAP);
+                    if (res && res.indexOf("ERREUR") === -1) {
+                        var sh = new ActiveXObject("WScript.Shell");
+                        var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_NC.txt";
+                        LireEtAnalyser(path);   // parse + sauvegarde + recalcul + rendu liste
+                    } else {
+                        info.innerHTML = "<div class='msg-box msg-error'>" + escapeHtml(res || "Erreur inconnue") + "</div>";
+                    }
+                } catch (e) {
+                    info.innerHTML = "<div class='msg-box msg-error'>Erreur : " + escapeHtml(e.message) + "</div>";
+                }
+                if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Lancer l'extraction"; }
+            }, 80);
+        }
+        function LireEtAnalyser(path) {
+            var info = document.getElementById('importInfo');
+            info.innerHTML = "<div class='msg-box msg-info'>Lecture en cours…</div>";
+            setTimeout(function () {
+                try {
+                    var fso = new ActiveXObject("Scripting.FileSystemObject");
+                    if (!fso.FileExists(path)) { info.innerHTML = "<div class='msg-box msg-error'>Fichier introuvable : " + escapeHtml(path) + "</div>"; return; }
+                    var ts = fso.OpenTextFile(path, 1, false, 0); // 0 = ANSI (Windows-1252)
+                    var content = ts.ReadAll(); ts.Close();
+                    var rows = ParseExport(content);
+                    if (rows.length === 0) { info.innerHTML = "<div class='msg-box msg-error'>Aucune ligne exploitable détectée (format inattendu).</div>"; return; }
+
+                    // Fusion avec l'historique : on n'ajoute QUE les NC non déjà présentes (déjà analysées = ignorées).
+                    var cur = appData.rows || [], existing = {};
+                    for (var x = 0; x < cur.length; x++) existing[cur[x].a] = true;
+                    var addedAvis = {}, skippedAvis = {};
+                    for (var y = 0; y < rows.length; y++) {
+                        var av = rows[y].a;
+                        if (existing[av]) { skippedAvis[av] = true; }
+                        else { cur.push(rows[y]); addedAvis[av] = true; }
+                    }
+                    appData.rows = cur;
+                    appData.lastImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
+                    RecomputeAll();   // calcule l'éligibilité AVANT la sauvegarde
+                    SaveData();
+
+                    var nbAdded = 0; for (var ka in addedAvis) { if (addedAvis.hasOwnProperty(ka)) nbAdded++; }
+                    var nbSkipped = 0; for (var ks in skippedAvis) { if (skippedAvis.hasOwnProperty(ks)) nbSkipped++; }
+                    var nbElig = 0; for (var e = 0; e < ncList.length; e++) { if (ncList[e].eligible) nbElig++; }
+                    info.innerHTML = "<div class='msg-box msg-info'>Extraction OK · <b>" + nbAdded + "</b> nouvelle(s) NC"
+                        + (nbSkipped > 0 ? " · " + nbSkipped + " déjà présente(s) ignorée(s)" : "")
+                        + " · <b>" + nbElig + "</b> NC analysées au total."
+                        + (nbElig === 0 ? " Renseigne les rôles/équipes dans l'onglet <i>Paramètres</i>." : "")
+                        + "</div>";
+                    var lbl = document.getElementById('lastExtractDate'); if (lbl) lbl.innerText = appData.lastImport || "";
+                    var edI = document.getElementById('extractDate'); if (edI) edI.value = NettoyerChaine(appData.lastImport).split(' ')[0];
+                    RenderListe();
+                } catch (e) {
+                    info.innerHTML = "<div class='msg-box msg-error'>Erreur de lecture : " + escapeHtml(e.message) + "</div>";
+                }
+                setTimeout(EgaliserHauteursExtraction, 30);
+            }, 60);
+        }
+
+        function ParseExport(content) {
+            var lines = content.split(/\r?\n/);
+            var out = [];
+            for (var i = 0; i < lines.length; i++) {
+                var raw = lines[i];
+                if (raw.indexOf("\t") === -1) continue;          // lignes d'en-tête / titres : pas de tab
+                var parts = raw.split("\t");
+                // Retire les champs vides en tête (tabulation initiale).
+                while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
+                if (parts.length < 12) continue;
+                var avis = NettoyerChaine(parts[0]);
+                if (!/^\d{8,}$/.test(avis)) continue;             // 1ère colonne = n° d'avis (8+ chiffres)
+                out.push({
+                    a:  avis,
+                    s:  NettoyerChaine(parts[1]),    // Statut de l'avis
+                    d:  NettoyerChaine(parts[2]),    // Description
+                    r:  NettoyerChaine(parts[3]),    // Respons.
+                    c:  NettoyerChaine(parts[4]),    // Code
+                    dg: NettoyerChaine(parts[5]),    // Désignation de l'exécutant
+                    tp: NettoyerChaine(parts[6]),    // Terminé par
+                    cd: NettoyerChaine(parts[7]),    // Date  = créé le
+                    ct: NettoyerChaine(parts[8]),    // Heure = créé à
+                    td: NettoyerChaine(parts[9]),    // Terminé le
+                    tt: NettoyerChaine(parts[10]),   // Terminé à
+                    n:  NettoyerChaine(parts[11])    // Nº
+                });
+            }
+            return out;
+        }
+
+    // ==========================================================
+    // AGRÉGATION PAR NC + CALCUL DES DURÉES
+    // ==========================================================
+        function parseDT(d, t) {
+            if (!d) return null;
+            var dp = (""+d).split('.'); if (dp.length < 3) return null;
+            var tp = (""+(t || "0:0:0")).split(':');
+            var dt = new Date(parseInt(dp[2],10), parseInt(dp[1],10)-1, parseInt(dp[0],10),
+                              parseInt(tp[0]||0,10), parseInt(tp[1]||0,10), parseInt(tp[2]||0,10));
+            return isNaN(dt.getTime()) ? null : dt;
+        }
+
+        // Construit la table identifiant (User) -> rôle à partir des équipes ST/TL/IQ.
+        function buildRoleByID() {
+            var m = {};
+            var teams = [["ST", appData.teamST], ["TL", appData.teamTL], ["IQ", appData.teamIQ]];
+            for (var t = 0; t < teams.length; t++) {
+                var role = teams[t][0], arr = teams[t][1] || [];
+                for (var i = 0; i < arr.length; i++) {
+                    var u = NettoyerChaine(arr[i].user);
+                    if (u && !m[u]) m[u] = role;
+                }
+            }
+            return m;
+        }
+
+        function RecomputeAll() {
+            var rows = appData.rows || [];
+            var roleByID = buildRoleByID();
+            // Codes Responsable du tableau 1 : servent à identifier la ligne de clôture (APQ0).
+            var respSet = {};
+            var rdArr = appData.roleDesig || [];
+            for (var x = 0; x < rdArr.length; x++) {
+                var rc = NettoyerChaine(rdArr[x].resp).toUpperCase();
+                if (rc) respSet[rc] = true;
+            }
+            var clotCode = (CLOTURE_CODE || "").toUpperCase();
+            var decCode = (DECISION_CODE || "").toUpperCase();
+            var decSet = {};   // Responsables CT (décision technique)
+            var da = (DECISION_RESP || "").split(";");
+            for (var y = 0; y < da.length; y++) { var dc = NettoyerChaine(da[y]).toUpperCase(); if (dc) decSet[dc] = true; }
+            var map = {};
+            for (var i = 0; i < rows.length; i++) {
+                var r = rows[i], k = r.a;
+                if (!map[k]) map[k] = { avis: k, statut: r.s, desc: r.d, lines: [] };
+                map[k].lines.push(r);
+            }
+            ncList = [];
+            for (var key in map) {
+                if (!map.hasOwnProperty(key)) continue;
+                var nc = map[key];
+                var start = null, clot = null, roles = {};
+                var ctDecS = null, ctDecE = null, do00Max = 0;
+                for (var j = 0; j < nc.lines.length; j++) {
+                    var L = nc.lines[j];
+                    var cdt = parseDT(L.cd, L.ct);
+                    var edt = parseDT(L.td, L.tt);
+                    var cU = (L.c || "").toUpperCase(), rU = (L.r || "").toUpperCase();
+                    if (cdt && (!start || cdt < start)) start = cdt;
+                    // Clôture = ligne dont Code = APQ0 ET Responsable est dans le tableau 1 (échéance la plus tardive).
+                    if (edt && cU === clotCode && respSet[rU]) {
+                        if (!clot || edt > clot) clot = edt;
+                    }
+                    // 1re décision CT = ligne DEC0 d'un Responsable CT, la plus précoce.
+                    if (cdt && cU === decCode && decSet[rU]) {
+                        if (ctDecS === null || cdt < ctDecS) { ctDecS = cdt; ctDecE = edt; }
+                    }
+                    // Ordre prod/logistique DO00 le plus long (exécution aval).
+                    if (cdt && edt && cU === "DO00") { var dd = edt - cdt; if (dd > do00Max) do00Max = dd; }
+                    // Rôle via une équipe ST/TL/IQ : User comparé à Respons. / Terminé par.
+                    var role = roleByID[L.r] || roleByID[L.tp];
+                    if (role) roles[role] = true;
+                }
+                nc.start = start; nc.end = clot;
+                nc.hasST = !!roles.ST; nc.hasIQ = !!roles.IQ; nc.hasTL = !!roles.TL;
+                // Temps de traitement = 1re décision DEC0 (CT) -> clôture APQ0.
+                nc.durMs = (ctDecS && clot) ? (clot - ctDecS) : null;
+                // Analysée si : ST + IQ (équipes) ET une ligne de clôture valide (Responsable du tableau 1).
+                nc.eligible = nc.hasST && nc.hasIQ && (clot != null);
+                // Décomposition décision CT / exécution.
+                nc.ctDecStart = ctDecS;
+                nc.ctDecEnd = ctDecE;
+                nc.ctDecLatMs = (ctDecS && ctDecE) ? (ctDecE - ctDecS) : null;
+                nc.beforeMs = (ctDecE && start) ? (ctDecE - start) : null;
+                nc.afterMs = (clot && ctDecE) ? (clot - ctDecE) : null;
+                nc.do00MaxMs = do00Max > 0 ? do00Max : null;
+                nc.bottleneck = (nc.ctDecLatMs != null && nc.afterMs != null)
+                    ? (nc.ctDecLatMs > nc.afterMs ? "decision" : "execution") : "";
+                ncList.push(nc);
+            }
+            ncList.sort(function (a, b) { return parseInt(a.avis,10) - parseInt(b.avis,10); });
+        }
+
+    // ==========================================================
+    // OUTILS D'AFFICHAGE
+    // ==========================================================
+        function fmtDur(ms) {
+            if (ms == null || isNaN(ms)) return "-";
+            var totalH = ms / 3600000;
+            var d = Math.floor(totalH / 24);
+            var h = Math.round(totalH - d * 24);
+            if (h === 24) { d += 1; h = 0; }
+            if (d >= 1) return d + " j" + (h > 0 ? " " + h + " h" : "");
+            return (Math.round(totalH * 10) / 10) + " h";
+        }
+        // Format jour / heure / minute (ex : "2 j 5 h 12 min").
+        function fmtDHM(ms) {
+            if (ms == null || isNaN(ms)) return "-";
+            var totalMin = Math.round(ms / 60000);
+            if (totalMin < 0) return "-";
+            var d = Math.floor(totalMin / 1440); totalMin -= d * 1440;
+            var h = Math.floor(totalMin / 60); var m = totalMin - h * 60;
+            var parts = [];
+            if (d > 0) parts.push(d + " j");
+            if (h > 0) parts.push(h + " h");
+            if (m > 0 || parts.length === 0) parts.push(m + " min");
+            return parts.join(" ");
+        }
+        function days(ms) { return ms / 86400000; }
+        function round1(x) { return Math.round(x * 10) / 10; }
+        function frNum(x) { return (""+x).replace(".", ","); }
+
+    // ==========================================================
+    // PAGE : PARAMÈTRES (4 tableaux)
+    //  1) Rôles & Désignation : code Respons. -> ST / TL / IQ
+    //  2/3/4) Équipes ST / TL / IQ : User + Nom (éditables)
+    // ==========================================================
+        var isEditingParams = false;
+        var paramsBackup = null;
+        var PARAM_EDIT_ROWS = 15;   // nb de lignes (vides) affichées en mode édition (recalculé à l'entrée)
+        // Calcule le nombre de lignes de 38px pour remplir jusqu'en bas SANS faire apparaître de scrollbar.
+        function computeParamRows() {
+            var card = document.querySelector('#pageParametres .card');
+            if (card && card.offsetHeight > 0) {
+                var clientH = document.documentElement.clientHeight || window.innerHeight;
+                var cardTop = card.getBoundingClientRect().top;          // haut de la carte dans le viewport
+                var titleH = card.children[0] ? card.children[0].offsetHeight : 36;
+                // Marges fixes : padding carte (15+20) + marge titre (16) + thead (38) + padding #content bas (25) + sécurité
+                var rowsArea = (clientH - cardTop) - titleH - (35 + 16 + 38 + 25 + 12);
+                return Math.max(8, Math.floor(rowsArea / 38));
+            }
+            return Math.max(8, Math.floor(((window.innerHeight || 800) - 320) / 38));
+        }
+        function cloneObj(o) { return eval('(' + toJSON(o) + ')'); }
+        function padRoleDesig() { while (appData.roleDesig.length < PARAM_EDIT_ROWS) appData.roleDesig.push({ resp: "", nom: "" }); }
+        function padTeam(role) { var a = teamArr(role); while (a.length < PARAM_EDIT_ROWS) a.push({ user: "", nom: "" }); }
+
+        function RenderParametres() {
+            UpdateParamsButtons();
+            RenderRolesTable();
+            RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
+        }
+        function UpdateParamsButtons() {
+            var e = document.getElementById('btnParamsEdit');
+            var v = document.getElementById('btnParamsSave');
+            var c = document.getElementById('btnParamsCancel');
+            if (e) e.style.display = isEditingParams ? 'none' : 'inline-block';
+            if (v) v.style.display = isEditingParams ? 'inline-block' : 'none';
+            if (c) c.style.display = isEditingParams ? 'inline-block' : 'none';
+        }
+        function ParamsEdit() {
+            isEditingParams = true;
+            paramsBackup = {
+                roleDesig: cloneObj(appData.roleDesig),
+                teamST: cloneObj(appData.teamST),
+                teamTL: cloneObj(appData.teamTL),
+                teamIQ: cloneObj(appData.teamIQ)
+            };
+            PARAM_EDIT_ROWS = computeParamRows();
+            padRoleDesig(); padTeam("ST"); padTeam("TL"); padTeam("IQ");
+            RenderParametres();
+        }
+        function ParamsValider() {
+            appData.roleDesig = cleanRoleDesig(appData.roleDesig);
+            appData.teamST = cleanTeam(appData.teamST);
+            appData.teamTL = cleanTeam(appData.teamTL);
+            appData.teamIQ = cleanTeam(appData.teamIQ);
+            isEditingParams = false; paramsBackup = null;
+            RecomputeAll();   // recalcule l'éligibilité AVANT la sauvegarde
+            SaveData();
+            RenderParametres();
+        }
+        function ParamsAnnuler() {
+            if (paramsBackup) {
+                appData.roleDesig = paramsBackup.roleDesig;
+                appData.teamST = paramsBackup.teamST;
+                appData.teamTL = paramsBackup.teamTL;
+                appData.teamIQ = paramsBackup.teamIQ;
+            }
+            isEditingParams = false; paramsBackup = null;
+            RenderParametres();
+        }
+        function cleanRoleDesig(a) {
+            var o = []; for (var i = 0; i < a.length; i++) {
+                if (NettoyerChaine(a[i].resp) !== "" || NettoyerChaine(a[i].nom || a[i].desig) !== "" || a[i].role) o.push(a[i]);
+            } return o;
+        }
+        function cleanTeam(a) {
+            var o = []; for (var i = 0; i < a.length; i++) {
+                if (NettoyerChaine(a[i].user) !== "" || NettoyerChaine(a[i].nom) !== "") o.push(a[i]);
+            } return o;
+        }
+
+        // --- Tableau 1 : Responsable + Nom de liste (registre, saisi manuellement) ---
+        // Les rôles sont attribués via les équipes ST/TL/IQ (tableaux 2/3/4).
+        function RenderRolesTable() {
+            var cont = document.getElementById('rolesContainer');
+            var arr = appData.roleDesig || [];
+            var ed = isEditingParams;
+            var html = "<table class='data-table param-grid'><thead><tr><th width='30%' style='padding:10px 6px; text-align:center;'>Responsable</th><th style='padding:10px 6px; text-align:center;'>Nom de liste</th></tr></thead><tbody>";
+            for (var i = 0; i < arr.length; i++) {
+                var nomVal = arr[i].nom || arr[i].desig || "";
+                if (ed) {
+                    html += "<tr>"
+                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='text-align:center;' value='" + escapeHtml(arr[i].resp || "") + "' onchange=\"UpdateRoleDesig(" + i + ",'resp',this.value)\"></div></td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='padding-right:32px;' value='" + escapeHtml(nomVal) + "' onchange=\"UpdateRoleDesig(" + i + ",'nom',this.value)\"><button type='button' class='btn-del-cell' title='Vider la ligne' onclick=\"DelRoleDesig(" + i + ")\">&#10005;</button></div></td>"
+                        + "</tr>";
+                } else {
+                    html += "<tr><td style='font-weight:700; text-align:center;'>" + escapeHtml(arr[i].resp || "") + "</td>"
+                        + "<td>" + escapeHtml(nomVal) + "</td></tr>";
+                }
+            }
+            if (arr.length === 0) {
+                html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:10px;'>Aucune entrée</td></tr>";
+            }
+            html += "</tbody></table>";
+            cont.innerHTML = html;
+        }
+        function DelRoleDesig(idx) {
+            appData.roleDesig[idx] = { resp: "", nom: "" };   // vide la ligne en place (comme IC Manager)
+            RenderRolesTable();
+        }
+        function UpdateRoleDesig(idx, field, val) {
+            appData.roleDesig[idx][field] = NettoyerChaine(val);
+        }
+
+        // --- Tableaux 2/3/4 : Équipes ST / TL / IQ (User + Nom) ---
+        function teamArr(role) {
+            if (role === "ST") return appData.teamST;
+            if (role === "TL") return appData.teamTL;
+            return appData.teamIQ;
+        }
+        function RenderTeam(role) {
+            var cont = document.getElementById('team' + role);
+            var arr = teamArr(role);
+            var ed = isEditingParams;
+            var html = "<table class='data-table param-grid'><thead><tr><th width='30%' style='padding:10px 6px; text-align:center;'>User</th><th style='padding:10px 6px; text-align:center;'>Nom</th></tr></thead><tbody>";
+            for (var i = 0; i < arr.length; i++) {
+                if (ed) {
+                    html += "<tr>"
+                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='text-align:center;' value='" + escapeHtml(arr[i].user || "") + "' onchange=\"UpdateTeam('" + role + "'," + i + ",'user',this.value)\"></div></td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='padding-right:32px;' value='" + escapeHtml(arr[i].nom || "") + "' onchange=\"UpdateTeam('" + role + "'," + i + ",'nom',this.value)\"><button type='button' class='btn-del-cell' title='Vider la ligne' onclick=\"DelTeam('" + role + "'," + i + ")\">&#10005;</button></div></td>"
+                        + "</tr>";
+                } else {
+                    html += "<tr><td style='font-weight:700; text-align:center;'>" + escapeHtml(arr[i].user || "") + "</td><td>" + escapeHtml(arr[i].nom || "") + "</td></tr>";
+                }
+            }
+            if (arr.length === 0) {
+                html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:10px;'>Aucun membre</td></tr>";
+            }
+            html += "</tbody></table>";
+            cont.innerHTML = html;
+        }
+        function DelTeam(role, idx) {
+            teamArr(role)[idx] = { user: "", nom: "" };   // vide la ligne en place (comme IC Manager)
+            RenderTeam(role);
+        }
+        function UpdateTeam(role, idx, field, val) {
+            var v = NettoyerChaine(val);
+            if (field === "user") v = v.toUpperCase();
+            teamArr(role)[idx][field] = v;
+        }
+
+    // ==========================================================
+    // PAGE : DASHBOARD
+    // ==========================================================
+        function RenderDashboard() {
+            var elig = [], ignored = 0, withDur = [];
+            for (var i = 0; i < ncList.length; i++) {
+                if (ncList[i].eligible) { elig.push(ncList[i]); if (ncList[i].durMs != null) withDur.push(ncList[i].durMs); }
+                else ignored++;
+            }
+            // KPIs
+            document.getElementById('kpiNbNC').innerText = elig.length;
+            document.getElementById('kpiIgnored').innerText = ignored;
+            var moy = "-", med = "-";
+            if (withDur.length) {
+                var sum = 0; for (var s = 0; s < withDur.length; s++) sum += withDur[s];
+                moy = frNum(round1(days(sum / withDur.length)));
+                var sorted = withDur.slice(0).sort(function (a, b) { return a - b; });
+                var mid = Math.floor(sorted.length / 2);
+                var medMs = (sorted.length % 2) ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+                med = frNum(round1(days(medMs)));
+            }
+            document.getElementById('kpiMoy').innerText = moy;
+            document.getElementById('kpiMed').innerText = med;
+
+            // KPI goulots d'étranglement.
+            var sumLat = 0, nLat = 0, sumAft = 0, nAft = 0, sumDo = 0, nDo = 0, cDec = 0, cExe = 0;
+            for (var g = 0; g < elig.length; g++) {
+                var e = elig[g];
+                if (e.ctDecLatMs != null) { sumLat += e.ctDecLatMs; nLat++; }
+                if (e.afterMs != null) { sumAft += e.afterMs; nAft++; }
+                if (e.do00MaxMs != null) { sumDo += e.do00MaxMs; nDo++; }
+                if (e.bottleneck === "decision") cDec++; else if (e.bottleneck === "execution") cExe++;
+            }
+            document.getElementById('goulotLat').innerText = nLat ? fmtDur(sumLat / nLat) : "-";
+            document.getElementById('goulotAfter').innerText = nAft ? frNum(round1(days(sumAft / nAft))) + " j" : "-";
+            document.getElementById('goulotDo').innerText = nDo ? frNum(round1(days(sumDo / nDo))) + " j" : "-";
+            document.getElementById('goulotDec').innerText = cDec;
+            document.getElementById('goulotExe').innerText = cExe;
+
+            if (elig.length === 0) {
+                document.getElementById('dashEmpty').style.display = "block";
+                document.getElementById('dashCharts').style.display = "none";
+                return;
+            }
+            document.getElementById('dashEmpty').style.display = "none";
+            document.getElementById('dashCharts').style.display = "block";
+
+            RenderRepartitionEtapes(elig);
+            RenderTendance(elig);
+        }
+
+        // Temps moyen passé à chaque étape (Code) sur les NC éligibles.
+        function RenderRepartitionEtapes(elig) {
+            var agg = {};   // code -> { sum, n, dg }
+            for (var i = 0; i < elig.length; i++) {
+                var lines = elig[i].lines;
+                for (var j = 0; j < lines.length; j++) {
+                    var L = lines[j];
+                    var cdt = parseDT(L.cd, L.ct), edt = parseDT(L.td, L.tt);
+                    if (!cdt || !edt) continue;
+                    var ms = edt - cdt; if (ms < 0) ms = 0;
+                    if (!agg[L.c]) agg[L.c] = { sum: 0, n: 0, dg: L.dg };
+                    agg[L.c].sum += ms; agg[L.c].n++;
+                    if (L.dg) agg[L.c].dg = L.dg;
+                }
+            }
+            var arr = [];
+            for (var c in agg) { if (agg.hasOwnProperty(c)) arr.push({ code: c, avg: agg[c].sum / agg[c].n, n: agg[c].n, dg: agg[c].dg }); }
+            arr.sort(function (a, b) { return b.avg - a.avg; });
+            var max = arr.length ? arr[0].avg : 1;
+            var html = "";
+            for (var k = 0; k < arr.length; k++) {
+                var pct = max > 0 ? Math.round(arr[k].avg / max * 100) : 0;
+                html += "<div class='bar-line'><div class='bar-head'><span class='bar-name'>" + escapeHtml(arr[k].code) + "</span> "
+                    + "<span class='bar-meta'>· " + escapeHtml(arr[k].dg || "") + " · " + arr[k].n + " étapes · moy. " + fmtDur(arr[k].avg) + "</span></div>"
+                    + "<div class='bar-track'><div class='bar-fill' style='width:" + pct + "%;'></div></div></div>";
+            }
+            document.getElementById('repartitionEtapes').innerHTML = html || "<div class='msg-box msg-info'>Pas de données d'étape.</div>";
+        }
+
+        // Évolution de la durée moyenne par mois (sur date de création de la NC).
+        function RenderTendance(elig) {
+            var agg = {};   // YYYYMM -> { sum, n }
+            for (var i = 0; i < elig.length; i++) {
+                var nc = elig[i];
+                if (!nc.start || nc.durMs == null) continue;
+                var key = nc.start.getFullYear() * 100 + (nc.start.getMonth() + 1);
+                if (!agg[key]) agg[key] = { sum: 0, n: 0 };
+                agg[key].sum += nc.durMs; agg[key].n++;
+            }
+            var keys = [];
+            for (var k in agg) { if (agg.hasOwnProperty(k)) keys.push(parseInt(k, 10)); }
+            keys.sort(function (a, b) { return a - b; });
+            var max = 0;
+            for (var m = 0; m < keys.length; m++) { var av = agg[keys[m]].sum / agg[keys[m]].n; if (av > max) max = av; }
+            var html = "";
+            for (var z = 0; z < keys.length; z++) {
+                var kk = keys[z], yr = Math.floor(kk / 100), mo = kk % 100;
+                var avg = agg[kk].sum / agg[kk].n;
+                var pct = max > 0 ? Math.round(avg / max * 100) : 0;
+                html += "<div class='bar-line'><div class='bar-head'><span class='bar-name'>" + moisNoms[mo - 1] + " " + yr + "</span> "
+                    + "<span class='bar-meta'>· " + agg[kk].n + " NC · moy. " + fmtDur(avg) + "</span></div>"
+                    + "<div class='bar-track'><div class='bar-fill' style='width:" + pct + "%; background-image:-ms-linear-gradient(left,#10b981 0%,#059669 100%);'></div></div></div>";
+            }
+            document.getElementById('tendanceMois').innerHTML = html || "<div class='msg-box msg-info'>Pas assez de données.</div>";
+        }
+
+    // ==========================================================
+    // PAGE : ANALYSE NC (liste détaillée + filtres)
+    // ==========================================================
+        function RenderListe() {
+            // Date de dernière extraction + date d'extraction par défaut (1er du mois courant).
+            var lbl = document.getElementById('lastExtractDate');
+            if (lbl) lbl.innerText = appData.lastImport ? appData.lastImport : "Jamais";
+            var ed = document.getElementById('extractDate');
+            if (ed && !NettoyerChaine(ed.value)) {
+                if (appData.lastImport) {
+                    ed.value = NettoyerChaine(appData.lastImport).split(' ')[0];   // date du dernier extract
+                } else {
+                    var now = new Date();
+                    ed.value = "01/" + (now.getMonth() + 1 < 10 ? "0" : "") + (now.getMonth() + 1) + "/" + now.getFullYear();
+                }
+            }
+            var cont = document.getElementById('listeContainer');
+            if (!ncList.length) { cont.innerHTML = "<div class='msg-box msg-info'>Aucune extraction réalisée. Lance une extraction SAP ci-dessus.</div>"; return; }
+
+            var d1 = parseFilterDate(document.getElementById('filtreDateDebut').value);
+            var d2 = parseFilterDate(document.getElementById('filtreDateFin').value);
+            if (d2) d2 = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate(), 23, 59, 59);
+            var q = NettoyerChaine(document.getElementById('filtreRecherche').value).toLowerCase();
+
+            var rows = "", nb = 0, sumDur = 0, nDur = 0;
+            for (var i = 0; i < ncList.length; i++) {
+                var nc = ncList[i];
+                if (!nc.eligible) continue;                          // NC non éligibles : totalement ignorées
+                if (d1 && nc.start && nc.start < d1) continue;
+                if (d2 && nc.start && nc.start > d2) continue;
+                if (q) {
+                    var hay = (nc.avis + " " + nc.desc + " " + nc.statut).toLowerCase();
+                    if (hay.indexOf(q) === -1) continue;
+                }
+                nb++;
+                if (nc.durMs != null) { sumDur += nc.durMs; nDur++; }
+                var badges = (nc.hasST ? "<span class='badge badge-st'>ST</span>" : "")
+                           + (nc.hasIQ ? "<span class='badge badge-iq'>IQ</span>" : "")
+                           + (nc.hasTL ? "<span class='badge badge-tl'>TL</span>" : "");
+                rows += "<tr><td style='font-weight:700;'>" + escapeHtml(nc.avis) + "</td>"
+                    + "<td>" + escapeHtml(nc.desc) + "</td>"
+                    + "<td style='text-align:center;'>" + (nc.start ? FormatDateString(nc.start) : "-") + "</td>"
+                    + "<td style='text-align:center;'>" + (nc.end ? FormatDateString(nc.end) : "-") + "</td>"
+                    + "<td style='text-align:center; font-weight:700; color:#006698;'>" + fmtDur(nc.durMs) + "</td>"
+                    + "<td style='text-align:center;'>" + badges + "</td>"
+                    + "<td style='text-align:center;'>" + nc.lines.length + "</td></tr>";
+            }
+            cont.innerHTML = "<table class='data-table'><thead><tr><th width='12%'>Avis</th><th>Description</th>"
+                + "<th width='11%'>Créée le</th><th width='11%'>Terminée le</th><th width='10%'>Durée</th><th width='12%'>Rôles</th><th width='7%'>Étapes</th></tr></thead><tbody>"
+                + (rows || "<tr><td colspan='7' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
+                + "</tbody></table>";
+        }
+        function parseFilterDate(v) {
+            v = NettoyerChaine(v); if (!v) return null;
+            var p = v.split('/'); if (p.length < 3) return null;
+            var dt = new Date(parseInt(p[2],10), parseInt(p[1],10)-1, parseInt(p[0],10));
+            return isNaN(dt.getTime()) ? null : dt;
+        }
+        // Force les cartes "Extraction SAP" et "Filtres" à la même hauteur (la plus grande des deux).
+        function EgaliserHauteursExtraction() {
+            var c1 = document.getElementById('cardExtraction');
+            var c2 = document.getElementById('cardFiltres');
+            if (!c1 || !c2) return;
+            c1.style.height = ""; c2.style.height = "";
+            var h = Math.max(c1.offsetHeight, c2.offsetHeight);
+            c1.style.height = h + "px"; c2.style.height = h + "px";
+        }
+        function ResetFiltres() {
+            document.getElementById('filtreDateDebut').value = "";
+            document.getElementById('filtreDateFin').value = "";
+            document.getElementById('filtreRecherche').value = "";
+            RenderListe();
+        }
+
+    // ==========================================================
+    // PAGE : PARCOURS / GOULOTS
+    // ==========================================================
+        var parcoursWeek = null;   // timestamp (ms) du lundi de la semaine sélectionnée
+        function getWeekStart(d) { var x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); var dy = x.getDay(); var diff = (dy === 0 ? -6 : 1 - dy); x.setDate(x.getDate() + diff); x.setHours(0, 0, 0, 0); return x; }
+        function isoWeek(d) {
+            var date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            var day = (date.getDay() + 6) % 7;           // lundi = 0 … dimanche = 6
+            date.setDate(date.getDate() - day + 3);       // jeudi de la semaine
+            var firstThu = new Date(date.getFullYear(), 0, 4);
+            var firstDay = (firstThu.getDay() + 6) % 7;
+            firstThu.setDate(firstThu.getDate() - firstDay + 3);
+            return 1 + Math.round((date - firstThu) / (7 * 86400000));
+        }
+        function weekLabel(mon) { var sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6); return "Semaine " + isoWeek(mon) + " - " + FormatDateString(mon) + " au " + FormatDateString(sun); }
+        function SetParcoursWeek(v) { parcoursWeek = v ? parseInt(v, 10) : null; RenderParcours(); }
+        function decRespSet() { var s = {}; var a = (DECISION_RESP || "").split(";"); for (var i = 0; i < a.length; i++) { var c = NettoyerChaine(a[i]).toUpperCase(); if (c) s[c] = true; } return s; }
+        function clotRespSet() { var s = {}; var a = appData.roleDesig || []; for (var i = 0; i < a.length; i++) { var c = NettoyerChaine(a[i].resp).toUpperCase(); if (c) s[c] = true; } return s; }
+        function bottleneckBadge(b) {
+            if (b === "decision") return "<span style='display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px; background:#FAEEDA; color:#854F0B;'>Goulot : Décision CT</span>";
+            if (b === "execution") return "<span style='display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px; background:#E6F1FB; color:#0C447C;'>Goulot : Exécution</span>";
+            return "";
+        }
+        function RenderParcours() {
+            var cont = document.getElementById('parcoursContainer');
+            if (!cont) return;
+            var sel = document.getElementById('weekSelect');
+
+            // NC analysées (ST + IQ) ET clôturées par la qualité (APQ0 + Responsable du tableau 1).
+            var closed = [];
+            for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible && ncList[i].end) closed.push(ncList[i]); }
+            var wc = document.getElementById('weekCount');
+            var card = document.getElementById('weekSelectCard');
+            if (!closed.length) {
+                if (card) card.style.display = "none";
+                cont.innerHTML = "<div class='msg-box msg-info'>Aucune NC à analyser. Lance un extract (Extract NC) et renseigne les Paramètres.</div>";
+                return;
+            }
+            if (card) card.style.display = "block";
+
+            // Regroupe par semaine de clôture (lundi).
+            var weeksMap = {};
+            for (var i2 = 0; i2 < closed.length; i2++) { var ws = getWeekStart(closed[i2].end).getTime(); weeksMap[ws] = (weeksMap[ws] || 0) + 1; }
+            var weeks = []; for (var w in weeksMap) { if (weeksMap.hasOwnProperty(w)) weeks.push(parseInt(w, 10)); }
+            weeks.sort(function (a, b) { return b - a; });   // semaine la plus récente en premier
+            if (parcoursWeek === null || weeksMap[parcoursWeek] === undefined) parcoursWeek = weeks[0];
+
+            if (sel) {
+                var oh = "";
+                for (var z = 0; z < weeks.length; z++) {
+                    var mon = new Date(weeks[z]);
+                    oh += "<option value='" + weeks[z] + "'" + (weeks[z] === parcoursWeek ? " selected" : "") + ">" + weekLabel(mon) + "</option>";
+                }
+                sel.innerHTML = oh;
+            }
+
+            var list = [];
+            for (var i3 = 0; i3 < closed.length; i3++) { if (getWeekStart(closed[i3].end).getTime() === parcoursWeek) list.push(closed[i3]); }
+            list.sort(function (a, b) { return (b.durMs || 0) - (a.durMs || 0); });
+            if (wc) wc.innerText = list.length + (list.length > 1 ? " NC clôturées" : " NC clôturée");
+
+            var decS = decRespSet(), clotS = clotRespSet();
+            var decCode = (DECISION_CODE || "").toUpperCase(), clotCode = (CLOTURE_CODE || "").toUpperCase();
+            var html = "";
+            for (var k = 0; k < list.length; k++) { html += renderParcoursCard(list[k], decS, clotS, decCode, clotCode); }
+            cont.innerHTML = html;
+        }
+        function renderParcoursCard(nc, decS, clotS, decCode, clotCode) {
+            // Ordre conservé tel quel (ordre de l'extract). Durée = écart avec la fin de l'étape précédente.
+            var rows = "", prevEnd = null, decMarked = false;
+            for (var j = 0; j < nc.lines.length; j++) {
+                var LL = nc.lines[j];
+                var e = parseDT(LL.td, LL.tt);
+                var cU = (LL.c || "").toUpperCase(), rU = (LL.r || "").toUpperCase();
+                var gap = (e && prevEnd) ? (e - prevEnd) : null;
+                var gapTxt = (gap == null || gap < 0) ? "-" : fmtDHM(gap);
+                var bg = "";
+                if (cU === decCode && decS[rU] && !decMarked) { bg = "background:#FAEEDA;"; decMarked = true; }  // DEC0 (CT) orange
+                else if (cU === clotCode && clotS[rU]) { bg = "background:#EAF3DE;"; }                            // APQ0 clôture verte
+                rows += "<tr style='" + bg + "'><td style='font-weight:700; text-align:center;'>" + escapeHtml(LL.c) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(LL.r) + "</td>"
+                    + "<td>" + escapeHtml(LL.dg) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(LL.tp || "") + "</td>"
+                    + "<td style='text-align:center;'>" + (e ? FormatDateString(e) + " " + escapeHtml(LL.tt || "") : "-") + "</td>"
+                    + "<td style='text-align:center; font-weight:600;'>" + gapTxt + "</td></tr>";
+                if (e) prevEnd = e;
+            }
+            var comment = (appData.comments && appData.comments[nc.avis]) ? appData.comments[nc.avis] : "";
+            return "<div class='card' style='padding:16px 25px;'>"
+                + "<div style='overflow:hidden; margin-bottom:16px;'>"
+                + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span> <span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
+                + "<div style='float:right;'><span style='font-weight:700; color:#006698;'>Traitement : " + fmtDHM(nc.durMs) + "</span></div>"
+                + "</div>"
+                + "<div style='margin-bottom:14px;'>"
+                + "<input type='text' value='" + escapeHtml(comment) + "' onchange=\"SetNCComment('" + escapeHtml(nc.avis) + "', this.value)\" placeholder='Saisir un commentaire' style='width:100%; height:34px; border:1px solid #c5d5de; border-radius:6px; padding:6px 10px; font-family:inherit; font-size:13px; color:#1e293b; box-sizing:border-box;'>"
+                + "</div>"
+                + "<table class='data-table'><thead><tr><th width='15%' style='text-align:center;'>Code</th><th width='15%' style='text-align:center;'>Responsable</th><th width='25%'>Désignation</th><th width='15%' style='text-align:center;'>Terminé par</th><th width='15%' style='text-align:center;'>Date et Heure</th><th width='15%' style='text-align:center;'>Durée</th></tr></thead><tbody>"
+                + rows + "</tbody></table></div>";
+        }
+        function SetNCComment(avis, val) {
+            if (!appData.comments) appData.comments = {};
+            appData.comments[avis] = NettoyerChaine(val);
+            SaveData();
+        }
+        function tagHtml(txt, bg, col) {
+            return "<span style='display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; background:" + bg + "; color:" + col + ";'>" + txt + "</span>";
+        }
+
+    // ==========================================================
+    // TEST SAP (conservé)
+    // ==========================================================
+        function TesterSAP() {
+            var out = document.getElementById("sapTestResult");
+            out.innerHTML = "<div class='msg-box msg-info'>Test en cours…</div>";
+            setTimeout(function () {
+                try {
+                    var res = VBS_TestConnexionSAP();
+                    if (res && res.indexOf("ERREUR") === -1) out.innerHTML = "<div class='msg-box msg-ok'>" + escapeHtml(res) + "</div>";
+                    else out.innerHTML = "<div class='msg-box msg-error'>" + escapeHtml(res || "Erreur inconnue") + "</div>";
+                } catch (e) { out.innerHTML = "<div class='msg-box msg-error'>Erreur locale : " + escapeHtml(e.message) + "</div>"; }
+            }, 100);
+        }
+
+    // ==========================================================
+    // INITIALISATION
+    // ==========================================================
+        window.onload = function () {
+            document.getElementById("sidebar-footer").innerText = "v" + VERSION_ACTUELLE + " - © Adrien Truc";
+            document.getElementById("appLogo").innerText = APP_NAME;
+            document.getElementById("appSub").innerText = APP_SOUS_TITRE;
+            LoadData();
+            DemarrerVerificationSysteme();
+        };
+        window.onresize = function () {
+            var pg = document.getElementById('pageAnalyse');
+            if (pg && pg.className.indexOf('active') !== -1) EgaliserHauteursExtraction();
+        };
+    </script>
+</head>
+
+<body>
+    <!-- ====================== ECRAN DE CONNEXION ====================== -->
+    <div id="loginScreen">
+        <div class="login-center"><div class="login-cell">
+            <div class="login-box">
+                <div class="login-accent"></div>
+                <h1 id="appLogoLogin">KPI PERFO</h1>
+                <div class="login-sub">Analyse NC - QM13</div>
+                <div class="login-divider"></div>
+
+                <div id="loginCheckView">
+                    <div class="spinner-lg"></div>
+                    <p id="loginStatus" class="login-status">Initialisation…</p>
+                </div>
+
+                <div id="loginSuccess" style="display:none;">
+                    <div class="login-icon login-icon-ok">
+                        <svg width="34" height="34" viewBox="0 0 24 24" style="vertical-align:middle;"><path d="M5 12.5l4 4 10-10.5" fill="none" stroke="#059669" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </div>
+                    <p id="loginTitleOk" class="login-title-ok">Acc&egrave;s autoris&eacute;</p>
+                    <button id="btnEntrer" class="login-btn" onclick="EntrerApplication()">Acc&eacute;der &agrave; l'application</button>
+                    <div id="newVersionAlert" style="display:none; margin: 20px auto 0 auto; width: 85%; padding: 15px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; text-align: left;">
+                        <p style="margin: 0 0 10px 0; font-size: 13px; color: #b45309; font-weight: 700; text-align: center;">
+                            Une nouvelle version (v<span id="nvVersionNum"></span>) est disponible.<br>
+                            Mise &agrave; jour obligatoire pour acc&eacute;der &agrave; l'application.
+                        </p>
+                        <div style="white-space: nowrap;">
+                            <input type="text" id="nvUrlInput" readonly style="width: calc(100% - 45px); padding: 8px; font-size: 11px; border: 1px solid #fcd34d; border-radius: 4px; background: #fff; color: #78350f; vertical-align: middle; box-sizing: border-box;">
+                            <button type="button" title="Copier le lien" onclick="CopierLienDrive(this)" style="width: 38px; height: 31px; padding: 0; background: #f59e0b; color: #fff; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; vertical-align: middle; margin-left: 5px;">📋</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="loginErrorView" style="display:none;">
+                    <div class="login-icon login-icon-ko">
+                        <svg width="34" height="34" viewBox="0 0 24 24" style="vertical-align:middle;"><path d="M12 3L1.5 21h21L12 3z" fill="none" stroke="#dc2626" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v5" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.1" fill="#dc2626"/></svg>
+                    </div>
+                    <p id="loginErrorTitle" class="login-title-ko">Acc&egrave;s refus&eacute;</p>
+                    <p id="loginError" class="login-status" style="padding:0 40px;"></p>
+                    <div class="login-contact">Pour toute demande d'acc&egrave;s, contactez<br><span class="lc-name">Adrien Truc</span><br><span class="lc-mail">adrientruc.pro@gmail.com</span></div>
+                </div>
+            </div>
+        </div></div>
+    </div>
+
+    <div id="custom-datepicker" class="datepicker-popup" style="display:none;"></div>
+
+    <!-- ====================== APPLICATION ====================== -->
+    <div id="mainApp" style="display:none;">
+        <div id="sidebar">
+            <div id="sidebar-header">
+                <div class="app-logo" id="appLogo">KPI PERFO</div>
+                <div class="app-sub" id="appSub">ANALYSE NC - QM13</div>
+            </div>
+            <div id="navDashboard" class="nav-item active" onclick="ShowPage('pageDashboard')">Tableau de bord</div>
+            <div id="navAnalyse" class="nav-item" onclick="ShowPage('pageAnalyse')">Extract NC</div>
+            <div id="navParcours" class="nav-item" onclick="ShowPage('pageParcours')">Analyse NC</div>
+            <div id="navParametres" class="nav-item" onclick="ShowPage('pageParametres')">Paramètres</div>
+            <div id="sidebar-footer"></div>
+        </div>
+
+        <div id="content">
+
+            <!-- PAGE TABLEAU DE BORD -->
+            <div id="pageDashboard" class="page active">
+                <h2>Tableau de bord</h2>
+
+                <div class="kpi-row" style="margin-bottom:20px;">
+                    <div class="kpi-card"><div class="kpi-inner kpi-blue"><div class="kpi-label">NC analysées (ST + IQ)</div><div class="kpi-value" id="kpiNbNC">0</div></div></div>
+                    <div class="kpi-card"><div class="kpi-inner kpi-green"><div class="kpi-label">Durée moyenne</div><div class="kpi-value" id="kpiMoy">-</div><div class="kpi-unit">jours</div></div></div>
+                    <div class="kpi-card"><div class="kpi-inner kpi-orange"><div class="kpi-label">Durée médiane</div><div class="kpi-value" id="kpiMed">-</div><div class="kpi-unit">jours</div></div></div>
+                    <div class="kpi-card"><div class="kpi-inner kpi-grey"><div class="kpi-label">NC ignorées (ST ou IQ manquant)</div><div class="kpi-value" id="kpiIgnored">0</div></div></div>
+                </div>
+
+                <div id="dashEmpty" class="card" style="display:none;">
+                    <p style="color:#475569; margin:0 0 14px 0;">Aucune NC analysable pour l'instant. Importe un export QM13 puis classe les rôles <b>ST</b> et <b>IQ</b> pour que les NC deviennent analysables.</p>
+                    <button class="btn-toolbar" onclick="ShowPage('pageAnalyse')">Importer un export QM13</button>
+                </div>
+
+                <div id="dashCharts" style="display:none;">
+                    <div class="card">
+                        <h3>Goulots d'étranglement</h3>
+                        <div class="kpi-row">
+                            <div class="kpi-card"><div class="kpi-inner kpi-orange"><div class="kpi-label">Latence décision CT (DEC0)</div><div class="kpi-value" id="goulotLat">-</div></div></div>
+                            <div class="kpi-card"><div class="kpi-inner kpi-blue"><div class="kpi-label">Temps après décision</div><div class="kpi-value" id="goulotAfter">-</div></div></div>
+                            <div class="kpi-card"><div class="kpi-inner kpi-orange"><div class="kpi-label">NC bloquées en décision</div><div class="kpi-value" id="goulotDec">0</div></div></div>
+                            <div class="kpi-card"><div class="kpi-inner kpi-blue"><div class="kpi-label">NC bloquées en exécution</div><div class="kpi-value" id="goulotExe">0</div></div></div>
+                        </div>
+                        <p style="color:#94a3b8; font-size:12px; margin:14px 0 0 0;">Ordre prod/logistique (DO00) le plus long, en moyenne : <b id="goulotDo" style="color:#64748b;">-</b>.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Temps moyen par étape (code SAP)</h3>
+                        <div id="repartitionEtapes"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Tendance : durée moyenne de traitement par mois</h3>
+                        <div id="tendanceMois"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE ANALYSE NC -->
+            <div id="pageAnalyse" class="page">
+                <h2>Extract NC</h2>
+
+                <div style="display:table; width:100%; margin:0 0 20px 0;">
+                    <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                        <div id="cardExtraction" class="card" style="margin-bottom:0; box-sizing:border-box;">
+                            <h3>Extraction SAP</h3>
+                            <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire à partir du</label>
+                            <div>
+                                <input type="text" id="extractDate" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly" style="margin-right:10px;">
+                                <button id="btnExtract" class="btn-toolbar" onclick="LancerExtractionSAP()">Lancer l'extraction</button>
+                                <span style="display:inline-block; margin-left:14px; padding:8px 16px; height:38px; line-height:20px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; vertical-align:bottom;">Dernière extraction : <b id="lastExtractDate">-</b></span>
+                            </div>
+                            <div id="importInfo"></div>
+                        </div>
+                    </div>
+                    <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                        <div id="cardFiltres" class="card" style="margin-bottom:0; box-sizing:border-box;">
+                            <h3>Filtres</h3>
+                            <table style="border:none;"><tr>
+                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
+                                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Du (date création)</label>
+                                    <input type="text" id="filtreDateDebut" data-filter="1" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
+                                </td>
+                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
+                                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Au</label>
+                                    <input type="text" id="filtreDateFin" data-filter="1" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
+                                </td>
+                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
+                                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche (avis / description)</label>
+                                    <input type="text" id="filtreRecherche" class="input-text" style="width:200px;" onkeyup="RenderListe()" placeholder="Tape pour filtrer">
+                                </td>
+                                <td style="border:none; padding:0; vertical-align:bottom;">
+                                    <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetFiltres()">Réinitialiser</button>
+                                </td>
+                            </tr></table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div id="listeContainer"><div class="msg-box msg-info">Aucune extraction réalisée. Lance une extraction SAP ci-dessus.</div></div>
+                </div>
+            </div>
+
+            <!-- PAGE PARCOURS / GOULOTS -->
+            <div id="pageParcours" class="page">
+                <h2>Analyse NC</h2>
+                <div id="weekSelectCard" class="card" style="padding:14px 25px;">
+                    <span style="font-size:13px; font-weight:600; color:#475569; margin-right:12px;">Sélection semaine</span>
+                    <select id="weekSelect" onchange="SetParcoursWeek(this.value); this.blur();" style="border:1px solid #c5d5de; padding:8px 12px; height:38px; border-radius:6px; font-family:inherit; font-size:14px; color:#1e293b; background:#fff; cursor:pointer; min-width:320px;"></select>
+                    <span id="weekCount" style="display:inline-block; margin-left:14px; padding:8px 16px; height:38px; line-height:20px; border:1px solid #c5d5de; border-radius:6px; background:#f0f4f7; font-size:14px; font-weight:700; color:#006698; box-sizing:border-box;">-</span>
+                </div>
+                <div id="parcoursContainer"><div class="msg-box msg-info">Aucune NC analysée pour l'instant.</div></div>
+            </div>
+
+            <!-- PAGE PARAMÈTRES -->
+            <div id="pageParametres" class="page">
+                <h2 style="display:inline;">Paramètres</h2>
+                <div style="float:right; margin-top:2px;">
+                    <button id="btnParamsEdit" class="btn-toolbar btn-green" onclick="ParamsEdit()">Modifier</button>
+                    <button id="btnParamsSave" class="btn-toolbar btn-green" style="display:none; margin-left:8px;" onclick="ParamsValider()">Valider</button>
+                    <button id="btnParamsCancel" class="btn-toolbar btn-grey" style="display:none; margin-left:6px;" onclick="ParamsAnnuler()">Annuler</button>
+                </div>
+                <div style="clear:both; margin-bottom:18px;"></div>
+
+                <div style="font-size:0; margin:0 -8px;">
+                    <div style="display:inline-block; vertical-align:top; width:25%; padding:0 8px; box-sizing:border-box;">
+                        <div class="card" style="padding:0; margin-bottom:0;">
+                            <div class="card-title"><div class="param-ttl" style="color:#002d45;">Responsable &amp; Nom de liste</div></div>
+                            <div style="padding:15px;"><div id="rolesContainer"><div class="msg-box msg-info">Importe d'abord un export QM13.</div></div></div>
+                        </div>
+                    </div>
+                    <div style="display:inline-block; vertical-align:top; width:25%; padding:0 8px; box-sizing:border-box;">
+                        <div class="card" style="padding:0; margin-bottom:0;">
+                            <div class="card-title"><div class="param-ttl" style="color:#b45309;">Équipe ST</div></div>
+                            <div style="padding:15px;"><div id="teamST"></div></div>
+                        </div>
+                    </div>
+                    <div style="display:inline-block; vertical-align:top; width:25%; padding:0 8px; box-sizing:border-box;">
+                        <div class="card" style="padding:0; margin-bottom:0;">
+                            <div class="card-title"><div class="param-ttl" style="color:#1d4ed8;">Équipe TL</div></div>
+                            <div style="padding:15px;"><div id="teamTL"></div></div>
+                        </div>
+                    </div>
+                    <div style="display:inline-block; vertical-align:top; width:25%; padding:0 8px; box-sizing:border-box;">
+                        <div class="card" style="padding:0; margin-bottom:0;">
+                            <div class="card-title"><div class="param-ttl" style="color:#047857;">Équipe IQ</div></div>
+                            <div style="padding:15px;"><div id="teamIQ"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>
