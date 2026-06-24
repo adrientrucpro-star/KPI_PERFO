@@ -613,9 +613,8 @@
                     var nbElig = 0; for (var e = 0; e < ncList.length; e++) { if (ncList[e].eligible) nbElig++; }
                     info.innerHTML = "<div class='msg-box msg-info'>Extraction OK · <b>" + nbAdded + "</b> nouvelle(s) NC"
                         + (nbSkipped > 0 ? " · " + nbSkipped + " déjà présente(s) ignorée(s)" : "")
-                        + " · <b>" + nbElig + "</b> NC analysées au total."
-                        + (nbElig === 0 ? " Renseigne les rôles/équipes dans l'onglet <i>Paramètres</i>." : "")
-                        + "</div>";
+                        + " · <b>" + nbElig + "</b> NC analysées au total.</div>"
+                        + (nbElig === 0 ? DiagnostiquerNC() : "");
                     var lbl = document.getElementById('lastExtractDate'); if (lbl) lbl.innerText = appData.lastImport || "";
                     var edI = document.getElementById('extractDate'); if (edI) edI.value = NettoyerChaine(appData.lastImport).split(' ')[0];
                     RenderListe();
@@ -747,6 +746,41 @@
                 ncList.push(nc);
             }
             ncList.sort(function (a, b) { return parseInt(a.avis,10) - parseInt(b.avis,10); });
+        }
+
+        // Explique pourquoi 0 (ou peu de) NC sont analysées : conditions ST/IQ/clôture + codes APQ0 trouvés.
+        function DiagnostiquerNC() {
+            var rows = appData.rows || [];
+            var clotCode = (CLOTURE_CODE || "").toUpperCase();
+            var respSet = {}; var rd = appData.roleDesig || [];
+            for (var i = 0; i < rd.length; i++) { var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (rc) respSet[rc] = true; }
+            var total = ncList.length, nST = 0, nIQ = 0, nClot = 0, nElig = 0;
+            for (var j = 0; j < ncList.length; j++) {
+                if (ncList[j].hasST) nST++;
+                if (ncList[j].hasIQ) nIQ++;
+                if (ncList[j].end) nClot++;
+                if (ncList[j].eligible) nElig++;
+            }
+            var apq = {};
+            for (var k = 0; k < rows.length; k++) {
+                if ((rows[k].c || "").toUpperCase() === clotCode) { var r = rows[k].r || "(vide)"; apq[r] = (apq[r] || 0) + 1; }
+            }
+            var apqHtml = "";
+            for (var code in apq) {
+                if (!apq.hasOwnProperty(code)) continue;
+                var inT1 = respSet[code.toUpperCase()];
+                apqHtml += "<li><b>" + escapeHtml(code) + "</b> (" + apq[code] + " lignes " + clotCode + ") - "
+                    + (inT1 ? "<span style='color:#166534;'>présent dans le tableau 1</span>" : "<span style='color:#b91c1c; font-weight:700;'>ABSENT du tableau 1</span>") + "</li>";
+            }
+            if (apqHtml === "") apqHtml = "<li style='color:#b91c1c; font-weight:700;'>Aucune ligne " + clotCode + " trouvée dans l'extract (les NC ne sont peut-être pas clôturées qualité).</li>";
+            return "<div class='msg-box' style='background:#fffbeb; border:1px solid #fde68a; color:#92400e; margin-top:10px; text-align:left;'>"
+                + "<b>Diagnostic - pourquoi 0 NC analysée ?</b><br>"
+                + "Sur <b>" + total + "</b> NC détectées : <b>" + nST + "</b> avec un ST reconnu, <b>" + nIQ + "</b> avec un IQ reconnu, <b>" + nClot + "</b> avec une clôture " + clotCode + " reconnue.<br>"
+                + "Une NC est analysée seulement si elle a <b>ST + IQ + une clôture " + clotCode + "</b> par un Responsable du tableau 1.<br><br>"
+                + "<u>Codes Responsable trouvés sur les lignes " + clotCode + " :</u><ul style='margin:6px 0 6px 18px;'>" + apqHtml + "</ul>"
+                + (nST === 0 ? "&#9654; <b>Aucun ST reconnu</b> : dans Paramètres, l'équipe ST doit contenir des <i>User</i> qui apparaissent dans les colonnes Responsable ou Terminé par de tes NC.<br>" : "")
+                + (nIQ === 0 ? "&#9654; <b>Aucun IQ reconnu</b> : idem pour l'équipe IQ.<br>" : "")
+                + "</div>";
         }
 
     // ==========================================================
