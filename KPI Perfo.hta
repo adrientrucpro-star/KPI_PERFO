@@ -692,16 +692,18 @@
             return isNaN(dt.getTime()) ? null : dt;
         }
 
-        // Durée de chaque étape = écart entre sa fin (Terminé) et la fin de l'étape précédente,
-        // dans l'ORDRE DE L'EXTRACT (Nº) — comme l'affichage du parcours. La colonne "créé" est
-        // constante (= création NC) donc inutilisable. Un écart négatif (étape quasi-simultanée
-        // finissant avant la précédente) est ignoré (null).
+        // Durée d'une tâche = écart entre sa RÉCEPTION (fin de la tâche précédente, ou création NC
+        // pour la 1re) et son PASSAGE (sa propre fin "Terminé"). Tâches triées par Nº (dernière
+        // colonne de l'extract). Un écart négatif est ignoré (null).
         function stepGaps(lines) {
-            var out = [], prev = null;
-            for (var j = 0; j < lines.length; j++) {
-                var e = parseDT(lines[j].td, lines[j].tt);
+            var arr = lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
+            var creation = null;
+            for (var c = 0; c < arr.length; c++) { var cd = parseDT(arr[c].cd, arr[c].ct); if (cd && (!creation || cd < creation)) creation = cd; }
+            var out = [], prev = creation;   // réception de la 1re tâche = création NC
+            for (var j = 0; j < arr.length; j++) {
+                var e = parseDT(arr[j].td, arr[j].tt);
                 var gap = (e && prev) ? (e - prev) : null;
-                out.push({ code: (lines[j].c || ""), r: (lines[j].r || ""), tp: (lines[j].tp || ""), dg: (lines[j].dg || ""), end: e, gap: (gap != null && gap >= 0) ? gap : null });
+                out.push({ code: (arr[j].c || ""), r: (arr[j].r || ""), tp: (arr[j].tp || ""), dg: (arr[j].dg || ""), end: e, gap: (gap != null && gap >= 0) ? gap : null });
                 if (e) prev = e;
             }
             return out;
@@ -725,13 +727,15 @@
             var rows = appData.rows || [];
             var roleByID = buildRoleByID();
             var clotCode = cfgVal('clot', CLOTURE_CODE).toUpperCase();
-            var decCode = cfgVal('dec', DECISION_CODE).toUpperCase();
-            var decSet = {};   // Responsables CT (décision technique)
+            var decSet = {};   // Responsables CT (décision technique), ex 70009001 / 70005847
             var da = cfgVal('decResp', DECISION_RESP).split(";");
             for (var y = 0; y < da.length; y++) { var dc = NettoyerChaine(da[y]).toUpperCase(); if (dc) decSet[dc] = true; }
-            var t1set = {};    // Responsables "chez nous" = tableau 1 de type INTERNE
+            var t1int = {};    // Responsables INTERNES = tableau 1 de type int
             var rdT = appData.roleDesig || [];
-            for (var w0 = 0; w0 < rdT.length; w0++) { if ((rdT[w0].type || "int") === "int") { var rcc = NettoyerChaine(rdT[w0].resp).toUpperCase(); if (rcc) t1set[rcc] = true; } }
+            for (var w0 = 0; w0 < rdT.length; w0++) { if ((rdT[w0].type || "int") === "int") { var rcc = NettoyerChaine(rdT[w0].resp).toUpperCase(); if (rcc) t1int[rcc] = true; } }
+            var userSet = {};  // Users présents dans les équipes ST/TL/IQ
+            var teams = [appData.teamST, appData.teamTL, appData.teamIQ];
+            for (var tt = 0; tt < teams.length; tt++) { var ta = teams[tt] || []; for (var ui = 0; ui < ta.length; ui++) { var uu = NettoyerChaine(ta[ui].user).toUpperCase(); if (uu) userSet[uu] = true; } }
             var map = {};
             for (var i = 0; i < rows.length; i++) {
                 var r = rows[i], k = r.a;
@@ -742,77 +746,55 @@
             for (var key in map) {
                 if (!map.hasOwnProperty(key)) continue;
                 var nc = map[key];
-                var start = null, clot = null, roles = {};
-                var ctDecE = null, ends = [], maxEnd = null;
+                var start = null, maxEnd = null, roles = {};
                 for (var j = 0; j < nc.lines.length; j++) {
                     var L = nc.lines[j];
-                    var cdt = parseDT(L.cd, L.ct);
-                    var edt = parseDT(L.td, L.tt);
-                    var cU = (L.c || "").toUpperCase(), rU = (L.r || "").toUpperCase();
-                    if (cdt && (!start || cdt < start)) start = cdt;   // = création de la NC
-                    if (edt) { ends.push(edt); if (!maxEnd || edt > maxEnd) maxEnd = edt; }   // dernière tâche
-                    // Clôture = ligne APQ0 (toujours qualité), Terminé le plus tardif.
-                    if (edt && cU === clotCode) { if (!clot || edt > clot) clot = edt; }
-                    // 1re décision CT = DEC0 d'un Responsable CT, le Terminé le plus précoce.
-                    if (edt && cU === decCode && decSet[rU]) { if (ctDecE === null || edt < ctDecE) ctDecE = edt; }
-                    // Rôle via une équipe ST/TL/IQ : User comparé à Respons. / Terminé par.
+                    var cdt = parseDT(L.cd, L.ct), edt = parseDT(L.td, L.tt);
+                    if (cdt && (!start || cdt < start)) start = cdt;       // création NC
+                    if (edt && (!maxEnd || edt > maxEnd)) maxEnd = edt;    // dernière fin
                     var role = roleByID[L.r] || roleByID[L.tp];
                     if (role) roles[role] = true;
                 }
-                // Début du traitement = fin de l'étape juste AVANT le 1er DEC0 CT (= arrivée au CT).
-                var procStart = null;
-                if (ctDecE) {
-                    for (var z = 0; z < ends.length; z++) {
-                        if (ends[z] < ctDecE && (procStart === null || ends[z] > procStart)) procStart = ends[z];
-                    }
-                    if (procStart === null) procStart = start;   // DEC0 1re étape -> fallback création NC
-                }
-                // DO00 le plus long + temps "chez nous" (étapes par un responsable du tableau 1).
-                // Écart entre fins successives, baseline = création NC ; prevE avance pour TOUTES les étapes.
-                var gaps = stepGaps(nc.lines), do00Max = 0, chezMs = 0, prevE = start;
+                // Étapes triées par Nº ; durée = écart réception -> passage.
+                var gaps = stepGaps(nc.lines);
+                var chezMs = 0, hasCT = false, hasClot = false, clot = null;
                 for (var gi = 0; gi < gaps.length; gi++) {
-                    if ((gaps[gi].code || "").toUpperCase() === "DO00" && gaps[gi].gap != null && gaps[gi].gap > do00Max) do00Max = gaps[gi].gap;
-                    var ge = gaps[gi].end;
-                    if (ge && prevE && t1set[(gaps[gi].r || "").toUpperCase()]) { var dms = ge - prevE; if (dms > 0) chezMs += dms; }
-                    if (ge) prevE = ge;
+                    var g = gaps[gi], rU = (g.r || "").toUpperCase(), tpU = (g.tp || "").toUpperCase(), cU = (g.code || "").toUpperCase();
+                    var inTeam = !!userSet[tpU];
+                    // Éligibilité : tâche d'un responsable CT interne (user en équipe).
+                    if (decSet[rU] && inTeam) hasCT = true;
+                    // Éligibilité : tâche APQ0 d'un responsable interne (user en équipe) = clôture.
+                    if (cU === clotCode && t1int[rU] && inTeam) { hasClot = true; if (g.end && (!clot || g.end > clot)) clot = g.end; }
+                    // Traitement équipe : tâches responsable INTERNE ET "Terminé par" en équipe.
+                    if (g.gap != null && t1int[rU] && inTeam) chezMs += g.gap;
                 }
                 nc.start = start; nc.end = clot;
                 nc.hasST = !!roles.ST; nc.hasIQ = !!roles.IQ; nc.hasTL = !!roles.TL;
-                // Temps de traitement = 1re tâche -> dernière tâche de la NC (création -> dernier "Terminé").
+                nc.hasCT = hasCT; nc.hasClot = hasClot;
+                // Traitement global = création -> dernière fin (1re à dernière date/heure).
                 nc.durMs = (start && maxEnd) ? (maxEnd - start) : null;
                 nc.chezMs = chezMs;
-                nc.pasMs = (nc.durMs != null) ? Math.max(0, nc.durMs - chezMs) : null;   // = traitement - chez nous
-                // Analysée si : ST + IQ (équipes) ET une clôture qualité APQ0.
-                nc.eligible = nc.hasST && nc.hasIQ && (clot != null);
-                // Décomposition : latence décision CT (arrivée -> décision) puis exécution (décision -> clôture).
-                nc.ctDecStart = procStart;
-                nc.ctDecEnd = ctDecE;
-                nc.ctDecLatMs = (procStart && ctDecE) ? (ctDecE - procStart) : null;
-                nc.beforeMs = nc.ctDecLatMs;
-                nc.afterMs = (clot && ctDecE) ? (clot - ctDecE) : null;
-                nc.do00MaxMs = do00Max > 0 ? do00Max : null;
-                nc.bottleneck = (nc.ctDecLatMs != null && nc.afterMs != null)
-                    ? (nc.ctDecLatMs > nc.afterMs ? "decision" : "execution") : "";
+                nc.pasMs = (nc.durMs != null) ? Math.max(0, nc.durMs - chezMs) : null;
+                // Analysée si : tâche CT interne (user équipe) ET APQ0 interne (user équipe).
+                nc.eligible = hasCT && hasClot;
                 ncList.push(nc);
             }
             ncList.sort(function (a, b) { return parseInt(a.avis,10) - parseInt(b.avis,10); });
         }
 
-        // Explique (texte pour MsgBox) pourquoi 0 NC analysée : conditions ST / IQ / clôture APQ0.
+        // Explique (texte pour MsgBox) pourquoi 0 NC analysée : conditions CT interne + APQ0 interne.
         function DiagnostiquerNCTexte() {
             var clotCode = cfgVal('clot', CLOTURE_CODE).toUpperCase();
-            var total = ncList.length, nST = 0, nIQ = 0, nClot = 0;
+            var total = ncList.length, nCT = 0, nClot = 0;
             for (var j = 0; j < ncList.length; j++) {
-                if (ncList[j].hasST) nST++;
-                if (ncList[j].hasIQ) nIQ++;
-                if (ncList[j].end) nClot++;
+                if (ncList[j].hasCT) nCT++;
+                if (ncList[j].hasClot) nClot++;
             }
             var t = "Pourquoi 0 NC analysée ?\n";
-            t += "Une NC est analysée si elle a un ST + un IQ + une clôture " + clotCode + ".\n";
-            t += "Sur " + total + " NC : " + nST + " avec un ST, " + nIQ + " avec un IQ, " + nClot + " avec une clôture " + clotCode + ".\n";
-            if (nClot === 0) t += "- Aucune clôture " + clotCode + " (NC pas clôturées qualité ?).\n";
-            if (nST === 0) t += "- Aucun ST reconnu : vérifie l'équipe ST dans Paramètres.\n";
-            if (nIQ === 0) t += "- Aucun IQ reconnu : vérifie l'équipe IQ dans Paramètres.\n";
+            t += "Une NC est analysée si elle a une tâche d'un responsable CT interne ET une tâche " + clotCode + " d'un responsable interne, faites par des users présents dans les équipes.\n";
+            t += "Sur " + total + " NC : " + nCT + " avec une tâche CT interne (user en équipe), " + nClot + " avec une " + clotCode + " interne (user en équipe).\n";
+            if (nCT === 0) t += "- Aucune tâche CT interne reconnue : vérifie le responsable CT (tableau 1, type interne) et les équipes.\n";
+            if (nClot === 0) t += "- Aucune clôture " + clotCode + " interne reconnue : vérifie le responsable qualité (tableau 1, type interne) et les équipes.\n";
             return t;
         }
 
@@ -874,25 +856,7 @@
             UpdateParamsButtons();
             RenderRolesTable();
             RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
-            RenderConfig();
         }
-        function RenderConfig() {
-            var cont = document.getElementById('cfgContainer');
-            if (!cont) return;
-            var c = appData.cfg || {}, ed = isEditingParams;
-            function fld(label, key, val) {
-                if (ed) return "<div style='display:inline-block; vertical-align:top; margin:0 26px 12px 0;'>"
-                    + "<label style='display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;'>" + label + "</label>"
-                    + "<input type='text' class='input-text' style='width:230px;' value='" + escapeHtml(val || "") + "' onchange=\"UpdateCfg('" + key + "', this.value)\"></div>";
-                return "<div style='display:inline-block; vertical-align:top; margin:0 34px 12px 0;'>"
-                    + "<div style='font-size:12px; font-weight:600; color:#475569;'>" + label + "</div>"
-                    + "<div style='font-size:14px; font-weight:700; color:#1e293b;'>" + escapeHtml(val || "-") + "</div></div>";
-            }
-            cont.innerHTML = fld("Code de clôture (qualité)", "clot", c.clot)
-                + fld("Code de décision (CT)", "dec", c.dec)
-                + fld("Responsables de décision CT (séparés par ;)", "decResp", c.decResp);
-        }
-        function UpdateCfg(key, val) { if (!appData.cfg) appData.cfg = {}; appData.cfg[key] = NettoyerChaine(val); }
         function UpdateParamsButtons() {
             var e = document.getElementById('btnParamsEdit');
             var v = document.getElementById('btnParamsSave');
@@ -907,8 +871,7 @@
                 roleDesig: cloneObj(appData.roleDesig),
                 teamST: cloneObj(appData.teamST),
                 teamTL: cloneObj(appData.teamTL),
-                teamIQ: cloneObj(appData.teamIQ),
-                cfg: cloneObj(appData.cfg)
+                teamIQ: cloneObj(appData.teamIQ)
             };
             PARAM_EDIT_ROWS = computeParamRows();
             padRoleDesig(); padTeam("ST"); padTeam("TL"); padTeam("IQ");
@@ -930,7 +893,6 @@
                 appData.teamST = paramsBackup.teamST;
                 appData.teamTL = paramsBackup.teamTL;
                 appData.teamIQ = paramsBackup.teamIQ;
-                appData.cfg = paramsBackup.cfg;
             }
             isEditingParams = false; paramsBackup = null;
             RenderParametres();
@@ -1313,10 +1275,11 @@
             cont.innerHTML = html;
         }
         function renderParcoursCard(nc, decS, clotS, decCode, clotCode) {
-            // Ordre conservé tel quel (ordre de l'extract). Durée = écart avec la fin de l'étape précédente.
-            var rows = "", prevEnd = null;
-            for (var j = 0; j < nc.lines.length; j++) {
-                var LL = nc.lines[j];
+            // Tâches triées par Nº. Durée = écart réception (fin précédente, ou création NC pour la 1re) -> passage (sa fin).
+            var lines = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
+            var rows = "", prevEnd = nc.start;   // réception de la 1re tâche = création NC
+            for (var j = 0; j < lines.length; j++) {
+                var LL = lines[j];
                 var e = parseDT(LL.td, LL.tt);
                 var rU = (LL.r || "").toUpperCase();
                 var gap = (e && prevEnd) ? (e - prevEnd) : null;
@@ -1585,11 +1548,6 @@
                             <div style="padding:15px;"><div id="teamIQ"></div></div>
                         </div>
                     </div>
-                </div>
-
-                <div class="card" style="margin-top:16px;">
-                    <h3>Configuration (codes SAP)</h3>
-                    <div id="cfgContainer"></div>
                 </div>
             </div>
 
