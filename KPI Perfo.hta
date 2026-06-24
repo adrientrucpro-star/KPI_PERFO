@@ -66,6 +66,10 @@
         .msg-info { background-color: #ffffff; color: #64748b; border: 1px dashed #c5d5de; text-align: center; font-style: italic; }
         .msg-ok { background-color: #dcfce3; color: #166534; border: 1px solid #86efac; }
 
+        /* Bouton "remonter en haut" (flottant) */
+        #btnScrollTop { position: fixed; bottom: 28px; right: 34px; width: 46px; height: 46px; border-radius: 50%; background: #006698; color: #ffffff; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(0,45,69,0.4); display: none; z-index: 500; font-size: 24px; font-weight: 700; line-height: 44px; text-align: center; padding: 0; }
+        #btnScrollTop:hover { background: #00557f; }
+
         .spinner { border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid #ffffff; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
@@ -502,6 +506,13 @@
             if (id === "pageDashboard") RenderDashboard();
             if (id === "pageAnalyse") { RenderListe(); setTimeout(EgaliserHauteursExtraction, 30); }
             if (id === "pageParcours") RenderParcours();
+            ScrollContentTop();   // chaque changement d'onglet repart en haut
+        }
+        function ScrollContentTop() {
+            var c = document.getElementById('content');
+            if (c) c.scrollTop = 0;
+            var b = document.getElementById('btnScrollTop');
+            if (b) b.style.display = 'none';
         }
 
     // ==========================================================
@@ -1268,6 +1279,13 @@
             document.getElementById("appSub").innerText = APP_SOUS_TITRE;
             LoadData();
             DemarrerVerificationSysteme();
+            var c = document.getElementById('content');
+            if (c) {
+                c.onscroll = function () {
+                    var b = document.getElementById('btnScrollTop');
+                    if (b) b.style.display = (c.scrollTop > 200) ? 'block' : 'none';
+                };
+            }
         };
         window.onresize = function () {
             var pg = document.getElementById('pageAnalyse');
@@ -1325,6 +1343,7 @@
 
     <!-- ====================== APPLICATION ====================== -->
     <div id="mainApp" style="display:none;">
+        <button id="btnScrollTop" onclick="ScrollContentTop()" title="Remonter en haut">&#8593;</button>
         <div id="sidebar">
             <div id="sidebar-header">
                 <div class="app-logo" id="appLogo">KPI PERFO</div>
