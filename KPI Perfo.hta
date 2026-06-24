@@ -293,9 +293,11 @@
         var APP_SOUS_TITRE  = "ANALYSE NC - QM13";
         var VERSION_ACTUELLE = "1.0";
         var DOSSIER_DONNEES = "KPI_Perfo";               // %APPDATA%\KPI_Perfo\
-        var CLOTURE_CODE = "APQ0";                       // code SAP de la tâche de clôture (Responsable du tableau 1)
-        var DECISION_CODE = "DEC0";                      // code SAP de la décision technique
-        var DECISION_RESP = "70009001;70005847";         // Responsables CT dont le DEC0 marque la décision technique
+        var CLOTURE_CODE = "APQ0";                       // défaut : code SAP de clôture qualité
+        var DECISION_CODE = "DEC0";                      // défaut : code SAP de la décision technique
+        var DECISION_RESP = "70009001;70005847";         // défaut : Responsables CT (décision)
+        // Valeur de configuration éditable (Paramètres), repli sur la constante par défaut.
+        function cfgVal(k, def) { return (appData.cfg && NettoyerChaine(appData.cfg[k]) !== "") ? NettoyerChaine(appData.cfg[k]) : def; }
         var LIEN_CONFIG_APP = "https://gist.githubusercontent.com/adrientrucpro-star/366511f0828fbb653853c77b01752a5d/raw";
         var URL_TELECHARGEMENT_APP = "https://github.com/adrientrucpro-star/IC_Manager";
 
@@ -349,6 +351,10 @@
             if (!appData.teamTL) appData.teamTL = [];
             if (!appData.teamIQ) appData.teamIQ = [];
             if (!appData.comments) appData.comments = {};   // commentaires par NC : { "<avis>": "texte" }
+            if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
+            if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
+            if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
+            if (!NettoyerChaine(appData.cfg.decResp)) appData.cfg.decResp = DECISION_RESP;
             // Migration tableau 1 vers {resp, nom, type} : anciennes entrées = "int" ; respAutres -> "ext".
             for (var mi = 0; mi < appData.roleDesig.length; mi++) { if (appData.roleDesig[mi].type === undefined) appData.roleDesig[mi].type = "int"; }
             if (appData.respAutres && appData.respAutres.length) {
@@ -375,6 +381,7 @@
                     roleDesig: appData.roleDesig || [],
                     teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
                     comments: savedComments,
+                    cfg: appData.cfg || {},
                     lastImport: appData.lastImport || ""
                 };
                 var fso = new ActiveXObject("Scripting.FileSystemObject");
@@ -717,10 +724,10 @@
         function RecomputeAll() {
             var rows = appData.rows || [];
             var roleByID = buildRoleByID();
-            var clotCode = (CLOTURE_CODE || "").toUpperCase();
-            var decCode = (DECISION_CODE || "").toUpperCase();
+            var clotCode = cfgVal('clot', CLOTURE_CODE).toUpperCase();
+            var decCode = cfgVal('dec', DECISION_CODE).toUpperCase();
             var decSet = {};   // Responsables CT (décision technique)
-            var da = (DECISION_RESP || "").split(";");
+            var da = cfgVal('decResp', DECISION_RESP).split(";");
             for (var y = 0; y < da.length; y++) { var dc = NettoyerChaine(da[y]).toUpperCase(); if (dc) decSet[dc] = true; }
             var t1set = {};    // Responsables "chez nous" = tableau 1 de type INTERNE
             var rdT = appData.roleDesig || [];
@@ -793,7 +800,7 @@
 
         // Explique (texte pour MsgBox) pourquoi 0 NC analysée : conditions ST / IQ / clôture APQ0.
         function DiagnostiquerNCTexte() {
-            var clotCode = (CLOTURE_CODE || "").toUpperCase();
+            var clotCode = cfgVal('clot', CLOTURE_CODE).toUpperCase();
             var total = ncList.length, nST = 0, nIQ = 0, nClot = 0;
             for (var j = 0; j < ncList.length; j++) {
                 if (ncList[j].hasST) nST++;
@@ -867,7 +874,25 @@
             UpdateParamsButtons();
             RenderRolesTable();
             RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
+            RenderConfig();
         }
+        function RenderConfig() {
+            var cont = document.getElementById('cfgContainer');
+            if (!cont) return;
+            var c = appData.cfg || {}, ed = isEditingParams;
+            function fld(label, key, val) {
+                if (ed) return "<div style='display:inline-block; vertical-align:top; margin:0 26px 12px 0;'>"
+                    + "<label style='display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;'>" + label + "</label>"
+                    + "<input type='text' class='input-text' style='width:230px;' value='" + escapeHtml(val || "") + "' onchange=\"UpdateCfg('" + key + "', this.value)\"></div>";
+                return "<div style='display:inline-block; vertical-align:top; margin:0 34px 12px 0;'>"
+                    + "<div style='font-size:12px; font-weight:600; color:#475569;'>" + label + "</div>"
+                    + "<div style='font-size:14px; font-weight:700; color:#1e293b;'>" + escapeHtml(val || "-") + "</div></div>";
+            }
+            cont.innerHTML = fld("Code de clôture (qualité)", "clot", c.clot)
+                + fld("Code de décision (CT)", "dec", c.dec)
+                + fld("Responsables de décision CT (séparés par ;)", "decResp", c.decResp);
+        }
+        function UpdateCfg(key, val) { if (!appData.cfg) appData.cfg = {}; appData.cfg[key] = NettoyerChaine(val); }
         function UpdateParamsButtons() {
             var e = document.getElementById('btnParamsEdit');
             var v = document.getElementById('btnParamsSave');
@@ -882,7 +907,8 @@
                 roleDesig: cloneObj(appData.roleDesig),
                 teamST: cloneObj(appData.teamST),
                 teamTL: cloneObj(appData.teamTL),
-                teamIQ: cloneObj(appData.teamIQ)
+                teamIQ: cloneObj(appData.teamIQ),
+                cfg: cloneObj(appData.cfg)
             };
             PARAM_EDIT_ROWS = computeParamRows();
             padRoleDesig(); padTeam("ST"); padTeam("TL"); padTeam("IQ");
@@ -904,6 +930,7 @@
                 appData.teamST = paramsBackup.teamST;
                 appData.teamTL = paramsBackup.teamTL;
                 appData.teamIQ = paramsBackup.teamIQ;
+                appData.cfg = paramsBackup.cfg;
             }
             isEditingParams = false; paramsBackup = null;
             RenderParametres();
@@ -1234,7 +1261,7 @@
         }
         function weekLabel(mon) { var sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6); return "Semaine " + isoWeek(mon) + " - " + FormatDateString(mon) + " au " + FormatDateString(sun); }
         function SetParcoursWeek(v) { parcoursWeek = v ? parseInt(v, 10) : null; RenderParcours(); }
-        function decRespSet() { var s = {}; var a = (DECISION_RESP || "").split(";"); for (var i = 0; i < a.length; i++) { var c = NettoyerChaine(a[i]).toUpperCase(); if (c) s[c] = true; } return s; }
+        function decRespSet() { var s = {}; var a = cfgVal('decResp', DECISION_RESP).split(";"); for (var i = 0; i < a.length; i++) { var c = NettoyerChaine(a[i]).toUpperCase(); if (c) s[c] = true; } return s; }
         function clotRespSet() { var s = {}; var a = appData.roleDesig || []; for (var i = 0; i < a.length; i++) { var c = NettoyerChaine(a[i].resp).toUpperCase(); if (c) s[c] = true; } return s; }
         function bottleneckBadge(b) {
             if (b === "decision") return "<span style='display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px; background:#FAEEDA; color:#854F0B;'>Goulot : Décision CT</span>";
@@ -1280,7 +1307,7 @@
             if (wc) wc.innerText = list.length + (list.length > 1 ? " NC clôturées" : " NC clôturée");
 
             var decS = decRespSet(), clotS = clotRespSet();
-            var decCode = (DECISION_CODE || "").toUpperCase(), clotCode = (CLOTURE_CODE || "").toUpperCase();
+            var decCode = cfgVal('dec', DECISION_CODE).toUpperCase(), clotCode = cfgVal('clot', CLOTURE_CODE).toUpperCase();
             var html = "";
             for (var k = 0; k < list.length; k++) { html += renderParcoursCard(list[k], decS, clotS, decCode, clotCode); }
             cont.innerHTML = html;
@@ -1558,6 +1585,11 @@
                             <div style="padding:15px;"><div id="teamIQ"></div></div>
                         </div>
                     </div>
+                </div>
+
+                <div class="card" style="margin-top:16px;">
+                    <h3>Configuration (codes SAP)</h3>
+                    <div id="cfgContainer"></div>
                 </div>
             </div>
 
