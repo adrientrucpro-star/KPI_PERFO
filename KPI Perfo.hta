@@ -1062,15 +1062,16 @@
                 var resp = arr[i].resp || "", type = arr[i].type || "";
                 if (ed) {
                     html += "<tr>"
-                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; text-align-last:center; cursor:pointer;' onchange=\"UpdateRoleDesig(" + i + ",'type',this.value); this.blur();\"><option value=''" + (type === "" ? " selected" : "") + "></option><option value='int'" + (type === "int" ? " selected" : "") + ">Interne</option><option value='ext'" + (type === "ext" ? " selected" : "") + ">Externe</option></select></div></td>"
+                        + "<td class='cell-input' style='text-align:center;'><div class='cell-wrap'><select class='excel-input' style='text-align:center; -ms-text-align-last:center; text-align-last:center; cursor:pointer;' onchange=\"UpdateRoleDesig(" + i + ",'type',this.value); this.blur();\"><option value=''" + (type === "" ? " selected" : "") + "></option><option value='int'" + (type === "int" ? " selected" : "") + ">Interne</option><option value='ext'" + (type === "ext" ? " selected" : "") + ">Externe</option></select></div></td>"
                         + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='cursor:pointer;' onchange=\"SetRoleResp(" + i + ", this.value)\">" + respOptionsHtml(resp) + "</select></div></td>"
                         + "</tr>";
                 } else {
                     var badge = "";
                     if (resp && type === "int") badge = "<span class='badge' style='background:#dcfce3; color:#166534;'>Interne</span>";
                     else if (resp && type === "ext") badge = "<span class='badge' style='background:#f1f5f9; color:#475569;'>Externe</span>";
+                    var full = resp + (arr[i].nom ? " - " + arr[i].nom : "");
                     html += "<tr><td style='text-align:center;'>" + badge + "</td>"
-                        + "<td style='font-weight:700; text-align:center;'>" + escapeHtml(resp) + "</td></tr>";
+                        + "<td style='font-weight:700; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='" + escapeHtml(full) + "'>" + escapeHtml(full) + "</td></tr>";
                 }
             }
             if (arr.length === 0) html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:10px;'>Aucune entrée</td></tr>";
@@ -1680,25 +1681,25 @@
                 </div>
 
                 <div style="font-size:0; margin:0 -8px;">
-                    <div style="display:inline-block; vertical-align:top; width:40%; padding:0 8px; box-sizing:border-box;">
+                    <div style="display:inline-block; vertical-align:top; width:31%; padding:0 8px; box-sizing:border-box;">
                         <div class="card" style="padding:0; margin-bottom:0;">
                             <div class="card-title"><div class="param-ttl" style="color:#002d45;">Responsables</div></div>
                             <div style="padding:15px;"><div id="rolesContainer"><div class="msg-box msg-info">Lance d'abord un extract.</div></div></div>
                         </div>
                     </div>
-                    <div style="display:inline-block; vertical-align:top; width:20%; padding:0 8px; box-sizing:border-box;">
+                    <div style="display:inline-block; vertical-align:top; width:23%; padding:0 8px; box-sizing:border-box;">
                         <div class="card" style="padding:0; margin-bottom:0;">
                             <div class="card-title"><div class="param-ttl" style="color:#b45309;">Équipe ST</div></div>
                             <div style="padding:15px;"><div id="teamST"></div></div>
                         </div>
                     </div>
-                    <div style="display:inline-block; vertical-align:top; width:20%; padding:0 8px; box-sizing:border-box;">
+                    <div style="display:inline-block; vertical-align:top; width:23%; padding:0 8px; box-sizing:border-box;">
                         <div class="card" style="padding:0; margin-bottom:0;">
                             <div class="card-title"><div class="param-ttl" style="color:#1d4ed8;">Équipe TL</div></div>
                             <div style="padding:15px;"><div id="teamTL"></div></div>
                         </div>
                     </div>
-                    <div style="display:inline-block; vertical-align:top; width:20%; padding:0 8px; box-sizing:border-box;">
+                    <div style="display:inline-block; vertical-align:top; width:23%; padding:0 8px; box-sizing:border-box;">
                         <div class="card" style="padding:0; margin-bottom:0;">
                             <div class="card-title"><div class="param-ttl" style="color:#047857;">Équipe IQ</div></div>
                             <div style="padding:15px;"><div id="teamIQ"></div></div>
