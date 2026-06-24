@@ -707,13 +707,16 @@
             var c = appData.calc || {};
             if ((c.mode || 'cal') !== 'ouvre') return b - a;
             var ws = parseHM(c.hStart || '08:00'), we = parseHM(c.hEnd || '17:00');
+            var wsMin = ws.h * 60 + ws.m, weMin = we.h * 60 + we.m;
+            if (weMin === 0) weMin = 1440;          // "00:00" = minuit FIN de journée (24:00)
+            if (weMin <= wsMin) return b - a;        // plage invalide -> repli calendaire
             var aMs = a.getTime(), bMs = b.getTime(), total = 0;
             var cur = new Date(a.getFullYear(), a.getMonth(), a.getDate());
             while (cur.getTime() <= bMs) {
                 var dow = cur.getDay();   // 0=dim, 6=sam
                 if (dow >= 1 && dow <= 5) {
-                    var wStart = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), ws.h, ws.m, 0).getTime();
-                    var wEnd = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), we.h, we.m, 0).getTime();
+                    var dayStart = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), 0, 0, 0).getTime();
+                    var wStart = dayStart + wsMin * 60000, wEnd = dayStart + weMin * 60000;
                     var s = Math.max(aMs, wStart), e = Math.min(bMs, wEnd);
                     if (e > s) total += (e - s);
                 }
@@ -846,7 +849,9 @@
             var c = appData.calc || {};
             if ((c.mode || 'cal') === 'ouvre') {
                 var ws = parseHM(c.hStart || '08:00'), we = parseHM(c.hEnd || '17:00');
-                var wm = (we.h * 60 + we.m) - (ws.h * 60 + ws.m);
+                var wsMin = ws.h * 60 + ws.m, weMin = we.h * 60 + we.m;
+                if (weMin === 0) weMin = 1440;
+                var wm = weMin - wsMin;
                 if (wm > 0) return wm * 60000;
             }
             return 86400000;
