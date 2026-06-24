@@ -684,7 +684,7 @@
             var out = [], prev = null;
             for (var j = 0; j < arr.length; j++) {
                 var gap = (arr[j].e && prev) ? (arr[j].e - prev) : null;
-                out.push({ code: (arr[j].L.c || ""), dg: (arr[j].L.dg || ""), end: arr[j].e, gap: (gap != null && gap >= 0) ? gap : null });
+                out.push({ code: (arr[j].L.c || ""), r: (arr[j].L.r || ""), dg: (arr[j].L.dg || ""), end: arr[j].e, gap: (gap != null && gap >= 0) ? gap : null });
                 if (arr[j].e) prev = arr[j].e;
             }
             return out;
@@ -712,6 +712,9 @@
             var decSet = {};   // Responsables CT (décision technique)
             var da = (DECISION_RESP || "").split(";");
             for (var y = 0; y < da.length; y++) { var dc = NettoyerChaine(da[y]).toUpperCase(); if (dc) decSet[dc] = true; }
+            var t1set = {};    // Responsables "chez nous" = ceux du tableau 1
+            var rdT = appData.roleDesig || [];
+            for (var w0 = 0; w0 < rdT.length; w0++) { var rcc = NettoyerChaine(rdT[w0].resp).toUpperCase(); if (rcc) t1set[rcc] = true; }
             var map = {};
             for (var i = 0; i < rows.length; i++) {
                 var r = rows[i], k = r.a;
@@ -747,15 +750,22 @@
                     }
                     if (procStart === null) procStart = start;   // DEC0 1re étape -> fallback création NC
                 }
-                // DO00 le plus long (écart avec l'étape précédente).
-                var gaps = stepGaps(nc.lines), do00Max = 0;
+                // DO00 le plus long + durées chez nous / pas chez nous (écarts entre fins, baseline = création NC).
+                var gaps = stepGaps(nc.lines), do00Max = 0, chezMs = 0, pasMs = 0, prevE = start;
                 for (var gi = 0; gi < gaps.length; gi++) {
                     if ((gaps[gi].code || "").toUpperCase() === "DO00" && gaps[gi].gap != null && gaps[gi].gap > do00Max) do00Max = gaps[gi].gap;
+                    var ge = gaps[gi].end;
+                    if (ge && prevE) {
+                        var dms = ge - prevE; if (dms < 0) dms = 0;
+                        if (t1set[(gaps[gi].r || "").toUpperCase()]) chezMs += dms; else pasMs += dms;
+                    }
+                    if (ge) prevE = ge;
                 }
                 nc.start = start; nc.end = clot;
+                nc.chezMs = chezMs; nc.pasMs = pasMs;
                 nc.hasST = !!roles.ST; nc.hasIQ = !!roles.IQ; nc.hasTL = !!roles.TL;
-                // Temps de traitement = arrivée au DEC0 (fin étape précédente) -> clôture APQ0.
-                nc.durMs = (procStart && clot) ? (clot - procStart) : null;
+                // Temps de traitement = création de la NC -> clôture APQ0 (par 70005848).
+                nc.durMs = (start && clot) ? (clot - start) : null;
                 // Analysée si : ST + IQ (équipes) ET une clôture qualité APQ0.
                 nc.eligible = nc.hasST && nc.hasIQ && (clot != null);
                 // Décomposition : latence décision CT (arrivée -> décision) puis exécution (décision -> clôture).
@@ -1115,14 +1125,17 @@
                     + "<td style='text-align:center;'>" + (nc.start ? FormatDateString(nc.start) : "-") + "</td>"
                     + "<td style='text-align:center;'>" + (nc.end ? FormatDateString(nc.end) : "-") + "</td>"
                     + "<td style='text-align:center; font-weight:700; color:#006698;'>" + fmtDHM(nc.durMs) + "</td>"
+                    + "<td style='text-align:center; color:#166534;'>" + fmtDHM(nc.chezMs) + "</td>"
+                    + "<td style='text-align:center; color:#b45309;'>" + fmtDHM(nc.pasMs) + "</td>"
                     + "<td>" + escapeHtml(cmt) + "</td>"
                     + "</tr>";
             }
             cont.innerHTML = "<table class='data-table'><thead><tr>"
-                + "<th width='11%'>Avis</th><th>Descriptif</th>"
-                + "<th width='12%'>Date création</th><th width='12%'>Date clôture</th><th width='12%'>Durée</th><th width='22%'>Commentaire</th>"
+                + "<th width='9%'>Avis</th><th>Descriptif</th>"
+                + "<th width='10%'>Date création</th><th width='10%'>Date clôture</th><th width='11%'>Durée</th>"
+                + "<th width='11%'>Chez nous</th><th width='11%'>Pas chez nous</th><th width='15%'>Commentaire</th>"
                 + "</tr></thead><tbody>"
-                + (rows || "<tr><td colspan='6' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
+                + (rows || "<tr><td colspan='8' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
                 + "</tbody></table>";
         }
         function parseFilterDate(v) {
