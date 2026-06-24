@@ -809,7 +809,7 @@
             for (var y = 0; y < da.length; y++) { var dc = NettoyerChaine(da[y]).toUpperCase(); if (dc) decSet[dc] = true; }
             var t1int = {};    // Responsables INTERNES = tableau 1 de type int
             var rdT = appData.roleDesig || [];
-            for (var w0 = 0; w0 < rdT.length; w0++) { if ((rdT[w0].type || "int") === "int") { var rcc = NettoyerChaine(rdT[w0].resp).toUpperCase(); if (rcc) t1int[rcc] = true; } }
+            for (var w0 = 0; w0 < rdT.length; w0++) { if (NettoyerChaine(rdT[w0].type) === "int") { var rcc = NettoyerChaine(rdT[w0].resp).toUpperCase(); if (rcc) t1int[rcc] = true; } }
             var userSet = {};  // Users présents dans les équipes ST/TL/IQ
             var teams = [appData.teamST, appData.teamTL, appData.teamIQ];
             for (var tt = 0; tt < teams.length; tt++) { var ta = teams[tt] || []; for (var ui = 0; ui < ta.length; ui++) { var uu = NettoyerChaine(ta[ui].user).toUpperCase(); if (uu) userSet[uu] = true; } }
@@ -925,15 +925,23 @@
         var isEditingParams = false;
         var paramsBackup = null;
         var PARAM_EDIT_ROWS = 15;   // nb de lignes (vides) affichées en mode édition (recalculé à l'entrée)
-        // Nombre de lignes en édition = données existantes + 3 lignes vides pour la saisie.
+        // Nombre de lignes pour remplir jusqu'en bas de la page (sans faire apparaître de scrollbar).
         function computeParamRows() {
-            var n = (appData.roleDesig || []).length;
-            var teams = [appData.teamST, appData.teamTL, appData.teamIQ];
-            for (var i = 0; i < teams.length; i++) n = Math.max(n, (teams[i] || []).length);
-            return n + 3;
+            var rc = document.getElementById('rolesContainer');
+            var clientH = document.documentElement.clientHeight || window.innerHeight || 800;
+            if (rc) {
+                var top = rc.getBoundingClientRect().top;     // haut du tableau (thead inclus)
+                var avail = clientH - top - 80;               // - thead - paddings carte/contenu (sécurité)
+                var n = Math.floor(avail / 38);
+                var dataN = (appData.roleDesig || []).length;
+                var teams = [appData.teamST, appData.teamTL, appData.teamIQ];
+                for (var i = 0; i < teams.length; i++) dataN = Math.max(dataN, (teams[i] || []).length);
+                return Math.max(dataN + 1, n);
+            }
+            return 12;
         }
         function cloneObj(o) { return eval('(' + toJSON(o) + ')'); }
-        function padRoleDesig() { while (appData.roleDesig.length < PARAM_EDIT_ROWS) appData.roleDesig.push({ resp: "", nom: "", type: "int" }); }
+        function padRoleDesig() { while (appData.roleDesig.length < PARAM_EDIT_ROWS) appData.roleDesig.push({ resp: "", nom: "", type: "" }); }
         function padTeam(role) { var a = teamArr(role); while (a.length < PARAM_EDIT_ROWS) a.push({ user: "", nom: "" }); }
 
         function RenderParametres() {
@@ -947,13 +955,12 @@
             var cont = document.getElementById('calcModePanel');
             if (!cont) return;
             var c = appData.calc || {}, ouvre = (c.mode || 'cal') === 'ouvre', ed = isEditingParams;
-            var lbl = "font-size:13px; font-weight:600; color:#475569; margin-right:8px; vertical-align:middle;";
+            var lbl = "font-size:13px; font-weight:600; color:#475569; margin-right:10px; vertical-align:middle;";
             function box(val, text, sel) {
-                var base = "display:inline-block; vertical-align:middle; padding:7px 16px; border-radius:6px; font-size:13px; font-weight:700; margin-right:8px;";
-                var skin = sel ? "background:#0C447C; color:#fff; border:2px solid #0C447C;" : "background:#fff; color:#475569; border:2px solid #c5d5de;";
-                var cur = ed ? " cursor:pointer;" : " cursor:default;";
+                var base = "display:inline-block; vertical-align:middle; border:1px solid #c5d5de; border-radius:8px; padding:8px 16px; margin-right:10px; font-size:13px; font-weight:600; color:#1e293b;" + (ed ? " cursor:pointer;" : "");
+                var dis = ed ? "" : " disabled";
                 var click = ed ? " onclick=\"UpdateCalc('mode','" + val + "')\"" : "";
-                return "<span style='" + base + skin + cur + "'" + click + ">" + text + "</span>";
+                return "<label style='" + base + "'><input type='radio' name='calcmode' value='" + val + "'" + (sel ? " checked" : "") + dis + click + " style='vertical-align:middle; margin-right:8px;'>" + text + "</label>";
             }
             var disTime = (ed && ouvre) ? "" : " disabled";
             var fade = ouvre ? "" : " opacity:0.5;";
@@ -1017,9 +1024,8 @@
             RenderParametres();
         }
         function cleanRoleDesig(a) {
-            var o = []; for (var i = 0; i < a.length; i++) {
-                if (NettoyerChaine(a[i].resp) !== "" && NettoyerChaine(a[i].type) !== "") o.push(a[i]);
-            } return o;
+            // Garde une ligne dès qu'un responsable est saisi (le type peut rester vide = non classé, donc non compté).
+            var o = []; for (var i = 0; i < a.length; i++) { if (NettoyerChaine(a[i].resp) !== "") o.push(a[i]); } return o;
         }
         function cleanTeam(a) {
             var o = []; for (var i = 0; i < a.length; i++) {
@@ -1051,14 +1057,17 @@
             var ed = isEditingParams;
             var html = "<table class='data-table param-grid'><thead><tr><th width='26%' style='padding:10px 6px; text-align:center;'>Type</th><th style='padding:10px 6px; text-align:center;'>Responsable</th></tr></thead><tbody>";
             for (var i = 0; i < arr.length; i++) {
-                var resp = arr[i].resp || "", type = arr[i].type || "int";
+                var resp = arr[i].resp || "", type = arr[i].type || "";
                 if (ed) {
                     html += "<tr>"
-                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; cursor:pointer;' onchange=\"UpdateRoleDesig(" + i + ",'type',this.value)\"><option value='int'" + (type === "int" ? " selected" : "") + ">interne</option><option value='ext'" + (type === "ext" ? " selected" : "") + ">externe</option></select></div></td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; cursor:pointer;' onchange=\"UpdateRoleDesig(" + i + ",'type',this.value)\"><option value=''" + (type === "" ? " selected" : "") + "></option><option value='int'" + (type === "int" ? " selected" : "") + ">Interne</option><option value='ext'" + (type === "ext" ? " selected" : "") + ">Externe</option></select></div></td>"
                         + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='cursor:pointer;' onchange=\"SetRoleResp(" + i + ", this.value)\">" + respOptionsHtml(resp) + "</select></div></td>"
                         + "</tr>";
                 } else {
-                    html += "<tr><td style='text-align:center;'>" + (resp ? (type === "ext" ? "<span class='badge' style='background:#f1f5f9; color:#475569;'>externe</span>" : "<span class='badge' style='background:#dcfce3; color:#166534;'>interne</span>") : "") + "</td>"
+                    var badge = "";
+                    if (resp && type === "int") badge = "<span class='badge' style='background:#dcfce3; color:#166534;'>Interne</span>";
+                    else if (resp && type === "ext") badge = "<span class='badge' style='background:#f1f5f9; color:#475569;'>Externe</span>";
+                    html += "<tr><td style='text-align:center;'>" + badge + "</td>"
                         + "<td style='font-weight:700; text-align:center;'>" + escapeHtml(resp) + "</td></tr>";
                 }
             }
@@ -1185,8 +1194,8 @@
         function RenderDashResp(elig) {
             var intNom = {}, extNom = {}, rd = appData.roleDesig || [];
             for (var i = 0; i < rd.length; i++) {
-                var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (!rc) continue;
-                if ((rd[i].type || "int") === "ext") extNom[rc] = rd[i].nom || rd[i].resp; else intNom[rc] = rd[i].nom || rd[i].resp;
+                var rc = NettoyerChaine(rd[i].resp).toUpperCase(), ty = NettoyerChaine(rd[i].type); if (!rc) continue;
+                if (ty === "ext") extNom[rc] = rd[i].nom || rd[i].resp; else if (ty === "int") intNom[rc] = rd[i].nom || rd[i].resp;
             }
             var agg = {};
             for (var e = 0; e < elig.length; e++) {
