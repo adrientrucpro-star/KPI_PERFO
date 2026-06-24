@@ -1071,7 +1071,7 @@
                     else if (resp && type === "ext") badge = "<span class='badge' style='background:#f1f5f9; color:#475569;'>Externe</span>";
                     var full = resp + (arr[i].nom ? " - " + arr[i].nom : "");
                     html += "<tr><td style='text-align:center;'>" + badge + "</td>"
-                        + "<td style='font-weight:700; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='" + escapeHtml(full) + "'>" + escapeHtml(full) + "</td></tr>";
+                        + "<td style='text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='" + escapeHtml(full) + "'>" + escapeHtml(full) + "</td></tr>";
                 }
             }
             if (arr.length === 0) html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:10px;'>Aucune entrée</td></tr>";
@@ -1103,7 +1103,7 @@
             var cont = document.getElementById('team' + role);
             var arr = teamArr(role);
             var ed = isEditingParams;
-            var html = "<table class='data-table param-grid'><thead><tr><th width='42%' style='padding:10px 6px; text-align:center;'>User</th><th style='padding:10px 6px; text-align:center;'>Nom</th></tr></thead><tbody>";
+            var html = "<table class='data-table param-grid'><thead><tr><th width='34%' style='padding:10px 6px; text-align:center;'>User</th><th style='padding:10px 6px; text-align:center;'>Nom</th></tr></thead><tbody>";
             for (var i = 0; i < arr.length; i++) {
                 if (ed) {
                     html += "<tr>"
