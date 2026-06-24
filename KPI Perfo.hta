@@ -206,6 +206,35 @@
         End Function
 
         ' ----------------------------------------------------------
+        ' Ouvre un avis qualité dans SAP via QM03 (affichage). strAvis = n° d'avis.
+        ' Renvoie "OK" ou "ERREUR : ...".
+        ' ----------------------------------------------------------
+        Function VBS_OuvrirQM03(strAvis)
+            On Error Resume Next
+            Set oSession = GetSAPSession()
+            If oSession Is Nothing Then
+                VBS_OuvrirQM03 = "ERREUR : SAP inaccessible. Ouvre SAP Logon et connecte-toi."
+                Exit Function
+            End If
+            oSession.FindById("wnd[0]").Maximize
+            ' /n = bascule sur QM03 depuis n'importe quel écran.
+            oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "/nqm03"
+            oSession.FindById("wnd[0]").SendVKey 0
+            If Not AttendreElementSAP("wnd[0]/usr/ctxtRIWO00-QMNUM", 8) Then
+                VBS_OuvrirQM03 = "ERREUR : l'écran QM03 n'a pas démarré."
+                Exit Function
+            End If
+            oSession.FindById("wnd[0]/usr/ctxtRIWO00-QMNUM").Text = strAvis
+            oSession.FindById("wnd[0]").SendVKey 0
+            If Err.Number <> 0 Then
+                VBS_OuvrirQM03 = "ERREUR : impossible d'ouvrir l'avis " & strAvis & "."
+                Exit Function
+            End If
+            VBS_OuvrirQM03 = "OK"
+            On Error GoTo 0
+        End Function
+
+        ' ----------------------------------------------------------
         ' Extraction QM13 -> EXPORT_NC.txt (variante d'affichage LAROCHE_NC).
         ' strDateLow = date de début au format JJ.MM.AAAA. Renvoie "OK" ou "ERREUR : ...".
         ' ----------------------------------------------------------
@@ -1390,6 +1419,7 @@
                 + "<div style='float:right;'>"
                 + "<span style='display:inline-block; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#E6F1FB; color:#0C447C;'>Traitement global : " + fmtDHM(nc.durMs) + "</span>"
                 + "<span style='display:inline-block; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#dcfce3; color:#166534; margin-left:8px;'>Traitement équipe : " + fmtDHM(nc.chezMs) + "</span>"
+                + "<button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(nc.avis) + "')\" title='Ouvrir cet avis dans SAP PEA (QM03)' style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:6px 12px; border-radius:6px; background:#0C447C; color:#fff; border:none; cursor:pointer; margin-left:8px;'>Ouvrir dans SAP</button>"
                 + "</div>"
                 + "</div>"
                 + "<div style='margin-bottom:14px;'>"
@@ -1402,6 +1432,15 @@
             if (!appData.comments) appData.comments = {};
             appData.comments[avis] = NettoyerChaine(val);
             SaveData();
+        }
+        // Ouvre l'avis dans SAP PEA (transaction QM03).
+        function OuvrirNCSap(avis) {
+            try {
+                var res = VBS_OuvrirQM03(avis);
+                if (!res || res.indexOf("ERREUR") !== -1) AfficherErreur(res || "Erreur inconnue lors de l'ouverture SAP.");
+            } catch (e) {
+                AfficherErreur("Erreur : " + e.message);
+            }
         }
         function tagHtml(txt, bg, col) {
             return "<span style='display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; background:" + bg + "; color:" + col + ";'>" + txt + "</span>";
