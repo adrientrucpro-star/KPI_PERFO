@@ -1440,14 +1440,18 @@
             appData.comments[avis] = NettoyerChaine(val);
             SaveData();
         }
-        // Ouvre l'avis dans SAP PEA (transaction QM03).
+        // Ouvre l'avis dans SAP PEA (transaction QM03). Curseur "chargement" pendant l'exécution.
         function OuvrirNCSap(avis) {
-            try {
-                var res = VBS_OuvrirQM03(avis);
-                if (!res || res.indexOf("ERREUR") !== -1) AfficherErreur(res || "Erreur inconnue lors de l'ouverture SAP.");
-            } catch (e) {
-                AfficherErreur("Erreur : " + e.message);
-            }
+            document.body.style.cursor = 'wait';
+            setTimeout(function () {   // laisse le curseur s'afficher avant l'appel SAP bloquant
+                try {
+                    var res = VBS_OuvrirQM03(avis);
+                    if (!res || res.indexOf("ERREUR") !== -1) AfficherErreur(res || "Erreur inconnue lors de l'ouverture SAP.");
+                } catch (e) {
+                    AfficherErreur("Erreur : " + e.message);
+                }
+                document.body.style.cursor = '';
+            }, 30);
         }
         function tagHtml(txt, bg, col) {
             return "<span style='display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; background:" + bg + "; color:" + col + ";'>" + txt + "</span>";
