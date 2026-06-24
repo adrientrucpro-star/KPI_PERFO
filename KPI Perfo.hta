@@ -637,19 +637,22 @@
                 if (parts.length < 12) continue;
                 var avis = NettoyerChaine(parts[0]);
                 if (!/^\d{8,}$/.test(avis)) continue;             // 1ère colonne = n° d'avis (8+ chiffres)
+                // Les 6 premières colonnes sont ancrées au début, les 6 dernières à la FIN :
+                // ça absorbe toute colonne vide insérée au milieu (entre Désignation et Terminé par).
+                var nF = parts.length;
                 out.push({
                     a:  avis,
-                    s:  NettoyerChaine(parts[1]),    // Statut de l'avis
-                    d:  NettoyerChaine(parts[2]),    // Description
-                    r:  NettoyerChaine(parts[3]),    // Respons.
-                    c:  NettoyerChaine(parts[4]),    // Code
-                    dg: NettoyerChaine(parts[5]),    // Désignation de l'exécutant
-                    tp: NettoyerChaine(parts[6]),    // Terminé par
-                    cd: NettoyerChaine(parts[7]),    // Date  = créé le
-                    ct: NettoyerChaine(parts[8]),    // Heure = créé à
-                    td: NettoyerChaine(parts[9]),    // Terminé le
-                    tt: NettoyerChaine(parts[10]),   // Terminé à
-                    n:  NettoyerChaine(parts[11])    // Nº
+                    s:  NettoyerChaine(parts[1]),        // Statut de l'avis
+                    d:  NettoyerChaine(parts[2]),        // Description
+                    r:  NettoyerChaine(parts[3]),        // Respons.
+                    c:  NettoyerChaine(parts[4]),        // Code
+                    dg: NettoyerChaine(parts[5]),        // Désignation de l'exécutant
+                    tp: NettoyerChaine(parts[nF - 6]),   // Terminé par
+                    cd: NettoyerChaine(parts[nF - 5]),   // Date  = créé le
+                    ct: NettoyerChaine(parts[nF - 4]),   // Heure = créé à
+                    td: NettoyerChaine(parts[nF - 3]),   // Terminé le
+                    tt: NettoyerChaine(parts[nF - 2]),   // Terminé à
+                    n:  NettoyerChaine(parts[nF - 1])    // Nº
                 });
             }
             return out;
