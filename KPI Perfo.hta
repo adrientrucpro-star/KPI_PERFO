@@ -223,7 +223,8 @@
             End If
 
             oSession.FindById("wnd[0]").Maximize
-            oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "qm13"
+            ' /n = termine la transaction en cours et bascule sur QM13 depuis n'importe quel écran.
+            oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "/nqm13"
             oSession.FindById("wnd[0]").SendVKey 0
             If Not AttendreElementSAP("wnd[0]/tbar[1]/btn[17]", 8) Then
                 VBS_ExtractQM13 = "ERREUR : QM13 n'a pas démarré."
