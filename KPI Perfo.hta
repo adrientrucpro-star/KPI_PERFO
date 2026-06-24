@@ -342,7 +342,8 @@
                     appData = (NettoyerChaine(c) !== "") ? eval('(' + c + ')') : {};
                 } else { appData = {}; }
             } catch (e) { appData = {}; }
-            if (!appData.roleDesig) appData.roleDesig = [];   // tableau 1 saisi manuellement : [{desig,role}]
+            if (!appData.roleDesig) appData.roleDesig = [];   // tableau 1 saisi manuellement : [{resp,nom}]
+            if (!appData.respAutres) appData.respAutres = []; // responsables "autres" à analyser : [{resp,nom}]
             if (!appData.rows)   appData.rows   = [];
             if (!appData.teamST) appData.teamST = [];
             if (!appData.teamTL) appData.teamTL = [];
@@ -363,6 +364,7 @@
                 var toSave = {
                     rows: savedRows,
                     roleDesig: appData.roleDesig || [],
+                    respAutres: appData.respAutres || [],
                     teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
                     comments: savedComments,
                     lastImport: appData.lastImport || ""
@@ -851,11 +853,13 @@
         }
         function cloneObj(o) { return eval('(' + toJSON(o) + ')'); }
         function padRoleDesig() { while (appData.roleDesig.length < PARAM_EDIT_ROWS) appData.roleDesig.push({ resp: "", nom: "" }); }
+        function padRespAutres() { while (appData.respAutres.length < PARAM_EDIT_ROWS) appData.respAutres.push({ resp: "", nom: "" }); }
         function padTeam(role) { var a = teamArr(role); while (a.length < PARAM_EDIT_ROWS) a.push({ user: "", nom: "" }); }
 
         function RenderParametres() {
             UpdateParamsButtons();
             RenderRolesTable();
+            RenderRespAutres();
             RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
         }
         function UpdateParamsButtons() {
@@ -870,16 +874,18 @@
             isEditingParams = true;
             paramsBackup = {
                 roleDesig: cloneObj(appData.roleDesig),
+                respAutres: cloneObj(appData.respAutres),
                 teamST: cloneObj(appData.teamST),
                 teamTL: cloneObj(appData.teamTL),
                 teamIQ: cloneObj(appData.teamIQ)
             };
             PARAM_EDIT_ROWS = computeParamRows();
-            padRoleDesig(); padTeam("ST"); padTeam("TL"); padTeam("IQ");
+            padRoleDesig(); padRespAutres(); padTeam("ST"); padTeam("TL"); padTeam("IQ");
             RenderParametres();
         }
         function ParamsValider() {
             appData.roleDesig = cleanRoleDesig(appData.roleDesig);
+            appData.respAutres = cleanRoleDesig(appData.respAutres);
             appData.teamST = cleanTeam(appData.teamST);
             appData.teamTL = cleanTeam(appData.teamTL);
             appData.teamIQ = cleanTeam(appData.teamIQ);
@@ -891,6 +897,7 @@
         function ParamsAnnuler() {
             if (paramsBackup) {
                 appData.roleDesig = paramsBackup.roleDesig;
+                appData.respAutres = paramsBackup.respAutres;
                 appData.teamST = paramsBackup.teamST;
                 appData.teamTL = paramsBackup.teamTL;
                 appData.teamIQ = paramsBackup.teamIQ;
@@ -940,6 +947,36 @@
         }
         function UpdateRoleDesig(idx, field, val) {
             appData.roleDesig[idx][field] = NettoyerChaine(val);
+        }
+
+        // --- Tableau "Responsables autres" (resp + nom, à analyser) ---
+        function RenderRespAutres() {
+            var cont = document.getElementById('respAutresContainer');
+            if (!cont) return;
+            var arr = appData.respAutres || [];
+            var ed = isEditingParams;
+            var html = "<table class='data-table param-grid'><thead><tr><th width='30%' style='padding:10px 6px; text-align:center;'>Responsable</th><th style='padding:10px 6px; text-align:center;'>Nom de liste</th></tr></thead><tbody>";
+            for (var i = 0; i < arr.length; i++) {
+                var nomVal = arr[i].nom || "";
+                if (ed) {
+                    html += "<tr>"
+                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='text-align:center;' value='" + escapeHtml(arr[i].resp || "") + "' onchange=\"UpdateRespAutres(" + i + ",'resp',this.value)\"></div></td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='padding-right:32px;' value='" + escapeHtml(nomVal) + "' onchange=\"UpdateRespAutres(" + i + ",'nom',this.value)\"><button type='button' class='btn-del-cell' title='Vider la ligne' onclick=\"DelRespAutres(" + i + ")\">&#10005;</button></div></td>"
+                        + "</tr>";
+                } else {
+                    html += "<tr><td style='font-weight:700; text-align:center;'>" + escapeHtml(arr[i].resp || "") + "</td><td>" + escapeHtml(nomVal) + "</td></tr>";
+                }
+            }
+            if (arr.length === 0) html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:10px;'>Aucune entrée</td></tr>";
+            html += "</tbody></table>";
+            cont.innerHTML = html;
+        }
+        function DelRespAutres(idx) {
+            appData.respAutres[idx] = { resp: "", nom: "" };
+            RenderRespAutres();
+        }
+        function UpdateRespAutres(idx, field, val) {
+            appData.respAutres[idx][field] = NettoyerChaine(val);
         }
 
         // --- Tableaux 2/3/4 : Équipes ST / TL / IQ (User + Nom) ---
@@ -1046,6 +1083,8 @@
         function RenderDashResp(elig) {
             var t1nom = {}; var rd = appData.roleDesig || [];
             for (var i = 0; i < rd.length; i++) { var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (rc) t1nom[rc] = rd[i].nom || rd[i].resp; }
+            var ra = appData.respAutres || [];   // responsables "autres" à analyser aussi
+            for (var ia = 0; ia < ra.length; ia++) { var rca = NettoyerChaine(ra[ia].resp).toUpperCase(); if (rca && !t1nom[rca]) t1nom[rca] = ra[ia].nom || ra[ia].resp; }
             var agg = {};
             for (var e = 0; e < elig.length; e++) {
                 var gaps = stepGaps(elig[e].lines);
@@ -1419,7 +1458,7 @@
                         <div id="dashWeeks"></div>
                     </div>
                     <div class="card">
-                        <h3>Durée moyenne par responsable (tableau 1)</h3>
+                        <h3>Durée moyenne par responsable</h3>
                         <div id="dashResp"></div>
                     </div>
                     <div class="card">
@@ -1496,26 +1535,34 @@
                 </div>
                 <div style="clear:both; margin-bottom:18px;"></div>
 
-                <div style="font-size:0; margin:0 -8px;">
-                    <div style="display:inline-block; vertical-align:top; width:25%; padding:0 8px; box-sizing:border-box;">
-                        <div class="card" style="padding:0; margin-bottom:0;">
-                            <div class="card-title"><div class="param-ttl" style="color:#002d45;">Responsable &amp; Nom de liste</div></div>
+                <div style="font-size:0; margin:0 -8px 16px -8px;">
+                    <div style="display:inline-block; vertical-align:top; width:50%; padding:0 8px; box-sizing:border-box;">
+                        <div class="card" style="padding:0;">
+                            <div class="card-title"><div class="param-ttl" style="color:#002d45;">Responsable &amp; Nom de liste (chez nous)</div></div>
                             <div style="padding:15px;"><div id="rolesContainer"><div class="msg-box msg-info">Importe d'abord un export QM13.</div></div></div>
                         </div>
                     </div>
-                    <div style="display:inline-block; vertical-align:top; width:25%; padding:0 8px; box-sizing:border-box;">
+                    <div style="display:inline-block; vertical-align:top; width:50%; padding:0 8px; box-sizing:border-box;">
+                        <div class="card" style="padding:0;">
+                            <div class="card-title"><div class="param-ttl" style="color:#64748b;">Responsables autres (à analyser)</div></div>
+                            <div style="padding:15px;"><div id="respAutresContainer"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div style="font-size:0; margin:0 -8px;">
+                    <div style="display:inline-block; vertical-align:top; width:33.33%; padding:0 8px; box-sizing:border-box;">
                         <div class="card" style="padding:0; margin-bottom:0;">
                             <div class="card-title"><div class="param-ttl" style="color:#b45309;">Équipe ST</div></div>
                             <div style="padding:15px;"><div id="teamST"></div></div>
                         </div>
                     </div>
-                    <div style="display:inline-block; vertical-align:top; width:25%; padding:0 8px; box-sizing:border-box;">
+                    <div style="display:inline-block; vertical-align:top; width:33.33%; padding:0 8px; box-sizing:border-box;">
                         <div class="card" style="padding:0; margin-bottom:0;">
                             <div class="card-title"><div class="param-ttl" style="color:#1d4ed8;">Équipe TL</div></div>
                             <div style="padding:15px;"><div id="teamTL"></div></div>
                         </div>
                     </div>
-                    <div style="display:inline-block; vertical-align:top; width:25%; padding:0 8px; box-sizing:border-box;">
+                    <div style="display:inline-block; vertical-align:top; width:33.33%; padding:0 8px; box-sizing:border-box;">
                         <div class="card" style="padding:0; margin-bottom:0;">
                             <div class="card-title"><div class="param-ttl" style="color:#047857;">Équipe IQ</div></div>
                             <div style="padding:15px;"><div id="teamIQ"></div></div>
