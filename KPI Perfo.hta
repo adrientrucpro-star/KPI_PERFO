@@ -694,7 +694,16 @@
             var tp = (""+(t || "0:0:0")).split(':');
             var dt = new Date(parseInt(dp[2],10), parseInt(dp[1],10)-1, parseInt(dp[0],10),
                               parseInt(tp[0]||0,10), parseInt(tp[1]||0,10), parseInt(tp[2]||0,10));
-            return isNaN(dt.getTime()) ? null : dt;
+            if (isNaN(dt.getTime())) return null;
+            // Arrondi à la minute SUPÉRIEURE (on supprime les secondes).
+            if (dt.getSeconds() > 0) { dt.setSeconds(0); dt.setMinutes(dt.getMinutes() + 1); }
+            return dt;
+        }
+        // Heure "HH:MM" d'une date (sans secondes).
+        function fmtHM(d) {
+            if (!d) return "";
+            var h = d.getHours(), m = d.getMinutes();
+            return (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
         }
 
         function parseHM(s) { var p = ("" + (s || "")).split(':'); return { h: parseInt(p[0] || 0, 10) || 0, m: parseInt(p[1] || 0, 10) || 0 }; }
@@ -1370,7 +1379,7 @@
                     + "<td style='text-align:center;'>" + escapeHtml(LL.r) + "</td>"
                     + "<td>" + escapeHtml(LL.dg) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(LL.tp || "") + "</td>"
-                    + "<td style='text-align:center;'>" + (e ? FormatDateString(e) + " " + escapeHtml(LL.tt || "") : "-") + "</td>"
+                    + "<td style='text-align:center;'>" + (e ? FormatDateString(e) + " " + fmtHM(e) : "-") + "</td>"
                     + "<td style='text-align:center; font-weight:600;'>" + gapTxt + "</td></tr>";
                 if (e) prevEnd = e;
             }
