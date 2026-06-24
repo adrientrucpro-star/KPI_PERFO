@@ -726,14 +726,14 @@
                 if (!map.hasOwnProperty(key)) continue;
                 var nc = map[key];
                 var start = null, clot = null, roles = {};
-                var ctDecE = null, ends = [];
+                var ctDecE = null, ends = [], maxEnd = null;
                 for (var j = 0; j < nc.lines.length; j++) {
                     var L = nc.lines[j];
                     var cdt = parseDT(L.cd, L.ct);
                     var edt = parseDT(L.td, L.tt);
                     var cU = (L.c || "").toUpperCase(), rU = (L.r || "").toUpperCase();
                     if (cdt && (!start || cdt < start)) start = cdt;   // = création de la NC
-                    if (edt) ends.push(edt);
+                    if (edt) { ends.push(edt); if (!maxEnd || edt > maxEnd) maxEnd = edt; }   // dernière tâche
                     // Clôture = ligne APQ0 (toujours qualité), Terminé le plus tardif.
                     if (edt && cU === clotCode) { if (!clot || edt > clot) clot = edt; }
                     // 1re décision CT = DEC0 d'un Responsable CT, le Terminé le plus précoce.
@@ -750,22 +750,21 @@
                     }
                     if (procStart === null) procStart = start;   // DEC0 1re étape -> fallback création NC
                 }
-                // DO00 le plus long + durées chez nous / pas chez nous (écarts entre fins, baseline = création NC).
-                var gaps = stepGaps(nc.lines), do00Max = 0, chezMs = 0, pasMs = 0, prevE = start;
+                // DO00 le plus long + temps "chez nous" (étapes par un responsable du tableau 1).
+                // Écart entre fins successives, baseline = création NC ; prevE avance pour TOUTES les étapes.
+                var gaps = stepGaps(nc.lines), do00Max = 0, chezMs = 0, prevE = start;
                 for (var gi = 0; gi < gaps.length; gi++) {
                     if ((gaps[gi].code || "").toUpperCase() === "DO00" && gaps[gi].gap != null && gaps[gi].gap > do00Max) do00Max = gaps[gi].gap;
                     var ge = gaps[gi].end;
-                    if (ge && prevE) {
-                        var dms = ge - prevE; if (dms < 0) dms = 0;
-                        if (t1set[(gaps[gi].r || "").toUpperCase()]) chezMs += dms; else pasMs += dms;
-                    }
+                    if (ge && prevE && t1set[(gaps[gi].r || "").toUpperCase()]) { var dms = ge - prevE; if (dms > 0) chezMs += dms; }
                     if (ge) prevE = ge;
                 }
                 nc.start = start; nc.end = clot;
-                nc.chezMs = chezMs; nc.pasMs = pasMs;
                 nc.hasST = !!roles.ST; nc.hasIQ = !!roles.IQ; nc.hasTL = !!roles.TL;
-                // Temps de traitement = création de la NC -> clôture APQ0 (par 70005848).
-                nc.durMs = (start && clot) ? (clot - start) : null;
+                // Temps de traitement = 1re tâche -> dernière tâche de la NC (création -> dernier "Terminé").
+                nc.durMs = (start && maxEnd) ? (maxEnd - start) : null;
+                nc.chezMs = chezMs;
+                nc.pasMs = (nc.durMs != null) ? Math.max(0, nc.durMs - chezMs) : null;   // = traitement - chez nous
                 // Analysée si : ST + IQ (équipes) ET une clôture qualité APQ0.
                 nc.eligible = nc.hasST && nc.hasIQ && (clot != null);
                 // Décomposition : latence décision CT (arrivée -> décision) puis exécution (décision -> clôture).
