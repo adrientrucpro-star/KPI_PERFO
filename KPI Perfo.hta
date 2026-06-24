@@ -684,13 +684,6 @@
         function RecomputeAll() {
             var rows = appData.rows || [];
             var roleByID = buildRoleByID();
-            // Codes Responsable du tableau 1 : servent à identifier la ligne de clôture (APQ0).
-            var respSet = {};
-            var rdArr = appData.roleDesig || [];
-            for (var x = 0; x < rdArr.length; x++) {
-                var rc = NettoyerChaine(rdArr[x].resp).toUpperCase();
-                if (rc) respSet[rc] = true;
-            }
             var clotCode = (CLOTURE_CODE || "").toUpperCase();
             var decCode = (DECISION_CODE || "").toUpperCase();
             var decSet = {};   // Responsables CT (décision technique)
@@ -714,8 +707,8 @@
                     var edt = parseDT(L.td, L.tt);
                     var cU = (L.c || "").toUpperCase(), rU = (L.r || "").toUpperCase();
                     if (cdt && (!start || cdt < start)) start = cdt;
-                    // Clôture = ligne dont Code = APQ0 ET Responsable est dans le tableau 1 (échéance la plus tardive).
-                    if (edt && cU === clotCode && respSet[rU]) {
+                    // Clôture = ligne dont Code = APQ0 (APQ0 = toujours qualité), échéance la plus tardive.
+                    if (edt && cU === clotCode) {
                         if (!clot || edt > clot) clot = edt;
                     }
                     // 1re décision CT = ligne DEC0 d'un Responsable CT, la plus précoce.
@@ -732,7 +725,7 @@
                 nc.hasST = !!roles.ST; nc.hasIQ = !!roles.IQ; nc.hasTL = !!roles.TL;
                 // Temps de traitement = 1re décision DEC0 (CT) -> clôture APQ0.
                 nc.durMs = (ctDecS && clot) ? (clot - ctDecS) : null;
-                // Analysée si : ST + IQ (équipes) ET une ligne de clôture valide (Responsable du tableau 1).
+                // Analysée si : ST + IQ (équipes) ET une clôture qualité APQ0.
                 nc.eligible = nc.hasST && nc.hasIQ && (clot != null);
                 // Décomposition décision CT / exécution.
                 nc.ctDecStart = ctDecS;
@@ -748,38 +741,23 @@
             ncList.sort(function (a, b) { return parseInt(a.avis,10) - parseInt(b.avis,10); });
         }
 
-        // Explique pourquoi 0 (ou peu de) NC sont analysées : conditions ST/IQ/clôture + codes APQ0 trouvés.
+        // Explique pourquoi 0 (ou peu de) NC sont analysées : conditions ST / IQ / clôture APQ0.
         function DiagnostiquerNC() {
-            var rows = appData.rows || [];
             var clotCode = (CLOTURE_CODE || "").toUpperCase();
-            var respSet = {}; var rd = appData.roleDesig || [];
-            for (var i = 0; i < rd.length; i++) { var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (rc) respSet[rc] = true; }
-            var total = ncList.length, nST = 0, nIQ = 0, nClot = 0, nElig = 0;
+            var total = ncList.length, nST = 0, nIQ = 0, nClot = 0;
             for (var j = 0; j < ncList.length; j++) {
                 if (ncList[j].hasST) nST++;
                 if (ncList[j].hasIQ) nIQ++;
                 if (ncList[j].end) nClot++;
-                if (ncList[j].eligible) nElig++;
             }
-            var apq = {};
-            for (var k = 0; k < rows.length; k++) {
-                if ((rows[k].c || "").toUpperCase() === clotCode) { var r = rows[k].r || "(vide)"; apq[r] = (apq[r] || 0) + 1; }
-            }
-            var apqHtml = "";
-            for (var code in apq) {
-                if (!apq.hasOwnProperty(code)) continue;
-                var inT1 = respSet[code.toUpperCase()];
-                apqHtml += "<li><b>" + escapeHtml(code) + "</b> (" + apq[code] + " lignes " + clotCode + ") - "
-                    + (inT1 ? "<span style='color:#166534;'>présent dans le tableau 1</span>" : "<span style='color:#b91c1c; font-weight:700;'>ABSENT du tableau 1</span>") + "</li>";
-            }
-            if (apqHtml === "") apqHtml = "<li style='color:#b91c1c; font-weight:700;'>Aucune ligne " + clotCode + " trouvée dans l'extract (les NC ne sont peut-être pas clôturées qualité).</li>";
             return "<div class='msg-box' style='background:#fffbeb; border:1px solid #fde68a; color:#92400e; margin-top:10px; text-align:left;'>"
                 + "<b>Diagnostic - pourquoi 0 NC analysée ?</b><br>"
-                + "Sur <b>" + total + "</b> NC détectées : <b>" + nST + "</b> avec un ST reconnu, <b>" + nIQ + "</b> avec un IQ reconnu, <b>" + nClot + "</b> avec une clôture " + clotCode + " reconnue.<br>"
-                + "Une NC est analysée seulement si elle a <b>ST + IQ + une clôture " + clotCode + "</b> par un Responsable du tableau 1.<br><br>"
-                + "<u>Codes Responsable trouvés sur les lignes " + clotCode + " :</u><ul style='margin:6px 0 6px 18px;'>" + apqHtml + "</ul>"
+                + "Une NC est analysée si elle a <b>un ST + un IQ (équipes) + une clôture " + clotCode + "</b>.<br>"
+                + "Sur <b>" + total + "</b> NC détectées : <b>" + nST + "</b> avec un ST reconnu, <b>" + nIQ + "</b> avec un IQ reconnu, <b>" + nClot + "</b> avec une clôture " + clotCode + ".<br>"
+                + (nClot === 0 ? "&#9654; <b>Aucune clôture " + clotCode + "</b> : tes NC n'ont pas de ligne " + clotCode + " (pas clôturées qualité ?).<br>" : "")
                 + (nST === 0 ? "&#9654; <b>Aucun ST reconnu</b> : dans Paramètres, l'équipe ST doit contenir des <i>User</i> qui apparaissent dans les colonnes Responsable ou Terminé par de tes NC.<br>" : "")
                 + (nIQ === 0 ? "&#9654; <b>Aucun IQ reconnu</b> : idem pour l'équipe IQ.<br>" : "")
+                + ((nST > 0 && nIQ > 0 && nClot > 0) ? "Les trois conditions existent séparément mais jamais réunies sur une même NC." : "")
                 + "</div>";
         }
 
@@ -1222,7 +1200,7 @@
                 var gapTxt = (gap == null || gap < 0) ? "-" : fmtDHM(gap);
                 var bg = "";
                 if (cU === decCode && decS[rU] && !decMarked) { bg = "background:#FAEEDA;"; decMarked = true; }  // DEC0 (CT) orange
-                else if (cU === clotCode && clotS[rU]) { bg = "background:#EAF3DE;"; }                            // APQ0 clôture verte
+                else if (cU === clotCode) { bg = "background:#EAF3DE;"; }                            // APQ0 clôture verte
                 rows += "<tr style='" + bg + "'><td style='font-weight:700; text-align:center;'>" + escapeHtml(LL.c) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(LL.r) + "</td>"
                     + "<td>" + escapeHtml(LL.dg) + "</td>"
