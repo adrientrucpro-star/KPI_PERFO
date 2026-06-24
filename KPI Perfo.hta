@@ -1419,7 +1419,7 @@
                 + "<div style='overflow:hidden; margin-bottom:16px;'>"
                 + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span> <span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
                 + "<div style='float:right;'>"
-                + "<button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(nc.avis) + "')\" title='Afficher la NC' style='display:inline-block; vertical-align:middle; padding:6px 10px; border-radius:6px; background:#0C447C; color:#fff; border:none; cursor:pointer; margin-right:8px;'>"
+                + "<button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(nc.avis) + "', this)\" title='Afficher la NC' style='display:inline-block; vertical-align:middle; padding:6px 10px; border-radius:6px; background:#0C447C; color:#fff; border:none; cursor:pointer; margin-right:8px;'>"
                 + "<svg width='15' height='15' viewBox='0 0 24 24' style='vertical-align:middle; display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg>"
                 + "</button>"
                 + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#E6F1FB; color:#0C447C;'>Traitement global : " + fmtDHM(nc.durMs) + "</span>"
@@ -1437,10 +1437,12 @@
             appData.comments[avis] = NettoyerChaine(val);
             SaveData();
         }
-        // Ouvre l'avis dans SAP PEA (transaction QM03). Curseur "chargement" pendant l'exécution.
-        function OuvrirNCSap(avis) {
+        // Ouvre l'avis dans SAP PEA (transaction QM03). Curseur "sablier" pendant l'exécution
+        // (sur le bouton ET le body), comme lors de l'extraction.
+        function OuvrirNCSap(avis, btn) {
+            if (btn) btn.style.cursor = 'wait';
             document.body.style.cursor = 'wait';
-            setTimeout(function () {   // laisse le curseur s'afficher avant l'appel SAP bloquant
+            setTimeout(function () {   // 80 ms : laisse le curseur se rafraîchir avant l'appel SAP bloquant
                 try {
                     var res = VBS_OuvrirQM03(avis);
                     if (!res || res.indexOf("ERREUR") !== -1) AfficherErreur(res || "Erreur inconnue lors de l'ouverture SAP.");
@@ -1448,7 +1450,8 @@
                     AfficherErreur("Erreur : " + e.message);
                 }
                 document.body.style.cursor = '';
-            }, 30);
+                if (btn) btn.style.cursor = 'pointer';
+            }, 80);
         }
         function tagHtml(txt, bg, col) {
             return "<span style='display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; background:" + bg + "; color:" + col + ";'>" + txt + "</span>";
@@ -1658,8 +1661,8 @@
                 <div style="clear:both; margin-bottom:18px;"></div>
 
                 <div class="card" style="margin-bottom:16px; padding:16px 20px;">
-                    <h3 style="margin-top:0; margin-bottom:14px;">Mode de calcul des durées</h3>
-                    <div id="calcModePanel"></div>
+                    <h3 style="margin:0; display:inline-block; vertical-align:middle; margin-right:28px;">Mode de calcul des durées</h3>
+                    <div id="calcModePanel" style="display:inline-block; vertical-align:middle;"></div>
                 </div>
 
                 <div style="font-size:0; margin:0 -8px;">
