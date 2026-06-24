@@ -675,17 +675,17 @@
             return isNaN(dt.getTime()) ? null : dt;
         }
 
-        // Durée de chaque étape = écart entre sa fin (Terminé) et la fin de l'étape précédente
-        // (la colonne "créé" étant constante = création NC, elle est inutilisable). Étapes triées par fin.
+        // Durée de chaque étape = écart entre sa fin (Terminé) et la fin de l'étape précédente,
+        // dans l'ORDRE DE L'EXTRACT (Nº) — comme l'affichage du parcours. La colonne "créé" est
+        // constante (= création NC) donc inutilisable. Un écart négatif (étape quasi-simultanée
+        // finissant avant la précédente) est ignoré (null).
         function stepGaps(lines) {
-            var arr = [];
-            for (var i = 0; i < lines.length; i++) { arr.push({ L: lines[i], e: parseDT(lines[i].td, lines[i].tt) }); }
-            arr.sort(function (a, b) { if (!a.e) return 1; if (!b.e) return -1; return a.e - b.e; });
             var out = [], prev = null;
-            for (var j = 0; j < arr.length; j++) {
-                var gap = (arr[j].e && prev) ? (arr[j].e - prev) : null;
-                out.push({ code: (arr[j].L.c || ""), r: (arr[j].L.r || ""), dg: (arr[j].L.dg || ""), end: arr[j].e, gap: (gap != null && gap >= 0) ? gap : null });
-                if (arr[j].e) prev = arr[j].e;
+            for (var j = 0; j < lines.length; j++) {
+                var e = parseDT(lines[j].td, lines[j].tt);
+                var gap = (e && prev) ? (e - prev) : null;
+                out.push({ code: (lines[j].c || ""), r: (lines[j].r || ""), dg: (lines[j].dg || ""), end: e, gap: (gap != null && gap >= 0) ? gap : null });
+                if (e) prev = e;
             }
             return out;
         }
