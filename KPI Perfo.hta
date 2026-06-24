@@ -560,70 +560,67 @@
     // ==========================================================
         // Lance l'extraction SAP QM13 puis analyse le fichier généré.
         function LancerExtractionSAP() {
-            var info = document.getElementById('importInfo');
             var btn = document.getElementById('btnExtract');
             var dateVal = NettoyerChaine(document.getElementById('extractDate').value);
             if (!dateVal) { AfficherErreur("Choisis une date de début d'extraction."); return; }
             var dateSAP = dateVal.replace(/\//g, '.');   // JJ/MM/AAAA -> JJ.MM.AAAA
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction…"; }
-            info.innerHTML = "<div class='msg-box msg-info'>Extraction SAP en cours… ne touche pas à SAP pendant l'opération.</div>";
             setTimeout(function () {
                 try {
                     var res = VBS_ExtractQM13(dateSAP);
                     if (res && res.indexOf("ERREUR") === -1) {
                         var sh = new ActiveXObject("WScript.Shell");
                         var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_NC.txt";
-                        LireEtAnalyser(path);   // parse + sauvegarde + recalcul + rendu liste
+                        LireEtAnalyser(path);   // parse + sauvegarde + recalcul + rendu liste + MsgBox résultat
                     } else {
-                        info.innerHTML = "<div class='msg-box msg-error'>" + escapeHtml(res || "Erreur inconnue") + "</div>";
+                        AfficherErreur(res || "Erreur inconnue lors de l'extraction.");
                     }
                 } catch (e) {
-                    info.innerHTML = "<div class='msg-box msg-error'>Erreur : " + escapeHtml(e.message) + "</div>";
+                    AfficherErreur("Erreur : " + e.message);
                 }
                 if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Lancer l'extraction"; }
             }, 80);
         }
         function LireEtAnalyser(path) {
-            var info = document.getElementById('importInfo');
-            info.innerHTML = "<div class='msg-box msg-info'>Lecture en cours…</div>";
-            setTimeout(function () {
-                try {
-                    var fso = new ActiveXObject("Scripting.FileSystemObject");
-                    if (!fso.FileExists(path)) { info.innerHTML = "<div class='msg-box msg-error'>Fichier introuvable : " + escapeHtml(path) + "</div>"; return; }
-                    var ts = fso.OpenTextFile(path, 1, false, 0); // 0 = ANSI (Windows-1252)
-                    var content = ts.ReadAll(); ts.Close();
-                    var rows = ParseExport(content);
-                    if (rows.length === 0) { info.innerHTML = "<div class='msg-box msg-error'>Aucune ligne exploitable détectée (format inattendu).</div>"; return; }
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) { AfficherErreur("Fichier introuvable :\n" + path); return; }
+                var ts = fso.OpenTextFile(path, 1, false, 0); // 0 = ANSI (Windows-1252)
+                var content = ts.ReadAll(); ts.Close();
+                var rows = ParseExport(content);
+                if (rows.length === 0) { AfficherErreur("Aucune ligne exploitable détectée (format inattendu)."); return; }
 
-                    // Fusion avec l'historique : on n'ajoute QUE les NC non déjà présentes (déjà analysées = ignorées).
-                    var cur = appData.rows || [], existing = {};
-                    for (var x = 0; x < cur.length; x++) existing[cur[x].a] = true;
-                    var addedAvis = {}, skippedAvis = {};
-                    for (var y = 0; y < rows.length; y++) {
-                        var av = rows[y].a;
-                        if (existing[av]) { skippedAvis[av] = true; }
-                        else { cur.push(rows[y]); addedAvis[av] = true; }
-                    }
-                    appData.rows = cur;
-                    appData.lastImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
-                    RecomputeAll();   // calcule l'éligibilité AVANT la sauvegarde
-                    SaveData();
-
-                    var nbAdded = 0; for (var ka in addedAvis) { if (addedAvis.hasOwnProperty(ka)) nbAdded++; }
-                    var nbSkipped = 0; for (var ks in skippedAvis) { if (skippedAvis.hasOwnProperty(ks)) nbSkipped++; }
-                    var nbElig = 0; for (var e = 0; e < ncList.length; e++) { if (ncList[e].eligible) nbElig++; }
-                    info.innerHTML = "<div class='msg-box msg-info'>Extraction OK · <b>" + nbAdded + "</b> nouvelle(s) NC"
-                        + (nbSkipped > 0 ? " · " + nbSkipped + " déjà présente(s) ignorée(s)" : "")
-                        + " · <b>" + nbElig + "</b> NC analysées au total.</div>"
-                        + (nbElig === 0 ? DiagnostiquerNC() : "");
-                    var lbl = document.getElementById('lastExtractDate'); if (lbl) lbl.innerText = appData.lastImport || "";
-                    var edI = document.getElementById('extractDate'); if (edI) edI.value = NettoyerChaine(appData.lastImport).split(' ')[0];
-                    RenderListe();
-                } catch (e) {
-                    info.innerHTML = "<div class='msg-box msg-error'>Erreur de lecture : " + escapeHtml(e.message) + "</div>";
+                // Fusion avec l'historique : on n'ajoute QUE les NC non déjà présentes (déjà analysées = ignorées).
+                var cur = appData.rows || [], existing = {};
+                for (var x = 0; x < cur.length; x++) existing[cur[x].a] = true;
+                var addedAvis = {}, skippedAvis = {};
+                for (var y = 0; y < rows.length; y++) {
+                    var av = rows[y].a;
+                    if (existing[av]) { skippedAvis[av] = true; }
+                    else { cur.push(rows[y]); addedAvis[av] = true; }
                 }
+                appData.rows = cur;
+                appData.lastImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
+                RecomputeAll();   // calcule l'éligibilité AVANT la sauvegarde
+                SaveData();
+
+                var nbAdded = 0; for (var ka in addedAvis) { if (addedAvis.hasOwnProperty(ka)) nbAdded++; }
+                var nbSkipped = 0; for (var ks in skippedAvis) { if (skippedAvis.hasOwnProperty(ks)) nbSkipped++; }
+                var nbElig = 0; for (var e = 0; e < ncList.length; e++) { if (ncList[e].eligible) nbElig++; }
+                var lbl = document.getElementById('lastExtractDate'); if (lbl) lbl.innerText = appData.lastImport || "";
+                var edI = document.getElementById('extractDate'); if (edI) edI.value = NettoyerChaine(appData.lastImport).split(' ')[0];
+                RenderListe();
                 setTimeout(EgaliserHauteursExtraction, 30);
-            }, 60);
+
+                var msg = "Extraction terminée.\n\n"
+                    + nbAdded + " nouvelle(s) NC ajoutée(s)\n"
+                    + (nbSkipped > 0 ? nbSkipped + " déjà présente(s) ignorée(s)\n" : "")
+                    + nbElig + " NC analysées au total.";
+                if (nbElig === 0) msg += "\n\n" + DiagnostiquerNCTexte();
+                alert(msg);
+            } catch (e) {
+                AfficherErreur("Erreur de lecture : " + e.message);
+            }
         }
 
         function ParseExport(content) {
@@ -745,8 +742,8 @@
             ncList.sort(function (a, b) { return parseInt(a.avis,10) - parseInt(b.avis,10); });
         }
 
-        // Explique pourquoi 0 (ou peu de) NC sont analysées : conditions ST / IQ / clôture APQ0.
-        function DiagnostiquerNC() {
+        // Explique (texte pour MsgBox) pourquoi 0 NC analysée : conditions ST / IQ / clôture APQ0.
+        function DiagnostiquerNCTexte() {
             var clotCode = (CLOTURE_CODE || "").toUpperCase();
             var total = ncList.length, nST = 0, nIQ = 0, nClot = 0;
             for (var j = 0; j < ncList.length; j++) {
@@ -754,15 +751,13 @@
                 if (ncList[j].hasIQ) nIQ++;
                 if (ncList[j].end) nClot++;
             }
-            return "<div class='msg-box' style='background:#fffbeb; border:1px solid #fde68a; color:#92400e; margin-top:10px; text-align:left;'>"
-                + "<b>Diagnostic - pourquoi 0 NC analysée ?</b><br>"
-                + "Une NC est analysée si elle a <b>un ST + un IQ (équipes) + une clôture " + clotCode + "</b>.<br>"
-                + "Sur <b>" + total + "</b> NC détectées : <b>" + nST + "</b> avec un ST reconnu, <b>" + nIQ + "</b> avec un IQ reconnu, <b>" + nClot + "</b> avec une clôture " + clotCode + ".<br>"
-                + (nClot === 0 ? "&#9654; <b>Aucune clôture " + clotCode + "</b> : tes NC n'ont pas de ligne " + clotCode + " (pas clôturées qualité ?).<br>" : "")
-                + (nST === 0 ? "&#9654; <b>Aucun ST reconnu</b> : dans Paramètres, l'équipe ST doit contenir des <i>User</i> qui apparaissent dans les colonnes Responsable ou Terminé par de tes NC.<br>" : "")
-                + (nIQ === 0 ? "&#9654; <b>Aucun IQ reconnu</b> : idem pour l'équipe IQ.<br>" : "")
-                + ((nST > 0 && nIQ > 0 && nClot > 0) ? "Les trois conditions existent séparément mais jamais réunies sur une même NC." : "")
-                + "</div>";
+            var t = "Pourquoi 0 NC analysée ?\n";
+            t += "Une NC est analysée si elle a un ST + un IQ + une clôture " + clotCode + ".\n";
+            t += "Sur " + total + " NC : " + nST + " avec un ST, " + nIQ + " avec un IQ, " + nClot + " avec une clôture " + clotCode + ".\n";
+            if (nClot === 0) t += "- Aucune clôture " + clotCode + " (NC pas clôturées qualité ?).\n";
+            if (nST === 0) t += "- Aucun ST reconnu : vérifie l'équipe ST dans Paramètres.\n";
+            if (nIQ === 0) t += "- Aucun IQ reconnu : vérifie l'équipe IQ dans Paramètres.\n";
+            return t;
         }
 
     // ==========================================================
@@ -1381,7 +1376,6 @@
                                 <button id="btnExtract" class="btn-toolbar" onclick="LancerExtractionSAP()">Lancer l'extraction</button>
                                 <span style="display:inline-block; margin-left:14px; padding:8px 16px; height:38px; line-height:20px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; vertical-align:bottom;">Dernière extraction : <b id="lastExtractDate">-</b></span>
                             </div>
-                            <div id="importInfo"></div>
                         </div>
                     </div>
                     <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
