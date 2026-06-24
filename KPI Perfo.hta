@@ -612,12 +612,8 @@
                 RenderListe();
                 setTimeout(EgaliserHauteursExtraction, 30);
 
-                var msg = "Extraction terminée.\n\n"
-                    + nbAdded + " nouvelle(s) NC ajoutée(s)\n"
-                    + (nbSkipped > 0 ? nbSkipped + " déjà présente(s) ignorée(s)\n" : "")
-                    + nbElig + " NC analysées au total.";
-                if (nbElig === 0) msg += "\n\n" + DiagnostiquerNCTexte();
-                alert(msg);
+                // Pas de popup de résultat en cas de succès ; alerte seulement si aucune NC analysée.
+                if (nbElig === 0) alert("Extraction terminée, mais aucune NC analysée.\n\n" + DiagnostiquerNCTexte());
             } catch (e) {
                 AfficherErreur("Erreur de lecture : " + e.message);
             }
