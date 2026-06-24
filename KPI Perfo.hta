@@ -355,6 +355,10 @@
             if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
             if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
             if (!NettoyerChaine(appData.cfg.decResp)) appData.cfg.decResp = DECISION_RESP;
+            if (!appData.calc) appData.calc = {};           // mode de calcul des durées
+            if (!appData.calc.mode) appData.calc.mode = 'cal';      // 'cal' = heures normales, 'ouvre' = jours ouvrés
+            if (!appData.calc.hStart) appData.calc.hStart = '08:00';
+            if (!appData.calc.hEnd) appData.calc.hEnd = '17:00';
             // Migration tableau 1 vers {resp, nom, type} : anciennes entrées = "int" ; respAutres -> "ext".
             for (var mi = 0; mi < appData.roleDesig.length; mi++) { if (appData.roleDesig[mi].type === undefined) appData.roleDesig[mi].type = "int"; }
             if (appData.respAutres && appData.respAutres.length) {
@@ -382,6 +386,7 @@
                     teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
                     comments: savedComments,
                     cfg: appData.cfg || {},
+                    calc: appData.calc || {},
                     lastImport: appData.lastImport || ""
                 };
                 var fso = new ActiveXObject("Scripting.FileSystemObject");
@@ -692,6 +697,31 @@
             return isNaN(dt.getTime()) ? null : dt;
         }
 
+        function parseHM(s) { var p = ("" + (s || "")).split(':'); return { h: parseInt(p[0] || 0, 10) || 0, m: parseInt(p[1] || 0, 10) || 0 }; }
+
+        // Durée entre 2 dates selon le mode choisi (Paramètres) :
+        //  - "cal"   : heures normales (calendaire 24/7) = b - a
+        //  - "ouvre" : jours ouvrés (lun-ven) + uniquement les heures travaillées [hStart;hEnd]
+        function durBetween(a, b) {
+            if (!a || !b || b <= a) return 0;
+            var c = appData.calc || {};
+            if ((c.mode || 'cal') !== 'ouvre') return b - a;
+            var ws = parseHM(c.hStart || '08:00'), we = parseHM(c.hEnd || '17:00');
+            var aMs = a.getTime(), bMs = b.getTime(), total = 0;
+            var cur = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+            while (cur.getTime() <= bMs) {
+                var dow = cur.getDay();   // 0=dim, 6=sam
+                if (dow >= 1 && dow <= 5) {
+                    var wStart = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), ws.h, ws.m, 0).getTime();
+                    var wEnd = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), we.h, we.m, 0).getTime();
+                    var s = Math.max(aMs, wStart), e = Math.min(bMs, wEnd);
+                    if (e > s) total += (e - s);
+                }
+                cur.setDate(cur.getDate() + 1);
+            }
+            return total;
+        }
+
         // Durée d'une tâche = écart entre sa RÉCEPTION (fin de la tâche précédente, ou création NC
         // pour la 1re) et son PASSAGE (sa propre fin "Terminé"). Tâches triées par Nº (dernière
         // colonne de l'extract). Un écart négatif est ignoré (null).
@@ -702,8 +732,8 @@
             var out = [], prev = creation;   // réception de la 1re tâche = création NC
             for (var j = 0; j < arr.length; j++) {
                 var e = parseDT(arr[j].td, arr[j].tt);
-                var gap = (e && prev) ? (e - prev) : null;
-                out.push({ code: (arr[j].c || ""), r: (arr[j].r || ""), tp: (arr[j].tp || ""), dg: (arr[j].dg || ""), end: e, gap: (gap != null && gap >= 0) ? gap : null });
+                var gap = (e && prev && e > prev) ? durBetween(prev, e) : null;
+                out.push({ code: (arr[j].c || ""), r: (arr[j].r || ""), tp: (arr[j].tp || ""), dg: (arr[j].dg || ""), end: e, gap: gap });
                 if (e) prev = e;
             }
             return out;
@@ -772,7 +802,7 @@
                 nc.hasST = !!roles.ST; nc.hasIQ = !!roles.IQ; nc.hasTL = !!roles.TL;
                 nc.hasCT = hasCT; nc.hasClot = hasClot;
                 // Traitement global = création -> dernière fin (1re à dernière date/heure).
-                nc.durMs = (start && maxEnd) ? (maxEnd - start) : null;
+                nc.durMs = (start && maxEnd) ? durBetween(start, maxEnd) : null;
                 nc.chezMs = chezMs;
                 nc.pasMs = (nc.durMs != null) ? Math.max(0, nc.durMs - chezMs) : null;
                 // Analysée si : tâche CT interne (user équipe) ET APQ0 interne (user équipe).
@@ -811,11 +841,22 @@
             return (Math.round(totalH * 10) / 10) + " h";
         }
         // Format jour / heure / minute (ex : "2 j 5 h 12 min").
+        // Longueur d'un "jour" pour l'affichage : 24h en mode calendaire, durée travaillée en mode ouvré.
+        function dayMs() {
+            var c = appData.calc || {};
+            if ((c.mode || 'cal') === 'ouvre') {
+                var ws = parseHM(c.hStart || '08:00'), we = parseHM(c.hEnd || '17:00');
+                var wm = (we.h * 60 + we.m) - (ws.h * 60 + ws.m);
+                if (wm > 0) return wm * 60000;
+            }
+            return 86400000;
+        }
         function fmtDHM(ms) {
             if (ms == null || isNaN(ms)) return "-";
             var totalMin = Math.round(ms / 60000);
             if (totalMin < 0) return "-";
-            var d = Math.floor(totalMin / 1440); totalMin -= d * 1440;
+            var dayMin = Math.round(dayMs() / 60000);
+            var d = Math.floor(totalMin / dayMin); totalMin -= d * dayMin;
             var h = Math.floor(totalMin / 60); var m = totalMin - h * 60;
             var parts = [];
             if (d > 0) parts.push(d + " j");
@@ -823,7 +864,7 @@
             if (m > 0 || parts.length === 0) parts.push(m + " min");
             return parts.join(" ");
         }
-        function days(ms) { return ms / 86400000; }
+        function days(ms) { return ms / dayMs(); }
         function round1(x) { return Math.round(x * 10) / 10; }
         function frNum(x) { return (""+x).replace(".", ","); }
 
@@ -854,8 +895,40 @@
 
         function RenderParametres() {
             UpdateParamsButtons();
+            RenderCalcMode();
             RenderRolesTable();
             RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
+        }
+        // Panneau "Mode de calcul des durées" (toujours actif, indépendant du mode édition).
+        function RenderCalcMode() {
+            var cont = document.getElementById('calcModePanel');
+            if (!cont) return;
+            var c = appData.calc || {}, ouvre = (c.mode || 'cal') === 'ouvre';
+            var dis = ouvre ? "" : " disabled";
+            var fade = ouvre ? "" : " opacity:0.5;";
+            cont.innerHTML =
+                "<div style='display:inline-block; vertical-align:middle; margin-right:26px;'>"
+                + "<label style='display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;'>Mode</label>"
+                + "<select class='input-text' style='width:230px; cursor:pointer;' onchange=\"UpdateCalc('mode', this.value)\">"
+                + "<option value='cal'" + (ouvre ? "" : " selected") + ">Heures normales (24h / 7j)</option>"
+                + "<option value='ouvre'" + (ouvre ? " selected" : "") + ">Jours ouvrés (heures travaillées)</option>"
+                + "</select></div>"
+                + "<div style='display:inline-block; vertical-align:middle; margin-right:18px;" + fade + "'>"
+                + "<label style='display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;'>Heure de début</label>"
+                + "<input type='text' class='input-text' style='width:90px; text-align:center;' value='" + escapeHtml(c.hStart || '08:00') + "' onchange=\"UpdateCalc('hStart', this.value)\"" + dis + "></div>"
+                + "<div style='display:inline-block; vertical-align:middle;" + fade + "'>"
+                + "<label style='display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;'>Heure de fin</label>"
+                + "<input type='text' class='input-text' style='width:90px; text-align:center;' value='" + escapeHtml(c.hEnd || '17:00') + "' onchange=\"UpdateCalc('hEnd', this.value)\"" + dis + "></div>"
+                + "<div style='font-size:12px; color:#64748b; margin-top:8px;'>Jours ouvrés = lundi à vendredi. Les heures travaillées ne s'appliquent qu'en mode « Jours ouvrés ».</div>";
+        }
+        function UpdateCalc(key, val) {
+            if (!appData.calc) appData.calc = {};
+            if (key === 'hStart' || key === 'hEnd') { var p = parseHM(val); val = (p.h < 10 ? '0' + p.h : '' + p.h) + ':' + (p.m < 10 ? '0' + p.m : '' + p.m); }
+            appData.calc[key] = NettoyerChaine(val);
+            RecomputeAll(); SaveData(); RenderCalcMode();
+            try { RenderDashboard(); } catch (e) {}
+            try { RenderListe(); } catch (e) {}
+            try { RenderParcours(); } catch (e) {}
         }
         function UpdateParamsButtons() {
             var e = document.getElementById('btnParamsEdit');
@@ -1282,8 +1355,8 @@
                 var LL = lines[j];
                 var e = parseDT(LL.td, LL.tt);
                 var rU = (LL.r || "").toUpperCase();
-                var gap = (e && prevEnd) ? (e - prevEnd) : null;
-                var gapTxt = (gap == null || gap < 0) ? "-" : fmtDHM(gap);
+                var gap = (e && prevEnd && e > prevEnd) ? durBetween(prevEnd, e) : null;
+                var gapTxt = (gap == null) ? "-" : fmtDHM(gap);
                 var bg = "";
                 if (rU === "70005847" || rU === "70009001") bg = "background:#FAEEDA;";   // orange-jaune (CT)
                 else if (rU === "70005852") bg = "background:#DBEAFE;";                    // bleu (Prod)
@@ -1522,6 +1595,11 @@
                     <button id="btnParamsCancel" class="btn-toolbar btn-grey" style="display:none; margin-left:6px;" onclick="ParamsAnnuler()">Annuler</button>
                 </div>
                 <div style="clear:both; margin-bottom:18px;"></div>
+
+                <div class="card" style="margin-bottom:16px; padding:16px 20px;">
+                    <h3 style="margin-top:0; margin-bottom:14px;">Mode de calcul des durées</h3>
+                    <div id="calcModePanel"></div>
+                </div>
 
                 <div style="font-size:0; margin:0 -8px;">
                     <div style="display:inline-block; vertical-align:top; width:25%; padding:0 8px; box-sizing:border-box;">
