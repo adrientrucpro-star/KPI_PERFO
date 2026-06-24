@@ -349,6 +349,15 @@
             if (!appData.teamTL) appData.teamTL = [];
             if (!appData.teamIQ) appData.teamIQ = [];
             if (!appData.comments) appData.comments = {};   // commentaires par NC : { "<avis>": "texte" }
+            // Migration tableau 1 vers {resp, nom, type} : anciennes entrées = "int" ; respAutres -> "ext".
+            for (var mi = 0; mi < appData.roleDesig.length; mi++) { if (appData.roleDesig[mi].type === undefined) appData.roleDesig[mi].type = "int"; }
+            if (appData.respAutres && appData.respAutres.length) {
+                for (var ami = 0; ami < appData.respAutres.length; ami++) {
+                    var raM = appData.respAutres[ami];
+                    if (NettoyerChaine(raM.resp) !== "") appData.roleDesig.push({ resp: raM.resp, nom: raM.nom || "", type: "ext" });
+                }
+            }
+            appData.respAutres = [];
         }
         function SaveData() {
             try {
@@ -364,7 +373,6 @@
                 var toSave = {
                     rows: savedRows,
                     roleDesig: appData.roleDesig || [],
-                    respAutres: appData.respAutres || [],
                     teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
                     comments: savedComments,
                     lastImport: appData.lastImport || ""
@@ -714,9 +722,9 @@
             var decSet = {};   // Responsables CT (décision technique)
             var da = (DECISION_RESP || "").split(";");
             for (var y = 0; y < da.length; y++) { var dc = NettoyerChaine(da[y]).toUpperCase(); if (dc) decSet[dc] = true; }
-            var t1set = {};    // Responsables "chez nous" = ceux du tableau 1
+            var t1set = {};    // Responsables "chez nous" = tableau 1 de type INTERNE
             var rdT = appData.roleDesig || [];
-            for (var w0 = 0; w0 < rdT.length; w0++) { var rcc = NettoyerChaine(rdT[w0].resp).toUpperCase(); if (rcc) t1set[rcc] = true; }
+            for (var w0 = 0; w0 < rdT.length; w0++) { if ((rdT[w0].type || "int") === "int") { var rcc = NettoyerChaine(rdT[w0].resp).toUpperCase(); if (rcc) t1set[rcc] = true; } }
             var map = {};
             for (var i = 0; i < rows.length; i++) {
                 var r = rows[i], k = r.a;
@@ -852,14 +860,12 @@
             return Math.max(8, Math.floor(((window.innerHeight || 800) - 320) / 38));
         }
         function cloneObj(o) { return eval('(' + toJSON(o) + ')'); }
-        function padRoleDesig() { while (appData.roleDesig.length < PARAM_EDIT_ROWS) appData.roleDesig.push({ resp: "", nom: "" }); }
-        function padRespAutres() { while (appData.respAutres.length < PARAM_EDIT_ROWS) appData.respAutres.push({ resp: "", nom: "" }); }
+        function padRoleDesig() { while (appData.roleDesig.length < PARAM_EDIT_ROWS) appData.roleDesig.push({ resp: "", nom: "", type: "int" }); }
         function padTeam(role) { var a = teamArr(role); while (a.length < PARAM_EDIT_ROWS) a.push({ user: "", nom: "" }); }
 
         function RenderParametres() {
             UpdateParamsButtons();
             RenderRolesTable();
-            RenderRespAutres();
             RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
         }
         function UpdateParamsButtons() {
@@ -874,18 +880,16 @@
             isEditingParams = true;
             paramsBackup = {
                 roleDesig: cloneObj(appData.roleDesig),
-                respAutres: cloneObj(appData.respAutres),
                 teamST: cloneObj(appData.teamST),
                 teamTL: cloneObj(appData.teamTL),
                 teamIQ: cloneObj(appData.teamIQ)
             };
             PARAM_EDIT_ROWS = computeParamRows();
-            padRoleDesig(); padRespAutres(); padTeam("ST"); padTeam("TL"); padTeam("IQ");
+            padRoleDesig(); padTeam("ST"); padTeam("TL"); padTeam("IQ");
             RenderParametres();
         }
         function ParamsValider() {
             appData.roleDesig = cleanRoleDesig(appData.roleDesig);
-            appData.respAutres = cleanRoleDesig(appData.respAutres);
             appData.teamST = cleanTeam(appData.teamST);
             appData.teamTL = cleanTeam(appData.teamTL);
             appData.teamIQ = cleanTeam(appData.teamIQ);
@@ -897,7 +901,6 @@
         function ParamsAnnuler() {
             if (paramsBackup) {
                 appData.roleDesig = paramsBackup.roleDesig;
-                appData.respAutres = paramsBackup.respAutres;
                 appData.teamST = paramsBackup.teamST;
                 appData.teamTL = paramsBackup.teamTL;
                 appData.teamIQ = paramsBackup.teamIQ;
@@ -906,9 +909,7 @@
             RenderParametres();
         }
         function cleanRoleDesig(a) {
-            var o = []; for (var i = 0; i < a.length; i++) {
-                if (NettoyerChaine(a[i].resp) !== "" || NettoyerChaine(a[i].nom || a[i].desig) !== "" || a[i].role) o.push(a[i]);
-            } return o;
+            var o = []; for (var i = 0; i < a.length; i++) { if (NettoyerChaine(a[i].resp) !== "") o.push(a[i]); } return o;
         }
         function cleanTeam(a) {
             var o = []; for (var i = 0; i < a.length; i++) {
@@ -916,67 +917,60 @@
             } return o;
         }
 
-        // --- Tableau 1 : Responsable + Nom de liste (registre, saisi manuellement) ---
-        // Les rôles sont attribués via les équipes ST/TL/IQ (tableaux 2/3/4).
+        // Responsables distincts trouvés dans les extracts (code -> désignation), pour les listes déroulantes.
+        function extractRespMap() {
+            var m = {}, rows = appData.rows || [];
+            for (var i = 0; i < rows.length; i++) { var r = NettoyerChaine(rows[i].r); if (r) m[r] = rows[i].dg || m[r] || ""; }
+            return m;
+        }
+        function respOptionsHtml(selected) {
+            var m = extractRespMap(), codes = [];
+            for (var c in m) { if (m.hasOwnProperty(c)) codes.push(c); }
+            codes.sort();
+            var h = "<option value=''></option>";
+            for (var i = 0; i < codes.length; i++) {
+                h += "<option value='" + escapeHtml(codes[i]) + "'" + (codes[i] === selected ? " selected" : "") + ">" + escapeHtml(codes[i]) + " - " + escapeHtml(m[codes[i]]) + "</option>";
+            }
+            return h;
+        }
+
+        // --- Tableau 1 : Responsable (liste depuis extracts) + Nom (auto) + Type (interne/externe) ---
         function RenderRolesTable() {
             var cont = document.getElementById('rolesContainer');
             var arr = appData.roleDesig || [];
             var ed = isEditingParams;
-            var html = "<table class='data-table param-grid'><thead><tr><th width='30%' style='padding:10px 6px; text-align:center;'>Responsable</th><th style='padding:10px 6px; text-align:center;'>Nom de liste</th></tr></thead><tbody>";
+            var html = "<table class='data-table param-grid'><thead><tr><th width='32%' style='padding:10px 6px; text-align:center;'>Responsable</th><th style='padding:10px 6px; text-align:center;'>Nom</th><th width='22%' style='padding:10px 6px; text-align:center;'>Type</th></tr></thead><tbody>";
             for (var i = 0; i < arr.length; i++) {
-                var nomVal = arr[i].nom || arr[i].desig || "";
+                var resp = arr[i].resp || "", nom = arr[i].nom || arr[i].desig || "", type = arr[i].type || "int";
                 if (ed) {
                     html += "<tr>"
-                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='text-align:center;' value='" + escapeHtml(arr[i].resp || "") + "' onchange=\"UpdateRoleDesig(" + i + ",'resp',this.value)\"></div></td>"
-                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='padding-right:32px;' value='" + escapeHtml(nomVal) + "' onchange=\"UpdateRoleDesig(" + i + ",'nom',this.value)\"><button type='button' class='btn-del-cell' title='Vider la ligne' onclick=\"DelRoleDesig(" + i + ")\">&#10005;</button></div></td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='cursor:pointer;' onchange=\"SetRoleResp(" + i + ", this.value)\">" + respOptionsHtml(resp) + "</select></div></td>"
+                        + "<td style='text-align:center; color:#475569; font-size:12px;'>" + escapeHtml(nom) + "</td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; cursor:pointer; padding-right:30px;' onchange=\"UpdateRoleDesig(" + i + ",'type',this.value)\"><option value='int'" + (type === "int" ? " selected" : "") + ">interne</option><option value='ext'" + (type === "ext" ? " selected" : "") + ">externe</option></select><button type='button' class='btn-del-cell' title='Vider la ligne' onclick=\"DelRoleDesig(" + i + ")\">&#10005;</button></div></td>"
                         + "</tr>";
                 } else {
-                    html += "<tr><td style='font-weight:700; text-align:center;'>" + escapeHtml(arr[i].resp || "") + "</td>"
-                        + "<td>" + escapeHtml(nomVal) + "</td></tr>";
+                    html += "<tr><td style='font-weight:700; text-align:center;'>" + escapeHtml(resp) + "</td>"
+                        + "<td>" + escapeHtml(nom) + "</td>"
+                        + "<td style='text-align:center;'>" + (resp ? (type === "ext" ? "<span class='badge' style='background:#f1f5f9; color:#475569;'>externe</span>" : "<span class='badge' style='background:#dcfce3; color:#166534;'>interne</span>") : "") + "</td></tr>";
                 }
             }
-            if (arr.length === 0) {
-                html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:10px;'>Aucune entrée</td></tr>";
-            }
+            if (arr.length === 0) html += "<tr><td colspan='3' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:10px;'>Aucune entrée</td></tr>";
             html += "</tbody></table>";
+            if (!(appData.rows && appData.rows.length)) html += "<div style='font-size:12px; color:#b45309; margin-top:8px;'>Lance d'abord un extract pour alimenter les listes de responsables.</div>";
             cont.innerHTML = html;
         }
+        function SetRoleResp(idx, code) {
+            var m = extractRespMap(); code = NettoyerChaine(code);
+            appData.roleDesig[idx].resp = code;
+            appData.roleDesig[idx].nom = m[code] || "";
+            RenderRolesTable();
+        }
         function DelRoleDesig(idx) {
-            appData.roleDesig[idx] = { resp: "", nom: "" };   // vide la ligne en place (comme IC Manager)
+            appData.roleDesig[idx] = { resp: "", nom: "", type: "int" };
             RenderRolesTable();
         }
         function UpdateRoleDesig(idx, field, val) {
             appData.roleDesig[idx][field] = NettoyerChaine(val);
-        }
-
-        // --- Tableau "Responsables autres" (resp + nom, à analyser) ---
-        function RenderRespAutres() {
-            var cont = document.getElementById('respAutresContainer');
-            if (!cont) return;
-            var arr = appData.respAutres || [];
-            var ed = isEditingParams;
-            var html = "<table class='data-table param-grid'><thead><tr><th width='30%' style='padding:10px 6px; text-align:center;'>Responsable</th><th style='padding:10px 6px; text-align:center;'>Nom de liste</th></tr></thead><tbody>";
-            for (var i = 0; i < arr.length; i++) {
-                var nomVal = arr[i].nom || "";
-                if (ed) {
-                    html += "<tr>"
-                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='text-align:center;' value='" + escapeHtml(arr[i].resp || "") + "' onchange=\"UpdateRespAutres(" + i + ",'resp',this.value)\"></div></td>"
-                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='padding-right:32px;' value='" + escapeHtml(nomVal) + "' onchange=\"UpdateRespAutres(" + i + ",'nom',this.value)\"><button type='button' class='btn-del-cell' title='Vider la ligne' onclick=\"DelRespAutres(" + i + ")\">&#10005;</button></div></td>"
-                        + "</tr>";
-                } else {
-                    html += "<tr><td style='font-weight:700; text-align:center;'>" + escapeHtml(arr[i].resp || "") + "</td><td>" + escapeHtml(nomVal) + "</td></tr>";
-                }
-            }
-            if (arr.length === 0) html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:10px;'>Aucune entrée</td></tr>";
-            html += "</tbody></table>";
-            cont.innerHTML = html;
-        }
-        function DelRespAutres(idx) {
-            appData.respAutres[idx] = { resp: "", nom: "" };
-            RenderRespAutres();
-        }
-        function UpdateRespAutres(idx, field, val) {
-            appData.respAutres[idx][field] = NettoyerChaine(val);
         }
 
         // --- Tableaux 2/3/4 : Équipes ST / TL / IQ (User + Nom) ---
@@ -1081,32 +1075,38 @@
 
         // 2) Durée moyenne par responsable du tableau 1.
         function RenderDashResp(elig) {
-            var t1nom = {}; var rd = appData.roleDesig || [];
-            for (var i = 0; i < rd.length; i++) { var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (rc) t1nom[rc] = rd[i].nom || rd[i].resp; }
-            var ra = appData.respAutres || [];   // responsables "autres" à analyser aussi
-            for (var ia = 0; ia < ra.length; ia++) { var rca = NettoyerChaine(ra[ia].resp).toUpperCase(); if (rca && !t1nom[rca]) t1nom[rca] = ra[ia].nom || ra[ia].resp; }
+            var intNom = {}, extNom = {}, rd = appData.roleDesig || [];
+            for (var i = 0; i < rd.length; i++) {
+                var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (!rc) continue;
+                if ((rd[i].type || "int") === "ext") extNom[rc] = rd[i].nom || rd[i].resp; else intNom[rc] = rd[i].nom || rd[i].resp;
+            }
             var agg = {};
             for (var e = 0; e < elig.length; e++) {
                 var gaps = stepGaps(elig[e].lines);
                 for (var j = 0; j < gaps.length; j++) {
                     if (gaps[j].gap == null) continue;
                     var r = (gaps[j].r || "").toUpperCase();
-                    if (!t1nom[r]) continue;
+                    if (!intNom[r] && !extNom[r]) continue;
                     if (!agg[r]) agg[r] = { sum: 0, n: 0 };
                     agg[r].sum += gaps[j].gap; agg[r].n++;
                 }
             }
-            var arr = []; for (var rr in agg) { if (agg.hasOwnProperty(rr)) arr.push({ r: rr, avg: agg[rr].sum / agg[rr].n, n: agg[rr].n }); }
+            document.getElementById('dashResp').innerHTML = respBars(intNom, agg, "Responsables internes") + respBars(extNom, agg, "Responsables externes");
+        }
+        function respBars(nomMap, agg, title) {
+            var arr = [];
+            for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) arr.push({ r: r, avg: agg[r].sum / agg[r].n, n: agg[r].n }); }
             arr.sort(function (a, b) { return b.avg - a.avg; });
-            var max = arr.length ? arr[0].avg : 1;
-            var html = "";
+            var head = "<div style='font-weight:700; color:#334155; margin-bottom:8px;'>" + title + "</div>";
+            if (!arr.length) return "<div style='margin-bottom:18px;'>" + head + "<div class='msg-box msg-info'>Aucune donnée.</div></div>";
+            var max = arr[0].avg, html = "<div style='margin-bottom:18px;'>" + head;
             for (var k = 0; k < arr.length; k++) {
                 var pct = max > 0 ? Math.round(arr[k].avg / max * 100) : 0;
-                html += "<div class='bar-line'><div class='bar-head'><span class='bar-name'>" + escapeHtml(t1nom[arr[k].r] || arr[k].r) + "</span> "
+                html += "<div class='bar-line'><div class='bar-head'><span class='bar-name'>" + escapeHtml(nomMap[arr[k].r] || arr[k].r) + "</span> "
                     + "<span class='bar-meta'>· " + escapeHtml(arr[k].r) + " · " + arr[k].n + " tâches · moy. " + fmtDHM(arr[k].avg) + "</span></div>"
                     + "<div class='bar-track'><div class='bar-fill' style='width:" + pct + "%;'></div></div></div>";
             }
-            document.getElementById('dashResp').innerHTML = html || "<div class='msg-box msg-info'>Aucun responsable du tableau 1 dans les NC analysées.</div>";
+            return html + "</div>";
         }
 
         // 3) Activité des équipes ST / TL / IQ : nb de tâches + durée moyenne par user.
@@ -1535,19 +1535,9 @@
                 </div>
                 <div style="clear:both; margin-bottom:18px;"></div>
 
-                <div style="font-size:0; margin:0 -8px 16px -8px;">
-                    <div style="display:inline-block; vertical-align:top; width:50%; padding:0 8px; box-sizing:border-box;">
-                        <div class="card" style="padding:0;">
-                            <div class="card-title"><div class="param-ttl" style="color:#002d45;">Responsable &amp; Nom de liste (chez nous)</div></div>
-                            <div style="padding:15px;"><div id="rolesContainer"><div class="msg-box msg-info">Importe d'abord un export QM13.</div></div></div>
-                        </div>
-                    </div>
-                    <div style="display:inline-block; vertical-align:top; width:50%; padding:0 8px; box-sizing:border-box;">
-                        <div class="card" style="padding:0;">
-                            <div class="card-title"><div class="param-ttl" style="color:#64748b;">Responsables autres (à analyser)</div></div>
-                            <div style="padding:15px;"><div id="respAutresContainer"></div></div>
-                        </div>
-                    </div>
+                <div class="card" style="padding:0; margin-bottom:16px;">
+                    <div class="card-title"><div class="param-ttl" style="color:#002d45;">Responsables (interne = chez nous / externe = autres workflows)</div></div>
+                    <div style="padding:15px;"><div id="rolesContainer"><div class="msg-box msg-info">Lance d'abord un extract pour alimenter la liste.</div></div></div>
                 </div>
                 <div style="font-size:0; margin:0 -8px;">
                     <div style="display:inline-block; vertical-align:top; width:33.33%; padding:0 8px; box-sizing:border-box;">
