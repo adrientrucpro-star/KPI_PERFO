@@ -684,7 +684,7 @@
             for (var j = 0; j < lines.length; j++) {
                 var e = parseDT(lines[j].td, lines[j].tt);
                 var gap = (e && prev) ? (e - prev) : null;
-                out.push({ code: (lines[j].c || ""), r: (lines[j].r || ""), dg: (lines[j].dg || ""), end: e, gap: (gap != null && gap >= 0) ? gap : null });
+                out.push({ code: (lines[j].c || ""), r: (lines[j].r || ""), tp: (lines[j].tp || ""), dg: (lines[j].dg || ""), end: e, gap: (gap != null && gap >= 0) ? gap : null });
                 if (e) prev = e;
             }
             return out;
@@ -1003,21 +1003,6 @@
             document.getElementById('kpiMoy').innerText = moy;
             document.getElementById('kpiMed').innerText = med;
 
-            // KPI goulots d'étranglement.
-            var sumLat = 0, nLat = 0, sumAft = 0, nAft = 0, sumDo = 0, nDo = 0, cDec = 0, cExe = 0;
-            for (var g = 0; g < elig.length; g++) {
-                var e = elig[g];
-                if (e.ctDecLatMs != null) { sumLat += e.ctDecLatMs; nLat++; }
-                if (e.afterMs != null) { sumAft += e.afterMs; nAft++; }
-                if (e.do00MaxMs != null) { sumDo += e.do00MaxMs; nDo++; }
-                if (e.bottleneck === "decision") cDec++; else if (e.bottleneck === "execution") cExe++;
-            }
-            document.getElementById('goulotLat').innerText = nLat ? fmtDur(sumLat / nLat) : "-";
-            document.getElementById('goulotAfter').innerText = nAft ? frNum(round1(days(sumAft / nAft))) + " j" : "-";
-            document.getElementById('goulotDo').innerText = nDo ? frNum(round1(days(sumDo / nDo))) + " j" : "-";
-            document.getElementById('goulotDec').innerText = cDec;
-            document.getElementById('goulotExe').innerText = cExe;
-
             if (elig.length === 0) {
                 document.getElementById('dashEmpty').style.display = "block";
                 document.getElementById('dashCharts').style.display = "none";
@@ -1026,62 +1011,100 @@
             document.getElementById('dashEmpty').style.display = "none";
             document.getElementById('dashCharts').style.display = "block";
 
-            RenderRepartitionEtapes(elig);
-            RenderTendance(elig);
+            RenderDashWeeks(elig);
+            RenderDashResp(elig);
+            RenderDashTeams(elig);
         }
 
-        // Temps moyen passé à chaque étape (Code) sur les NC éligibles.
-        function RenderRepartitionEtapes(elig) {
-            var agg = {};   // code -> { sum, n, dg }
+        // 1) NC clôturées par semaine + traitement global / équipe moyens.
+        function RenderDashWeeks(elig) {
+            var agg = {};
             for (var i = 0; i < elig.length; i++) {
-                var gaps = stepGaps(elig[i].lines);   // écart avec l'étape précédente
+                var nc = elig[i]; if (!nc.end) continue;
+                var ws = getWeekStart(nc.end).getTime();
+                if (!agg[ws]) agg[ws] = { n: 0, sg: 0, ng: 0, st: 0, nt: 0 };
+                agg[ws].n++;
+                if (nc.durMs != null) { agg[ws].sg += nc.durMs; agg[ws].ng++; }
+                if (nc.chezMs != null) { agg[ws].st += nc.chezMs; agg[ws].nt++; }
+            }
+            var keys = []; for (var w in agg) { if (agg.hasOwnProperty(w)) keys.push(parseInt(w, 10)); }
+            keys.sort(function (a, b) { return a - b; });
+            var maxN = 0; for (var m = 0; m < keys.length; m++) { if (agg[keys[m]].n > maxN) maxN = agg[keys[m]].n; }
+            var html = "";
+            for (var k = 0; k < keys.length; k++) {
+                var a = agg[keys[k]], mon = new Date(keys[k]);
+                var avgG = a.ng ? a.sg / a.ng : 0, avgT = a.nt ? a.st / a.nt : 0;
+                var pct = maxN ? Math.round(a.n / maxN * 100) : 0;
+                html += "<div class='bar-line'><div class='bar-head'><span class='bar-name'>Semaine " + isoWeek(mon) + "</span> "
+                    + "<span class='bar-meta'>· traitement global moy " + fmtDHM(avgG) + " · équipe moy " + fmtDHM(avgT) + "</span></div>"
+                    + "<div class='bar-track' style='height:22px;'><div class='bar-fill' style='width:" + pct + "%; height:22px; line-height:22px; min-width:26px; text-align:right; color:#fff; font-size:12px; font-weight:700; padding-right:7px; box-sizing:border-box;'>" + a.n + "</div></div></div>";
+            }
+            document.getElementById('dashWeeks').innerHTML = html || "<div class='msg-box msg-info'>Aucune donnée.</div>";
+        }
+
+        // 2) Durée moyenne par responsable du tableau 1.
+        function RenderDashResp(elig) {
+            var t1nom = {}; var rd = appData.roleDesig || [];
+            for (var i = 0; i < rd.length; i++) { var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (rc) t1nom[rc] = rd[i].nom || rd[i].resp; }
+            var agg = {};
+            for (var e = 0; e < elig.length; e++) {
+                var gaps = stepGaps(elig[e].lines);
                 for (var j = 0; j < gaps.length; j++) {
                     if (gaps[j].gap == null) continue;
-                    var code = gaps[j].code;
-                    if (!agg[code]) agg[code] = { sum: 0, n: 0, dg: gaps[j].dg };
-                    agg[code].sum += gaps[j].gap; agg[code].n++;
-                    if (gaps[j].dg) agg[code].dg = gaps[j].dg;
+                    var r = (gaps[j].r || "").toUpperCase();
+                    if (!t1nom[r]) continue;
+                    if (!agg[r]) agg[r] = { sum: 0, n: 0 };
+                    agg[r].sum += gaps[j].gap; agg[r].n++;
                 }
             }
-            var arr = [];
-            for (var c in agg) { if (agg.hasOwnProperty(c)) arr.push({ code: c, avg: agg[c].sum / agg[c].n, n: agg[c].n, dg: agg[c].dg }); }
+            var arr = []; for (var rr in agg) { if (agg.hasOwnProperty(rr)) arr.push({ r: rr, avg: agg[rr].sum / agg[rr].n, n: agg[rr].n }); }
             arr.sort(function (a, b) { return b.avg - a.avg; });
             var max = arr.length ? arr[0].avg : 1;
             var html = "";
             for (var k = 0; k < arr.length; k++) {
                 var pct = max > 0 ? Math.round(arr[k].avg / max * 100) : 0;
-                html += "<div class='bar-line'><div class='bar-head'><span class='bar-name'>" + escapeHtml(arr[k].code) + "</span> "
-                    + "<span class='bar-meta'>· " + escapeHtml(arr[k].dg || "") + " · " + arr[k].n + " étapes · moy. " + fmtDur(arr[k].avg) + "</span></div>"
+                html += "<div class='bar-line'><div class='bar-head'><span class='bar-name'>" + escapeHtml(t1nom[arr[k].r] || arr[k].r) + "</span> "
+                    + "<span class='bar-meta'>· " + escapeHtml(arr[k].r) + " · " + arr[k].n + " tâches · moy. " + fmtDHM(arr[k].avg) + "</span></div>"
                     + "<div class='bar-track'><div class='bar-fill' style='width:" + pct + "%;'></div></div></div>";
             }
-            document.getElementById('repartitionEtapes').innerHTML = html || "<div class='msg-box msg-info'>Pas de données d'étape.</div>";
+            document.getElementById('dashResp').innerHTML = html || "<div class='msg-box msg-info'>Aucun responsable du tableau 1 dans les NC analysées.</div>";
         }
 
-        // Évolution de la durée moyenne par mois (sur date de création de la NC).
-        function RenderTendance(elig) {
-            var agg = {};   // YYYYMM -> { sum, n }
-            for (var i = 0; i < elig.length; i++) {
-                var nc = elig[i];
-                if (!nc.start || nc.durMs == null) continue;
-                var key = nc.start.getFullYear() * 100 + (nc.start.getMonth() + 1);
-                if (!agg[key]) agg[key] = { sum: 0, n: 0 };
-                agg[key].sum += nc.durMs; agg[key].n++;
+        // 3) Activité des équipes ST / TL / IQ : nb de tâches + durée moyenne par user.
+        function RenderDashTeams(elig) {
+            var umap = {};
+            var teamDefs = [["ST", appData.teamST], ["TL", appData.teamTL], ["IQ", appData.teamIQ]];
+            for (var t = 0; t < teamDefs.length; t++) {
+                var arr = teamDefs[t][1] || [];
+                for (var i = 0; i < arr.length; i++) { var u = NettoyerChaine(arr[i].user).toUpperCase(); if (u) umap[u] = { team: teamDefs[t][0], nom: arr[i].nom || "" }; }
             }
-            var keys = [];
-            for (var k in agg) { if (agg.hasOwnProperty(k)) keys.push(parseInt(k, 10)); }
-            keys.sort(function (a, b) { return a - b; });
-            var max = 0;
-            for (var m = 0; m < keys.length; m++) { var av = agg[keys[m]].sum / agg[keys[m]].n; if (av > max) max = av; }
-            var html = "";
-            for (var z = 0; z < keys.length; z++) {
-                var kk = keys[z], yr = Math.floor(kk / 100), mo = kk % 100;
-                var avg = agg[kk].sum / agg[kk].n;
-                var pct = max > 0 ? Math.round(avg / max * 100) : 0;
-                html += "<div class='bar-line'><div class='bar-head'><span class='bar-name'>" + moisNoms[mo - 1] + " " + yr + "</span> "
-                    + "<span class='bar-meta'>· " + agg[kk].n + " NC · moy. " + fmtDur(avg) + "</span></div>"
-                    + "<div class='bar-track'><div class='bar-fill' style='width:" + pct + "%; background-image:-ms-linear-gradient(left,#10b981 0%,#059669 100%);'></div></div></div>";
+            var agg = {};
+            for (var e = 0; e < elig.length; e++) {
+                var gaps = stepGaps(elig[e].lines);
+                for (var j = 0; j < gaps.length; j++) {
+                    if (gaps[j].gap == null) continue;
+                    var uu = (gaps[j].tp || "").toUpperCase();
+                    if (!umap[uu]) continue;
+                    if (!agg[uu]) agg[uu] = { sum: 0, n: 0 };
+                    agg[uu].sum += gaps[j].gap; agg[uu].n++;
+                }
             }
-            document.getElementById('tendanceMois').innerHTML = html || "<div class='msg-box msg-info'>Pas assez de données.</div>";
+            var order = ["ST", "TL", "IQ"], colors = { ST: "#b45309", TL: "#1d4ed8", IQ: "#047857" }, html = "";
+            for (var o = 0; o < order.length; o++) {
+                var team = order[o], us = [];
+                for (var u2 in umap) { if (umap.hasOwnProperty(u2) && umap[u2].team === team) us.push(u2); }
+                us.sort(function (a, b) { return (agg[b] ? agg[b].n : 0) - (agg[a] ? agg[a].n : 0); });
+                var rows = "";
+                for (var k = 0; k < us.length; k++) {
+                    var key = us[k], st = agg[key] || { sum: 0, n: 0 };
+                    rows += "<tr><td style='font-weight:700;'>" + escapeHtml(key) + "</td><td>" + escapeHtml(umap[key].nom) + "</td>"
+                        + "<td style='text-align:center;'>" + st.n + "</td><td style='text-align:center;'>" + (st.n ? fmtDHM(st.sum / st.n) : "-") + "</td></tr>";
+                }
+                if (!rows) rows = "<tr><td colspan='4' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucun membre</td></tr>";
+                html += "<div style='margin-bottom:18px;'><div style='font-weight:700; font-size:14px; color:" + colors[team] + "; margin-bottom:8px;'>Équipe " + team + "</div>"
+                    + "<table class='data-table'><thead><tr><th width='18%'>User</th><th>Nom</th><th width='16%'>Nb tâches</th><th width='20%'>Durée moy</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+            }
+            document.getElementById('dashTeams').innerHTML = html;
         }
 
     // ==========================================================
@@ -1391,22 +1414,18 @@
 
                 <div id="dashCharts" style="display:none;">
                     <div class="card">
-                        <h3>Goulots d'étranglement</h3>
-                        <div class="kpi-row">
-                            <div class="kpi-card"><div class="kpi-inner kpi-orange"><div class="kpi-label">Latence décision CT (DEC0)</div><div class="kpi-value" id="goulotLat">-</div></div></div>
-                            <div class="kpi-card"><div class="kpi-inner kpi-blue"><div class="kpi-label">Temps après décision</div><div class="kpi-value" id="goulotAfter">-</div></div></div>
-                            <div class="kpi-card"><div class="kpi-inner kpi-orange"><div class="kpi-label">NC bloquées en décision</div><div class="kpi-value" id="goulotDec">0</div></div></div>
-                            <div class="kpi-card"><div class="kpi-inner kpi-blue"><div class="kpi-label">NC bloquées en exécution</div><div class="kpi-value" id="goulotExe">0</div></div></div>
-                        </div>
-                        <p style="color:#94a3b8; font-size:12px; margin:14px 0 0 0;">Ordre prod/logistique (DO00) le plus long, en moyenne : <b id="goulotDo" style="color:#64748b;">-</b>.</p>
+                        <h3>NC clôturées par semaine</h3>
+                        <p style="color:#94a3b8; font-size:12px; margin:0 0 14px 0;">Barre = nombre de NC clôturées. Moyennes du traitement global et du traitement équipe par semaine.</p>
+                        <div id="dashWeeks"></div>
                     </div>
                     <div class="card">
-                        <h3>Temps moyen par étape (code SAP)</h3>
-                        <div id="repartitionEtapes"></div>
+                        <h3>Durée moyenne par responsable (tableau 1)</h3>
+                        <div id="dashResp"></div>
                     </div>
                     <div class="card">
-                        <h3>Tendance : durée moyenne de traitement par mois</h3>
-                        <div id="tendanceMois"></div>
+                        <h3>Activité des équipes (ST / TL / IQ)</h3>
+                        <p style="color:#94a3b8; font-size:12px; margin:0 0 14px 0;">Nombre de tâches réalisées (colonne « Terminé par ») et durée moyenne par membre.</p>
+                        <div id="dashTeams"></div>
                     </div>
                 </div>
             </div>
