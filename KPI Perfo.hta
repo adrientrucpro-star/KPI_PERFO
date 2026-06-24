@@ -1228,16 +1228,17 @@
         }
         function renderParcoursCard(nc, decS, clotS, decCode, clotCode) {
             // Ordre conservé tel quel (ordre de l'extract). Durée = écart avec la fin de l'étape précédente.
-            var rows = "", prevEnd = null, decMarked = false;
+            var rows = "", prevEnd = null;
             for (var j = 0; j < nc.lines.length; j++) {
                 var LL = nc.lines[j];
                 var e = parseDT(LL.td, LL.tt);
-                var cU = (LL.c || "").toUpperCase(), rU = (LL.r || "").toUpperCase();
+                var rU = (LL.r || "").toUpperCase();
                 var gap = (e && prevEnd) ? (e - prevEnd) : null;
                 var gapTxt = (gap == null || gap < 0) ? "-" : fmtDHM(gap);
                 var bg = "";
-                if (cU === decCode && decS[rU] && !decMarked) { bg = "background:#FAEEDA;"; decMarked = true; }  // DEC0 (CT) orange
-                else if (cU === clotCode) { bg = "background:#EAF3DE;"; }                            // APQ0 clôture verte
+                if (rU === "70005847" || rU === "70009001") bg = "background:#FEF9C3;";   // jaune (CT)
+                else if (rU === "70005852") bg = "background:#DBEAFE;";                    // bleu (Prod)
+                else if (rU === "70005848") bg = "background:#DCFCE3;";                    // vert (Qualité)
                 rows += "<tr style='" + bg + "'><td style='font-weight:700; text-align:center;'>" + escapeHtml(LL.c) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(LL.r) + "</td>"
                     + "<td>" + escapeHtml(LL.dg) + "</td>"
