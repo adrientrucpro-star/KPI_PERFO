@@ -664,6 +664,21 @@
             return isNaN(dt.getTime()) ? null : dt;
         }
 
+        // Durée de chaque étape = écart entre sa fin (Terminé) et la fin de l'étape précédente
+        // (la colonne "créé" étant constante = création NC, elle est inutilisable). Étapes triées par fin.
+        function stepGaps(lines) {
+            var arr = [];
+            for (var i = 0; i < lines.length; i++) { arr.push({ L: lines[i], e: parseDT(lines[i].td, lines[i].tt) }); }
+            arr.sort(function (a, b) { if (!a.e) return 1; if (!b.e) return -1; return a.e - b.e; });
+            var out = [], prev = null;
+            for (var j = 0; j < arr.length; j++) {
+                var gap = (arr[j].e && prev) ? (arr[j].e - prev) : null;
+                out.push({ code: (arr[j].L.c || ""), dg: (arr[j].L.dg || ""), end: arr[j].e, gap: (gap != null && gap >= 0) ? gap : null });
+                if (arr[j].e) prev = arr[j].e;
+            }
+            return out;
+        }
+
         // Construit la table identifiant (User) -> rôle à partir des équipes ST/TL/IQ.
         function buildRoleByID() {
             var m = {};
@@ -697,38 +712,46 @@
                 if (!map.hasOwnProperty(key)) continue;
                 var nc = map[key];
                 var start = null, clot = null, roles = {};
-                var ctDecS = null, ctDecE = null, do00Max = 0;
+                var ctDecE = null, ends = [];
                 for (var j = 0; j < nc.lines.length; j++) {
                     var L = nc.lines[j];
                     var cdt = parseDT(L.cd, L.ct);
                     var edt = parseDT(L.td, L.tt);
                     var cU = (L.c || "").toUpperCase(), rU = (L.r || "").toUpperCase();
-                    if (cdt && (!start || cdt < start)) start = cdt;
-                    // Clôture = ligne dont Code = APQ0 (APQ0 = toujours qualité), échéance la plus tardive.
-                    if (edt && cU === clotCode) {
-                        if (!clot || edt > clot) clot = edt;
-                    }
-                    // 1re décision CT = ligne DEC0 d'un Responsable CT, la plus précoce.
-                    if (cdt && cU === decCode && decSet[rU]) {
-                        if (ctDecS === null || cdt < ctDecS) { ctDecS = cdt; ctDecE = edt; }
-                    }
-                    // Ordre prod/logistique DO00 le plus long (exécution aval).
-                    if (cdt && edt && cU === "DO00") { var dd = edt - cdt; if (dd > do00Max) do00Max = dd; }
+                    if (cdt && (!start || cdt < start)) start = cdt;   // = création de la NC
+                    if (edt) ends.push(edt);
+                    // Clôture = ligne APQ0 (toujours qualité), Terminé le plus tardif.
+                    if (edt && cU === clotCode) { if (!clot || edt > clot) clot = edt; }
+                    // 1re décision CT = DEC0 d'un Responsable CT, le Terminé le plus précoce.
+                    if (edt && cU === decCode && decSet[rU]) { if (ctDecE === null || edt < ctDecE) ctDecE = edt; }
                     // Rôle via une équipe ST/TL/IQ : User comparé à Respons. / Terminé par.
                     var role = roleByID[L.r] || roleByID[L.tp];
                     if (role) roles[role] = true;
                 }
+                // Début du traitement = fin de l'étape juste AVANT le 1er DEC0 CT (= arrivée au CT).
+                var procStart = null;
+                if (ctDecE) {
+                    for (var z = 0; z < ends.length; z++) {
+                        if (ends[z] < ctDecE && (procStart === null || ends[z] > procStart)) procStart = ends[z];
+                    }
+                    if (procStart === null) procStart = start;   // DEC0 1re étape -> fallback création NC
+                }
+                // DO00 le plus long (écart avec l'étape précédente).
+                var gaps = stepGaps(nc.lines), do00Max = 0;
+                for (var gi = 0; gi < gaps.length; gi++) {
+                    if ((gaps[gi].code || "").toUpperCase() === "DO00" && gaps[gi].gap != null && gaps[gi].gap > do00Max) do00Max = gaps[gi].gap;
+                }
                 nc.start = start; nc.end = clot;
                 nc.hasST = !!roles.ST; nc.hasIQ = !!roles.IQ; nc.hasTL = !!roles.TL;
-                // Temps de traitement = 1re décision DEC0 (CT) -> clôture APQ0.
-                nc.durMs = (ctDecS && clot) ? (clot - ctDecS) : null;
+                // Temps de traitement = arrivée au DEC0 (fin étape précédente) -> clôture APQ0.
+                nc.durMs = (procStart && clot) ? (clot - procStart) : null;
                 // Analysée si : ST + IQ (équipes) ET une clôture qualité APQ0.
                 nc.eligible = nc.hasST && nc.hasIQ && (clot != null);
-                // Décomposition décision CT / exécution.
-                nc.ctDecStart = ctDecS;
+                // Décomposition : latence décision CT (arrivée -> décision) puis exécution (décision -> clôture).
+                nc.ctDecStart = procStart;
                 nc.ctDecEnd = ctDecE;
-                nc.ctDecLatMs = (ctDecS && ctDecE) ? (ctDecE - ctDecS) : null;
-                nc.beforeMs = (ctDecE && start) ? (ctDecE - start) : null;
+                nc.ctDecLatMs = (procStart && ctDecE) ? (ctDecE - procStart) : null;
+                nc.beforeMs = nc.ctDecLatMs;
                 nc.afterMs = (clot && ctDecE) ? (clot - ctDecE) : null;
                 nc.do00MaxMs = do00Max > 0 ? do00Max : null;
                 nc.bottleneck = (nc.ctDecLatMs != null && nc.afterMs != null)
@@ -991,15 +1014,13 @@
         function RenderRepartitionEtapes(elig) {
             var agg = {};   // code -> { sum, n, dg }
             for (var i = 0; i < elig.length; i++) {
-                var lines = elig[i].lines;
-                for (var j = 0; j < lines.length; j++) {
-                    var L = lines[j];
-                    var cdt = parseDT(L.cd, L.ct), edt = parseDT(L.td, L.tt);
-                    if (!cdt || !edt) continue;
-                    var ms = edt - cdt; if (ms < 0) ms = 0;
-                    if (!agg[L.c]) agg[L.c] = { sum: 0, n: 0, dg: L.dg };
-                    agg[L.c].sum += ms; agg[L.c].n++;
-                    if (L.dg) agg[L.c].dg = L.dg;
+                var gaps = stepGaps(elig[i].lines);   // écart avec l'étape précédente
+                for (var j = 0; j < gaps.length; j++) {
+                    if (gaps[j].gap == null) continue;
+                    var code = gaps[j].code;
+                    if (!agg[code]) agg[code] = { sum: 0, n: 0, dg: gaps[j].dg };
+                    agg[code].sum += gaps[j].gap; agg[code].n++;
+                    if (gaps[j].dg) agg[code].dg = gaps[j].dg;
                 }
             }
             var arr = [];
