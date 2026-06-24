@@ -114,6 +114,7 @@
         .excel-input:focus { background-color: #fffbeb; outline: none; }
         /* Masque le bouton "effacer" (X) natif d'IE qui apparaît quand le champ a du texte */
         input::-ms-clear { display: none; width: 0; height: 0; }
+        select.excel-input::-ms-expand { display: none; }   /* masque la flèche : clic dans la case ouvre la liste */
         /* Couleur grise du texte d'invite (placeholder) */
         input:-ms-input-placeholder, textarea:-ms-input-placeholder { color: #94a3b8; }
         /* Bouton réinitialiser/supprimer la ligne (X) - identique à IC Manager (.btn-row-reset) */
@@ -924,18 +925,12 @@
         var isEditingParams = false;
         var paramsBackup = null;
         var PARAM_EDIT_ROWS = 15;   // nb de lignes (vides) affichées en mode édition (recalculé à l'entrée)
-        // Calcule le nombre de lignes de 38px pour remplir jusqu'en bas SANS faire apparaître de scrollbar.
+        // Nombre de lignes en édition = données existantes + 3 lignes vides pour la saisie.
         function computeParamRows() {
-            var card = document.querySelector('#pageParametres .card');
-            if (card && card.offsetHeight > 0) {
-                var clientH = document.documentElement.clientHeight || window.innerHeight;
-                var cardTop = card.getBoundingClientRect().top;          // haut de la carte dans le viewport
-                var titleH = card.children[0] ? card.children[0].offsetHeight : 36;
-                // Marges fixes : padding carte (15+20) + marge titre (16) + thead (38) + padding #content bas (25) + sécurité
-                var rowsArea = (clientH - cardTop) - titleH - (35 + 16 + 38 + 25 + 12);
-                return Math.max(8, Math.floor(rowsArea / 38));
-            }
-            return Math.max(8, Math.floor(((window.innerHeight || 800) - 320) / 38));
+            var n = (appData.roleDesig || []).length;
+            var teams = [appData.teamST, appData.teamTL, appData.teamIQ];
+            for (var i = 0; i < teams.length; i++) n = Math.max(n, (teams[i] || []).length);
+            return n + 3;
         }
         function cloneObj(o) { return eval('(' + toJSON(o) + ')'); }
         function padRoleDesig() { while (appData.roleDesig.length < PARAM_EDIT_ROWS) appData.roleDesig.push({ resp: "", nom: "", type: "int" }); }
@@ -951,29 +946,33 @@
         function RenderCalcMode() {
             var cont = document.getElementById('calcModePanel');
             if (!cont) return;
-            var c = appData.calc || {}, ouvre = (c.mode || 'cal') === 'ouvre';
-            var dis = ouvre ? "" : " disabled";
-            var fade = ouvre ? "" : " opacity:0.5;";
+            var c = appData.calc || {}, ouvre = (c.mode || 'cal') === 'ouvre', ed = isEditingParams;
             var lbl = "font-size:13px; font-weight:600; color:#475569; margin-right:8px; vertical-align:middle;";
+            function box(val, text, sel) {
+                var base = "display:inline-block; vertical-align:middle; padding:7px 16px; border-radius:6px; font-size:13px; font-weight:700; margin-right:8px;";
+                var skin = sel ? "background:#0C447C; color:#fff; border:2px solid #0C447C;" : "background:#fff; color:#475569; border:2px solid #c5d5de;";
+                var cur = ed ? " cursor:pointer;" : " cursor:default;";
+                var click = ed ? " onclick=\"UpdateCalc('mode','" + val + "')\"" : "";
+                return "<span style='" + base + skin + cur + "'" + click + ">" + text + "</span>";
+            }
+            var disTime = (ed && ouvre) ? "" : " disabled";
+            var fade = ouvre ? "" : " opacity:0.5;";
             cont.innerHTML =
                 "<span style='" + lbl + "'>Mode</span>"
-                + "<select class='input-text' style='width:200px; cursor:pointer; vertical-align:middle; margin-right:24px;' onchange=\"UpdateCalc('mode', this.value)\">"
-                + "<option value='cal'" + (ouvre ? "" : " selected") + ">Heures normales (24h / 7j)</option>"
-                + "<option value='ouvre'" + (ouvre ? " selected" : "") + ">Jours ouvrés</option>"
-                + "</select>"
-                + "<span style='" + lbl + fade + "'>Heure de début</span>"
-                + "<input type='text' class='input-text' style='width:80px; text-align:center; vertical-align:middle; margin-right:24px;" + fade + "' value='" + escapeHtml(c.hStart || '08:00') + "' onchange=\"UpdateCalc('hStart', this.value)\"" + dis + ">"
+                + box('cal', 'Heures normales', !ouvre)
+                + box('ouvre', 'Jours ouvrés', ouvre)
+                + "<span style='" + lbl + " margin-left:18px;" + fade + "'>Heure de début</span>"
+                + "<input type='text' class='input-text' style='width:80px; text-align:center; vertical-align:middle; margin-right:18px;" + fade + "' value='" + escapeHtml(c.hStart || '08:00') + "' onchange=\"UpdateCalc('hStart', this.value)\"" + disTime + ">"
                 + "<span style='" + lbl + fade + "'>Heure de fin</span>"
-                + "<input type='text' class='input-text' style='width:80px; text-align:center; vertical-align:middle;" + fade + "' value='" + escapeHtml(c.hEnd || '17:00') + "' onchange=\"UpdateCalc('hEnd', this.value)\"" + dis + ">";
+                + "<input type='text' class='input-text' style='width:80px; text-align:center; vertical-align:middle;" + fade + "' value='" + escapeHtml(c.hEnd || '17:00') + "' onchange=\"UpdateCalc('hEnd', this.value)\"" + disTime + ">";
         }
+        // Modifiable uniquement en mode édition ; appliqué (recalcul + sauvegarde) au clic sur Valider.
         function UpdateCalc(key, val) {
+            if (!isEditingParams) return;
             if (!appData.calc) appData.calc = {};
             if (key === 'hStart' || key === 'hEnd') { var p = parseHM(val); val = (p.h < 10 ? '0' + p.h : '' + p.h) + ':' + (p.m < 10 ? '0' + p.m : '' + p.m); }
             appData.calc[key] = NettoyerChaine(val);
-            RecomputeAll(); SaveData(); RenderCalcMode();
-            try { RenderDashboard(); } catch (e) {}
-            try { RenderListe(); } catch (e) {}
-            try { RenderParcours(); } catch (e) {}
+            RenderCalcMode();
         }
         function UpdateParamsButtons() {
             var e = document.getElementById('btnParamsEdit');
@@ -989,7 +988,8 @@
                 roleDesig: cloneObj(appData.roleDesig),
                 teamST: cloneObj(appData.teamST),
                 teamTL: cloneObj(appData.teamTL),
-                teamIQ: cloneObj(appData.teamIQ)
+                teamIQ: cloneObj(appData.teamIQ),
+                calc: cloneObj(appData.calc)
             };
             PARAM_EDIT_ROWS = computeParamRows();
             padRoleDesig(); padTeam("ST"); padTeam("TL"); padTeam("IQ");
@@ -1011,16 +1011,19 @@
                 appData.teamST = paramsBackup.teamST;
                 appData.teamTL = paramsBackup.teamTL;
                 appData.teamIQ = paramsBackup.teamIQ;
+                appData.calc = paramsBackup.calc;
             }
             isEditingParams = false; paramsBackup = null;
             RenderParametres();
         }
         function cleanRoleDesig(a) {
-            var o = []; for (var i = 0; i < a.length; i++) { if (NettoyerChaine(a[i].resp) !== "") o.push(a[i]); } return o;
+            var o = []; for (var i = 0; i < a.length; i++) {
+                if (NettoyerChaine(a[i].resp) !== "" && NettoyerChaine(a[i].type) !== "") o.push(a[i]);
+            } return o;
         }
         function cleanTeam(a) {
             var o = []; for (var i = 0; i < a.length; i++) {
-                if (NettoyerChaine(a[i].user) !== "" || NettoyerChaine(a[i].nom) !== "") o.push(a[i]);
+                if (NettoyerChaine(a[i].user) !== "") o.push(a[i]);
             } return o;
         }
 
@@ -1046,17 +1049,17 @@
             var cont = document.getElementById('rolesContainer');
             var arr = appData.roleDesig || [];
             var ed = isEditingParams;
-            var html = "<table class='data-table param-grid'><thead><tr><th style='padding:10px 6px; text-align:center;'>Responsable</th><th width='42%' style='padding:10px 6px; text-align:center;'>Type</th></tr></thead><tbody>";
+            var html = "<table class='data-table param-grid'><thead><tr><th width='26%' style='padding:10px 6px; text-align:center;'>Type</th><th style='padding:10px 6px; text-align:center;'>Responsable</th></tr></thead><tbody>";
             for (var i = 0; i < arr.length; i++) {
                 var resp = arr[i].resp || "", type = arr[i].type || "int";
                 if (ed) {
                     html += "<tr>"
+                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; cursor:pointer;' onchange=\"UpdateRoleDesig(" + i + ",'type',this.value)\"><option value='int'" + (type === "int" ? " selected" : "") + ">interne</option><option value='ext'" + (type === "ext" ? " selected" : "") + ">externe</option></select></div></td>"
                         + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='cursor:pointer;' onchange=\"SetRoleResp(" + i + ", this.value)\">" + respOptionsHtml(resp) + "</select></div></td>"
-                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; cursor:pointer; padding-right:30px;' onchange=\"UpdateRoleDesig(" + i + ",'type',this.value)\"><option value='int'" + (type === "int" ? " selected" : "") + ">interne</option><option value='ext'" + (type === "ext" ? " selected" : "") + ">externe</option></select><button type='button' class='btn-del-cell' title='Vider la ligne' onclick=\"DelRoleDesig(" + i + ")\">&#10005;</button></div></td>"
                         + "</tr>";
                 } else {
-                    html += "<tr><td style='font-weight:700; text-align:center;'>" + escapeHtml(resp) + "</td>"
-                        + "<td style='text-align:center;'>" + (resp ? (type === "ext" ? "<span class='badge' style='background:#f1f5f9; color:#475569;'>externe</span>" : "<span class='badge' style='background:#dcfce3; color:#166534;'>interne</span>") : "") + "</td></tr>";
+                    html += "<tr><td style='text-align:center;'>" + (resp ? (type === "ext" ? "<span class='badge' style='background:#f1f5f9; color:#475569;'>externe</span>" : "<span class='badge' style='background:#dcfce3; color:#166534;'>interne</span>") : "") + "</td>"
+                        + "<td style='font-weight:700; text-align:center;'>" + escapeHtml(resp) + "</td></tr>";
                 }
             }
             if (arr.length === 0) html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:10px;'>Aucune entrée</td></tr>";
@@ -1093,7 +1096,7 @@
                 if (ed) {
                     html += "<tr>"
                         + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='text-align:center;' value='" + escapeHtml(arr[i].user || "") + "' onchange=\"UpdateTeam('" + role + "'," + i + ",'user',this.value)\"></div></td>"
-                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='padding-right:32px;' value='" + escapeHtml(arr[i].nom || "") + "' onchange=\"UpdateTeam('" + role + "'," + i + ",'nom',this.value)\"><button type='button' class='btn-del-cell' title='Vider la ligne' onclick=\"DelTeam('" + role + "'," + i + ")\">&#10005;</button></div></td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' value='" + escapeHtml(arr[i].nom || "") + "' onchange=\"UpdateTeam('" + role + "'," + i + ",'nom',this.value)\"></div></td>"
                         + "</tr>";
                 } else {
                     html += "<tr><td style='font-weight:700; text-align:center;'>" + escapeHtml(arr[i].user || "") + "</td><td>" + escapeHtml(arr[i].nom || "") + "</td></tr>";
