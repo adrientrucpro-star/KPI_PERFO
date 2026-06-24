@@ -1055,12 +1055,12 @@
             var cont = document.getElementById('rolesContainer');
             var arr = appData.roleDesig || [];
             var ed = isEditingParams;
-            var html = "<table class='data-table param-grid'><thead><tr><th width='26%' style='padding:10px 6px; text-align:center;'>Type</th><th style='padding:10px 6px; text-align:center;'>Responsable</th></tr></thead><tbody>";
+            var html = "<table class='data-table param-grid'><thead><tr><th width='18%' style='padding:10px 6px; text-align:center;'>Type</th><th style='padding:10px 6px; text-align:center;'>Responsable</th></tr></thead><tbody>";
             for (var i = 0; i < arr.length; i++) {
                 var resp = arr[i].resp || "", type = arr[i].type || "";
                 if (ed) {
                     html += "<tr>"
-                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; cursor:pointer;' onchange=\"UpdateRoleDesig(" + i + ",'type',this.value)\"><option value=''" + (type === "" ? " selected" : "") + "></option><option value='int'" + (type === "int" ? " selected" : "") + ">Interne</option><option value='ext'" + (type === "ext" ? " selected" : "") + ">Externe</option></select></div></td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; text-align-last:center; cursor:pointer;' onchange=\"UpdateRoleDesig(" + i + ",'type',this.value)\"><option value=''" + (type === "" ? " selected" : "") + "></option><option value='int'" + (type === "int" ? " selected" : "") + ">Interne</option><option value='ext'" + (type === "ext" ? " selected" : "") + ">Externe</option></select></div></td>"
                         + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='cursor:pointer;' onchange=\"SetRoleResp(" + i + ", this.value)\">" + respOptionsHtml(resp) + "</select></div></td>"
                         + "</tr>";
                 } else {
@@ -1100,7 +1100,7 @@
             var cont = document.getElementById('team' + role);
             var arr = teamArr(role);
             var ed = isEditingParams;
-            var html = "<table class='data-table param-grid'><thead><tr><th width='30%' style='padding:10px 6px; text-align:center;'>User</th><th style='padding:10px 6px; text-align:center;'>Nom</th></tr></thead><tbody>";
+            var html = "<table class='data-table param-grid'><thead><tr><th width='42%' style='padding:10px 6px; text-align:center;'>User</th><th style='padding:10px 6px; text-align:center;'>Nom</th></tr></thead><tbody>";
             for (var i = 0; i < arr.length; i++) {
                 if (ed) {
                     html += "<tr>"
