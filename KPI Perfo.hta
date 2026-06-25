@@ -1257,14 +1257,17 @@
                 var xx = x(j);
                 svg += "<text x='" + xx + "' y='" + (H - mB + 24) + "' text-anchor='middle' font-size='12' fill='#334155' font-weight='600'>S" + pts[j].week + "</text>";
             }
-            function poly(key, color) {
+            function poly(key, color, label) {
                 var path = "";
                 for (var p = 0; p < n; p++) { path += (p ? " L" : "M") + x(p).toFixed(1) + " " + y(pts[p][key]).toFixed(1); }
                 var s = "<path d='" + path + "' fill='none' stroke='" + color + "' stroke-width='2.5'/>";
-                for (var c = 0; c < n; c++) { s += "<circle cx='" + x(c).toFixed(1) + "' cy='" + y(pts[c][key]).toFixed(1) + "' r='4' fill='" + color + "'/>"; }
+                for (var c = 0; c < n; c++) {
+                    var tt = label + " · Semaine " + pts[c].week + " · " + pts[c].n + " NC · " + fmtDHM(pts[c][key]);
+                    s += "<circle cx='" + x(c).toFixed(1) + "' cy='" + y(pts[c][key]).toFixed(1) + "' r='5' fill='" + color + "' style='cursor:pointer;'><title>" + escapeHtml(tt) + "</title></circle>";
+                }
                 return s;
             }
-            svg += poly('g', '#0C447C') + poly('t', '#166534') + "</svg>";
+            svg += poly('g', '#0C447C', 'Traitement global') + poly('t', '#166534', 'Traitement équipe') + "</svg>";
             var legend = "<div style='text-align:center; margin-top:10px; font-size:12px; color:#334155;'>"
                 + "<span style='display:inline-block; width:12px; height:12px; background:#0C447C; border-radius:2px; vertical-align:middle; margin-right:6px;'></span>Traitement global"
                 + "<span style='display:inline-block; width:12px; height:12px; background:#166534; border-radius:2px; vertical-align:middle; margin:0 6px 0 18px;'></span>Traitement équipe</div>";
