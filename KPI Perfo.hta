@@ -1399,7 +1399,7 @@
             var data = [];
             for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) data.push({ name: nomMap[r], y: agg[r].sum / agg[r].n / dayMs(), ms: agg[r].sum / agg[r].n, ntasks: agg[r].n }); }
             data.sort(function (a, b) { return b.y - a.y; });
-            if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info' style='height:225px; padding:0; text-align:center;'><span style='display:inline-block; line-height:225px;'>Aucune donnée.</span></div>"; return; }
+            if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info' style='height:225px; padding:0; text-align:center; display:table; width:100%;'><span style='display:table-cell; vertical-align:middle;'>Aucune<br>donnée</span></div>"; return; }
             try {
                 Highcharts.chart(id, {
                     chart: { type: 'pie', backgroundColor: 'transparent', spacing: [4, 2, 4, 2], style: { fontFamily: 'inherit' } },
