@@ -1278,7 +1278,7 @@
             for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) items.push({ r: r, name: nomMap[r], avg: agg[r].sum / agg[r].n, n: agg[r].n }); }
             items.sort(function (a, b) { return b.avg - a.avg; });
             var head = "<div style='font-weight:700; color:#334155; margin-bottom:10px;'>" + title + "</div>";
-            if (!items.length) return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'>" + head + "<div class='msg-box msg-info'>Aucune donnée.</div></div>";
+            if (!items.length) return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'>" + head + "<div class='msg-box msg-info' style='height:185px; padding:0; text-align:center;'><span style='display:inline-block; line-height:185px;'>Aucune donnée.</span></div></div>";
             var total = 0; for (var i = 0; i < items.length; i++) total += items[i].avg;
             if (total <= 0) total = 1;
             var slices = "", labels = "", legend = "", ang = -90;
