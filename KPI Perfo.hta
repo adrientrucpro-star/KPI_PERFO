@@ -744,7 +744,6 @@
             return (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
         }
 
-        function parseHM(s) { var p = ("" + (s || "")).split(':'); return { h: parseInt(p[0] || 0, 10) || 0, m: parseInt(p[1] || 0, 10) || 0 }; }
 
         // Durée entre 2 dates selon le mode choisi (Paramètres) :
         //  - "cal"   : 7j/7j (calendaire 24/7) = b - a
@@ -855,12 +854,10 @@
                 nc.durMs = (start && maxEnd) ? durBetween(start, maxEnd) : null;
                 nc.chezMs = chezMs;
                 nc.pasMs = (nc.durMs != null) ? Math.max(0, nc.durMs - chezMs) : null;
-                // Override : si une ligne "Départ" est sélectionnée (Analyse NC), recalcule global/équipe = ligne -> APQ0.
-                var selN0 = (appData.selLine && appData.selLine[nc.avis] != null) ? NettoyerChaine(appData.selLine[nc.avis]) : "";
-                if (selN0 !== "" && nc.end) {
+                // Override : ligne "Départ" (manuelle sauvegardée, sinon 1re CT+ST par défaut) -> global/équipe = ligne -> APQ0.
+                if (nc.end) {
                     var sl = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
-                    var sIdx = -1;
-                    for (var sj = 0; sj < sl.length; sj++) { if (NettoyerChaine(sl[sj].n) === selN0) { sIdx = sj; break; } }
+                    var sIdx = effectiveSelIdx(nc.avis, sl);
                     if (sIdx >= 0) { var tt0 = parcoursTotals(nc, sl, sIdx); nc.durMs = tt0.g; nc.chezMs = tt0.e; nc.pasMs = Math.max(0, tt0.g - tt0.e); }
                 }
                 // Analysée si : tâche CT interne (user équipe) ET APQ0 interne (user équipe).
@@ -914,9 +911,6 @@
             if (m > 0 || parts.length === 0) parts.push(m + " min");
             return parts.join(" ");
         }
-        function days(ms) { return ms / dayMs(); }
-        function round1(x) { return Math.round(x * 10) / 10; }
-        function frNum(x) { return (""+x).replace(".", ","); }
 
     // ==========================================================
     // PAGE : PARAMÈTRES (4 tableaux)
@@ -1250,27 +1244,6 @@
             }
             return html + "</div>";
         }
-        // Graphique à barres : par semaine, 2 barres (global bleu / équipe vert), comme "par responsable".
-        function buildWeeksChart(pts) {
-            var max = 0;
-            for (var i = 0; i < pts.length; i++) { if (pts[i].g > max) max = pts[i].g; if (pts[i].t > max) max = pts[i].t; }
-            if (max <= 0) max = 1;
-            function bar(label, val, green) {
-                var pct = Math.round(val / max * 100);
-                var fill = "width:" + pct + "%;" + (green ? " background:#166534; background-image:none;" : "");
-                return "<div class='bar-line'><div class='bar-head'><span class='bar-name'>" + label + "</span> <span class='bar-meta'>· " + fmtDHM(val) + "</span></div>"
-                    + "<div class='bar-track'><div class='bar-fill' style='" + fill + "'></div></div></div>";
-            }
-            var html = "";
-            for (var k = 0; k < pts.length; k++) {
-                html += "<div style='margin-bottom:16px;'>"
-                    + "<div style='font-weight:700; color:#334155; font-size:13px; margin-bottom:6px;'>Semaine " + pts[k].week + " &middot; " + pts[k].n + " NC clôturées</div>"
-                    + bar("Traitement global", pts[k].g, false)
-                    + bar("Traitement équipe", pts[k].t, true)
-                    + "</div>";
-            }
-            return html;
-        }
         // Rendu du graphique d'évolution : Highcharts si dispo, sinon repli SVG fait-main.
         function renderWeeksLineChart(pts) {
             var cont = document.getElementById('dashWeeks');
@@ -1395,45 +1368,6 @@
             } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
         var PIE_COLORS = ['#0C447C', '#0284c7', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#65a30d', '#db2777', '#475569'];
-        // Camembert de la durée moyenne par responsable (chaque part = part de la durée moyenne).
-        function respPie(nomMap, agg, title) {
-            var items = [];
-            for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) items.push({ r: r, name: nomMap[r], avg: agg[r].sum / agg[r].n, n: agg[r].n }); }
-            items.sort(function (a, b) { return b.avg - a.avg; });
-            var head = "<div style='font-weight:700; color:#334155; margin-bottom:10px;'>" + title + "</div>";
-            if (!items.length) return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'>" + head + "<div class='msg-box msg-info' style='height:185px; padding:0; text-align:center;'><span style='display:inline-block; line-height:185px;'>Aucune donnée.</span></div></div>";
-            var total = 0; for (var i = 0; i < items.length; i++) total += items[i].avg;
-            if (total <= 0) total = 1;
-            var slices = "", labels = "", legend = "", ang = -90;
-            for (var k = 0; k < items.length; k++) {
-                var frac = items[k].avg / total, col = PIE_COLORS[k % PIE_COLORS.length];
-                var a0 = ang, a1 = ang + frac * 360; ang = a1;
-                slices += pieSlice(90, 90, 80, a0, a1, col);
-                var pct = Math.round(frac * 100);
-                if (pct >= 6) {   // % affiché dans la part (si assez grande)
-                    var mid = (a0 + a1) / 2 * Math.PI / 180;
-                    var lx = 90 + 50 * Math.cos(mid), ly = 90 + 50 * Math.sin(mid);
-                    labels += "<text x='" + lx.toFixed(1) + "' y='" + (ly + 4).toFixed(1) + "' text-anchor='middle' font-size='13' font-weight='700' fill='#ffffff'>" + pct + "%</text>";
-                }
-                legend += "<div style='font-size:12px; margin-bottom:7px; color:#334155;'><span style='display:inline-block; width:11px; height:11px; background:" + col + "; border-radius:2px; vertical-align:middle; margin-right:6px;'></span>"
-                    + escapeHtml(items[k].name) + " <span style='color:#94a3b8;'>· Moy. " + fmtDHM(items[k].avg) + "</span></div>";
-            }
-            var svg = "<svg viewBox='0 0 180 180' width='160' height='160' style='vertical-align:middle;'>" + slices + labels + "</svg>";
-            return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'>" + head
-                + "<div style='font-size:0;'>"
-                + "<div style='display:inline-block; vertical-align:middle; width:58%;'>" + legend + "</div>"
-                + "<div style='display:inline-block; vertical-align:middle; width:42%; text-align:center;'>" + svg + "</div>"
-                + "</div></div>";
-        }
-        function pieSlice(cx, cy, r, a0, a1, color) {
-            if (a1 - a0 >= 359.99) return "<circle cx='" + cx + "' cy='" + cy + "' r='" + r + "' fill='" + color + "'/>";
-            var r0 = a0 * Math.PI / 180, r1 = a1 * Math.PI / 180;
-            var x0 = (cx + r * Math.cos(r0)).toFixed(2), y0 = (cy + r * Math.sin(r0)).toFixed(2);
-            var x1 = (cx + r * Math.cos(r1)).toFixed(2), y1 = (cy + r * Math.sin(r1)).toFixed(2);
-            var large = (a1 - a0) > 180 ? 1 : 0;
-            return "<path d='M" + cx + " " + cy + " L" + x0 + " " + y0 + " A" + r + " " + r + " 0 " + large + " 1 " + x1 + " " + y1 + " Z' fill='" + color + "' stroke='#fff' stroke-width='1'/>";
-        }
-
         // 3) Activité des équipes ST / TL / IQ : nb de tâches + durée moyenne par user.
         function RenderDashTeams(elig) {
             var umap = {};
@@ -1564,13 +1498,6 @@
         }
         function weekLabel(mon) { var sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6); return "Semaine " + isoWeek(mon) + " - " + FormatDateString(mon) + " au " + FormatDateString(sun); }
         function SetParcoursWeek(v) { parcoursWeek = v ? parseInt(v, 10) : null; RenderParcours(); }
-        function decRespSet() { var s = {}; var a = cfgVal('decResp', DECISION_RESP).split(";"); for (var i = 0; i < a.length; i++) { var c = NettoyerChaine(a[i]).toUpperCase(); if (c) s[c] = true; } return s; }
-        function clotRespSet() { var s = {}; var a = appData.roleDesig || []; for (var i = 0; i < a.length; i++) { var c = NettoyerChaine(a[i].resp).toUpperCase(); if (c) s[c] = true; } return s; }
-        function bottleneckBadge(b) {
-            if (b === "decision") return "<span style='display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px; background:#FAEEDA; color:#854F0B;'>Goulot : Décision CT</span>";
-            if (b === "execution") return "<span style='display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px; background:#E6F1FB; color:#0C447C;'>Goulot : Exécution</span>";
-            return "";
-        }
         function RenderParcours() {
             var cont = document.getElementById('parcoursContainer');
             if (!cont) return;
@@ -1609,18 +1536,14 @@
             list.sort(function (a, b) { return (b.durMs || 0) - (a.durMs || 0); });
             if (wc) wc.innerText = list.length + (list.length > 1 ? " NC clôturées" : " NC clôturée");
 
-            var decS = decRespSet(), clotS = clotRespSet();
-            var decCode = cfgVal('dec', DECISION_CODE).toUpperCase(), clotCode = cfgVal('clot', CLOTURE_CODE).toUpperCase();
             var html = "";
-            for (var k = 0; k < list.length; k++) { html += renderParcoursCard(list[k], decS, clotS, decCode, clotCode); }
+            for (var k = 0; k < list.length; k++) { html += renderParcoursCard(list[k]); }
             cont.innerHTML = html;
         }
-        function renderParcoursCard(nc, decS, clotS, decCode, clotCode) {
+        function renderParcoursCard(nc) {
             // Tâches triées par Nº. Durée = écart réception (fin précédente, ou création NC pour la 1re) -> passage (sa fin).
             var lines = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
-            var selN = (appData.selLine && appData.selLine[nc.avis] != null) ? NettoyerChaine(appData.selLine[nc.avis]) : "";
-            var selIdx = -1;
-            if (selN !== "") { for (var si = 0; si < lines.length; si++) { if (NettoyerChaine(lines[si].n) === selN) { selIdx = si; break; } } }
+            var selIdx = effectiveSelIdx(nc.avis, lines);
             var rows = "", prevEnd = nc.start;   // réception de la 1re tâche = création NC
             for (var j = 0; j < lines.length; j++) {
                 var LL = lines[j];
@@ -1664,25 +1587,41 @@
             appData.comments[avis] = NettoyerChaine(val);
             SaveData();
         }
-        // Responsables EXTERNES (tableau 1, type ext) — exclus du traitement équipe.
-        function extRespSet() {
-            var s = {}, rd = appData.roleDesig || [];
-            for (var i = 0; i < rd.length; i++) { if (NettoyerChaine(rd[i].type) === "ext") { var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (rc) s[rc] = true; } }
-            return s;
+        // Ensembles depuis les paramètres.
+        function internalRespSet() { var s = {}, rd = appData.roleDesig || []; for (var i = 0; i < rd.length; i++) { if (NettoyerChaine(rd[i].type) === "int") { var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (rc) s[rc] = true; } } return s; }
+        function teamUserSet() { var s = {}, ts = [appData.teamST, appData.teamTL, appData.teamIQ]; for (var t = 0; t < ts.length; t++) { var a = ts[t] || []; for (var i = 0; i < a.length; i++) { var u = NettoyerChaine(a[i].user).toUpperCase(); if (u) s[u] = true; } } return s; }
+        function stUserSet() { var s = {}, a = appData.teamST || []; for (var i = 0; i < a.length; i++) { var u = NettoyerChaine(a[i].user).toUpperCase(); if (u) s[u] = true; } return s; }
+        // Ligne "Départ" par défaut : 1re ligne (ordre Nº) d'un responsable CT (70005847/70009001) faite par un user ST.
+        function defaultSelIdx(sortedLines) {
+            var st = stUserSet();
+            for (var k = 0; k < sortedLines.length; k++) {
+                var r = (sortedLines[k].r || "").toUpperCase(), tp = (sortedLines[k].tp || "").toUpperCase();
+                if ((r === "70005847" || r === "70009001") && st[tp]) return k;
+            }
+            return -1;
         }
-        // Totaux du parcours. selIdx < 0 = valeurs par défaut ; sinon de la ligne sélectionnée à l'APQ0.
-        //  - global = ligne sélectionnée -> clôture APQ0
-        //  - équipe = idem en EXCLUANT les étapes d'un responsable externe
+        // Index "Départ" effectif : sélection manuelle sauvegardée, sinon la ligne par défaut.
+        function effectiveSelIdx(avis, sortedLines) {
+            if (appData.selLine && appData.selLine[avis] != null && NettoyerChaine(appData.selLine[avis]) !== "") {
+                var selN = NettoyerChaine(appData.selLine[avis]);
+                for (var k = 0; k < sortedLines.length; k++) { if (NettoyerChaine(sortedLines[k].n) === selN) return k; }
+            }
+            return defaultSelIdx(sortedLines);
+        }
+        // Totaux du parcours : de la ligne sélectionnée jusqu'à l'APQ0 (clôture).
+        //  - global = ligne -> clôture
+        //  - équipe = étapes (ligne -> clôture) dont le responsable est INTERNE ET le "Terminé par" est en équipe
         function parcoursTotals(nc, lines, selIdx) {
             if (selIdx == null || selIdx < 0) return { g: nc.durMs, e: nc.chezMs };
             var selEnd = parseDT(lines[selIdx].td, lines[selIdx].tt), clot = nc.end;
             if (!selEnd || !clot || clot <= selEnd) return { g: 0, e: 0 };
-            var ext = extRespSet(), e = 0, prev = selEnd;
+            var intS = internalRespSet(), usr = teamUserSet(), e = 0, prev = selEnd;
             for (var k = selIdx + 1; k < lines.length; k++) {
                 var end = parseDT(lines[k].td, lines[k].tt);
                 if (!end || end <= prev) continue;
                 if (end > clot) break;
-                if (!ext[(lines[k].r || "").toUpperCase()]) e += durBetween(prev, end);
+                var r = (lines[k].r || "").toUpperCase(), tp = (lines[k].tp || "").toUpperCase();
+                if (intS[r] && usr[tp]) e += durBetween(prev, end);
                 prev = end;
             }
             return { g: durBetween(selEnd, clot), e: e };
@@ -1722,9 +1661,6 @@
                 document.body.style.cursor = '';
                 if (btn) btn.style.cursor = 'pointer';
             }, 80);
-        }
-        function tagHtml(txt, bg, col) {
-            return "<span style='display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; background:" + bg + "; color:" + col + ";'>" + txt + "</span>";
         }
 
     // ==========================================================
