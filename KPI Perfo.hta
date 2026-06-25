@@ -1173,11 +1173,10 @@
             document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts) + buildWeekBadges(last3);
             document.getElementById('dashWeeks').innerHTML = buildWeeksLine(pts);
         }
-        // Résumé : amélioration (durée en baisse) ou dégradation sur les 3 dernières semaines.
+        // Résumé : amélioration (durée en baisse) ou dégradation entre les 2 semaines les plus récentes.
         function build3WeekSummary(pts) {
             if (pts.length < 2) return "<div class='msg-box msg-info'>Pas assez de semaines pour comparer.</div>";
-            var last3 = pts.slice(Math.max(0, pts.length - 3));
-            var firstP = last3[0], lastP = last3[last3.length - 1];
+            var firstP = pts[pts.length - 2], lastP = pts[pts.length - 1];   // avant-dernière -> dernière semaine
             function ind(label, fromV, toV, mr) {
                 var delta = toV - fromV;   // négatif = amélioration (durée qui baisse)
                 var amelio = delta < 0, degr = delta > 0;
