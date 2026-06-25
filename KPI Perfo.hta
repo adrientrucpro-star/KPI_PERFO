@@ -1335,6 +1335,25 @@
         }
 
         // 2) Durée moyenne par responsable du tableau 1.
+        var dashRespPeriod = 'all';   // filtre durée moyenne par responsable : week/month/year/all
+        // Vrai si la date (clôture) est dans la période courante (semaine/mois/année) relative à aujourd'hui.
+        function inPeriod(d, period) {
+            if (period === 'all' || !period) return true;
+            if (!d) return false;
+            var now = new Date();
+            if (period === 'year') return d.getFullYear() === now.getFullYear();
+            if (period === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+            if (period === 'week') return getWeekStart(d).getTime() === getWeekStart(now).getTime();
+            return true;
+        }
+        function dashRespFilterBar() {
+            function btn(p, label) {
+                var on = dashRespPeriod === p;
+                return "<button type='button' onclick=\"SetDashRespPeriod('" + p + "')\" style='font-size:11px; font-weight:600; padding:4px 9px; border:1px solid #c5d5de; cursor:pointer; vertical-align:middle; margin-left:-1px; " + (on ? "background:#0C447C; color:#fff; border-color:#0C447C; position:relative; z-index:1;" : "background:#fff; color:#475569;") + "'>" + label + "</button>";
+            }
+            return "<span style='font-size:0; white-space:nowrap;'>" + btn('week', 'Semaine') + btn('month', 'Mois') + btn('year', 'Année') + btn('all', 'Toutes') + "</span>";
+        }
+        function SetDashRespPeriod(p) { dashRespPeriod = p; RenderDashboard(); }
         function RenderDashResp(elig) {
             var intNom = {}, extNom = {}, rd = appData.roleDesig || [];
             for (var i = 0; i < rd.length; i++) {
@@ -1343,6 +1362,7 @@
             }
             var agg = {};
             for (var e = 0; e < elig.length; e++) {
+                if (!inPeriod(elig[e].end, dashRespPeriod)) continue;   // filtre Semaine/Mois/Année/Toutes
                 var gaps = stepGaps(elig[e].lines);
                 for (var j = 0; j < gaps.length; j++) {
                     if (gaps[j].gap == null) continue;
@@ -1352,6 +1372,8 @@
                     agg[r].sum += gaps[j].gap; agg[r].n++;
                 }
             }
+            var fb = document.getElementById('dashRespFilterInt'); if (fb) fb.innerHTML = dashRespFilterBar();
+            var fb2 = document.getElementById('dashRespFilterExt'); if (fb2) fb2.innerHTML = dashRespFilterBar();
             hcRespPie('hcRespInt', intNom, agg);
             hcRespPie('hcRespExt', extNom, agg);
         }
@@ -1848,13 +1870,13 @@
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                         <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                             <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3>Durée moyenne - Responsables internes</h3>
+                                <div style="overflow:hidden; margin-bottom:14px;"><h3 style="margin:0; display:inline-block; vertical-align:middle;">Durée moyenne - Responsables internes</h3><span id="dashRespFilterInt" style="float:right;"></span></div>
                                 <div id="hcRespInt" style="width:100%; height:250px;"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
                             <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3>Durée moyenne - Responsables externes</h3>
+                                <div style="overflow:hidden; margin-bottom:14px;"><h3 style="margin:0; display:inline-block; vertical-align:middle;">Durée moyenne - Responsables externes</h3><span id="dashRespFilterExt" style="float:right;"></span></div>
                                 <div id="hcRespExt" style="width:100%; height:250px;"></div>
                             </div>
                         </div>
