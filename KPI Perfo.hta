@@ -1195,10 +1195,10 @@
                 var col = amelio ? "#166534" : (degr ? "#b91c1c" : "#64748b");
                 var bg = amelio ? "#dcfce3" : (degr ? "#fee2e2" : "#f1f5f9");
                 var txt = amelio ? "Amélioration de " + fmtDHM(Math.abs(delta)) : (degr ? "Dégradation de " + fmtDHM(delta) : "Stable");
-                return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;" + (mr ? " margin-right:2%;" : "") + " background:" + bg + "; border-radius:8px; padding:12px 14px;'>"
-                    + "<div style='font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;'>" + label + "</div>"
-                    + "<div style='font-size:15px; font-weight:700; color:" + col + ";'>" + arrow + " " + txt + "</div>"
-                    + "<div style='font-size:11px; color:#64748b; margin-top:4px;'>Sem " + firstP.week + " (" + fmtDHM(fromV) + ") &rarr; Sem " + lastP.week + " (" + fmtDHM(toV) + ")</div></div>";
+                return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;" + (mr ? " margin-right:2%;" : "") + " background:" + bg + "; border-radius:8px; padding:8px 12px;'>"
+                    + "<div style='font-size:12px; font-weight:600; color:#475569; margin-bottom:3px;'>" + label + "</div>"
+                    + "<div style='font-size:14px; font-weight:700; color:" + col + ";'>" + arrow + " " + txt + "</div>"
+                    + "<div style='font-size:11px; color:#64748b; margin-top:3px;'>Sem " + firstP.week + " (" + fmtDHM(fromV) + ") &rarr; Sem " + lastP.week + " (" + fmtDHM(toV) + ")</div></div>";
             }
             return "<div style='font-size:0; margin-bottom:18px;'>" + ind("Traitement global", firstP.g, lastP.g, true) + ind("Traitement équipe", firstP.t, lastP.t, false) + "</div>";
         }
@@ -1209,10 +1209,10 @@
             var html = "<div style='font-size:0; margin:0 -4px;'>";
             for (var k = 0; k < pts.length; k++) {
                 html += "<div style='display:inline-block; vertical-align:top; width:" + w + "%; box-sizing:border-box; padding:0 4px;'>"
-                    + "<div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px;'>"
-                    + "<div style='font-weight:700; color:#334155; font-size:13px; margin-bottom:5px;'>Semaine " + pts[k].week + "</div>"
-                    + "<div style='font-size:11px; color:#64748b; margin-bottom:8px;'>" + pts[k].n + " NC clôturées</div>"
-                    + "<div style='font-size:12px; color:#475569; margin-bottom:3px;'><span style='display:inline-block; width:9px; height:9px; background:#0C447C; border-radius:2px; margin-right:5px;'></span>Global : <b style='color:#0C447C;'>" + fmtDHM(pts[k].g) + "</b></div>"
+                    + "<div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:7px 10px;'>"
+                    + "<div style='font-weight:700; color:#334155; font-size:13px; margin-bottom:2px;'>Semaine " + pts[k].week + "</div>"
+                    + "<div style='font-size:11px; color:#64748b; margin-bottom:5px;'>" + pts[k].n + " NC clôturées</div>"
+                    + "<div style='font-size:12px; color:#475569; margin-bottom:2px;'><span style='display:inline-block; width:9px; height:9px; background:#0C447C; border-radius:2px; margin-right:5px;'></span>Global : <b style='color:#0C447C;'>" + fmtDHM(pts[k].g) + "</b></div>"
                     + "<div style='font-size:12px; color:#475569;'><span style='display:inline-block; width:9px; height:9px; background:#166534; border-radius:2px; margin-right:5px;'></span>Équipe : <b style='color:#166534;'>" + fmtDHM(pts[k].t) + "</b></div>"
                     + "</div></div>";
             }
@@ -1245,7 +1245,7 @@
             if (typeof Highcharts === 'undefined') { cont.innerHTML = buildWeeksLine(pts); return; }
             // Hauteur du graphique = pour que la carte droite remplisse la hauteur de la carte gauche.
             var leftCard = document.getElementById('cardEvo3w'), avail = 240;
-            if (leftCard && leftCard.offsetHeight > 0) { avail = leftCard.offsetHeight - 76; if (avail < 180) avail = 180; }
+            if (leftCard && leftCard.offsetHeight > 0) { avail = leftCard.offsetHeight - 76; if (avail < 150) avail = 150; }
             cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:" + avail + "px;'></div>";
             var dMs = dayMs(), cats = [], gData = [], tData = [];
             for (var i = 0; i < pts.length; i++) {
@@ -1261,7 +1261,7 @@
                     legend: { enabled: true },
                     xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                     yAxis: {
-                        title: { text: 'Durée (jours)' }, min: 0,
+                        title: { text: 'Durée (jours)' }, min: 0, tickInterval: 5,
                         plotLines: [{ value: 2, color: '#dc2626', dashStyle: 'Dash', width: 1.5, zIndex: 5, label: { text: 'Objectif 2 j', align: 'right', style: { color: '#dc2626', fontWeight: 'bold' } } }]
                     },
                     tooltip: {
