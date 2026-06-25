@@ -910,7 +910,7 @@
             for (var i = 0; i < data.length; i++) {
                 rows += "<tr><td style='text-align:center; font-weight:700;'>" + escapeHtml(data[i].of) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(data[i].user) + "</td>"
-                    + "<td style='text-align:center;'>" + escapeHtml(data[i].date) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(fmtOFDate(data[i].date)) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(data[i].heure) + "</td></tr>";
             }
             cont.innerHTML = "<div style='max-height:60vh; overflow-y:auto; padding-bottom:14px;'>"
@@ -923,6 +923,15 @@
             RenderOFAll();
         }
         // "JJ.MM.AAAA" ou "JJ/MM/AAAA" -> entier AAAAMMJJ (comparable), ou null.
+        // Normalise une date d'export OF (JJ.MM.AAAA, JJ-MM-AAAA…) au format JJ/MM/AAAA.
+        function fmtOFDate(s) {
+            s = NettoyerChaine(s); if (!s) return "";
+            var p = s.split(/[.\/\-]/); if (p.length < 3) return s;
+            var d = p[0], m = p[1], y = p[2];
+            if (d.length === 1) d = '0' + d; if (m.length === 1) m = '0' + m;
+            if (y.length === 2) y = '20' + y;
+            return d + '/' + m + '/' + y;
+        }
         function dateToNum(s) {
             s = NettoyerChaine(s); if (!s) return null;
             var p = s.split(/[.\/\-]/); if (p.length < 3) return null;
@@ -1410,7 +1419,8 @@
         // Les 7 jours (ts) de la semaine sélectionnée dans le filtre.
         function selectedWeekDays() {
             var mon = isoWeekMonday(dashFilter.year, dashFilter.week), out = [];
-            for (var i = 0; i < 7; i++) { var d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i); out.push(d.getTime()); }
+            var nb = ((appData.calc && appData.calc.mode) === 'ouvre') ? 5 : 7;   // jours ouvrés : lun-ven
+            for (var i = 0; i < nb; i++) { var d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i); out.push(d.getTime()); }
             return out;
         }
         // Agrégation par semaine (ou par JOUR si byDay) de clôture -> points { week, label, n, g, t }, triés.
@@ -2339,14 +2349,12 @@
 
             <!-- PAGE PARAMÈTRES -->
             <div id="pageParametres" class="page">
-                <div style="float:right; margin-top:2px;">
-                    <button id="btnParamsEdit" class="btn-toolbar btn-green" onclick="ParamsEdit()">Modifier</button>
-                    <button id="btnParamsSave" class="btn-toolbar btn-green" style="display:none; margin-left:8px;" onclick="ParamsValider()">Valider</button>
-                    <button id="btnParamsCancel" class="btn-toolbar btn-grey" style="display:none; margin-left:6px;" onclick="ParamsAnnuler()">Annuler</button>
-                </div>
-                <div style="clear:both; margin-bottom:18px;"></div>
-
-                <div class="card" style="margin-bottom:16px; padding:16px 20px;">
+                <div class="card" style="margin-bottom:16px; padding:16px 20px; overflow:hidden;">
+                    <div style="float:right;">
+                        <button id="btnParamsEdit" class="btn-toolbar btn-green" onclick="ParamsEdit()">Modifier</button>
+                        <button id="btnParamsSave" class="btn-toolbar btn-green" style="display:none; margin-left:8px;" onclick="ParamsValider()">Valider</button>
+                        <button id="btnParamsCancel" class="btn-toolbar btn-grey" style="display:none; margin-left:6px;" onclick="ParamsAnnuler()">Annuler</button>
+                    </div>
                     <h3 style="margin:0; display:inline-block; vertical-align:middle; margin-right:28px;">Mode de calcul des durées</h3>
                     <div id="calcModePanel" style="display:inline-block; vertical-align:middle;"></div>
                 </div>
