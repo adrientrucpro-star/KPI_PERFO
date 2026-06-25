@@ -1330,7 +1330,7 @@
                     agg[uu].sum += gaps[j].gap; agg[uu].n++;
                 }
             }
-            var order = ["ST", "TL", "IQ"], colors = { ST: "#b45309", TL: "#1d4ed8", IQ: "#047857" }, html = "";
+            var order = ["ST", "TL", "IQ"], colors = { ST: "#b45309", TL: "#1d4ed8", IQ: "#047857" }, cols = "";
             for (var o = 0; o < order.length; o++) {
                 var team = order[o], us = [];
                 for (var u2 in umap) { if (umap.hasOwnProperty(u2) && umap[u2].team === team) us.push(u2); }
@@ -1338,14 +1338,16 @@
                 var rows = "";
                 for (var k = 0; k < us.length; k++) {
                     var key = us[k], st = agg[key] || { sum: 0, n: 0 };
-                    rows += "<tr><td style='font-weight:700;'>" + escapeHtml(key) + "</td><td>" + escapeHtml(umap[key].nom) + "</td>"
-                        + "<td style='text-align:center;'>" + st.n + "</td><td style='text-align:center;'>" + (st.n ? fmtDHM(st.sum / st.n) : "-") + "</td></tr>";
+                    rows += "<tr><td style='font-weight:700;' title='" + escapeHtml(umap[key].nom) + "'>" + escapeHtml(key) + "</td>"
+                        + "<td style='text-align:center;'>" + st.n + "</td>"
+                        + "<td style='text-align:center;'>" + (st.n ? fmtDHM(st.sum / st.n) : "-") + "</td></tr>";
                 }
-                if (!rows) rows = "<tr><td colspan='4' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucun membre</td></tr>";
-                html += "<div style='margin-bottom:18px;'><div style='font-weight:700; font-size:14px; color:" + colors[team] + "; margin-bottom:8px;'>Équipe " + team + "</div>"
-                    + "<table class='data-table'><thead><tr><th width='18%'>User</th><th>Nom</th><th width='16%'>Nb tâches</th><th width='20%'>Durée moy</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+                if (!rows) rows = "<tr><td colspan='3' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucun membre</td></tr>";
+                cols += "<div style='display:inline-block; vertical-align:top; width:33.33%; padding:0 8px; box-sizing:border-box;'>"
+                    + "<div style='font-weight:700; font-size:14px; color:" + colors[team] + "; margin-bottom:8px;'>Équipe " + team + "</div>"
+                    + "<table class='data-table'><thead><tr><th>User</th><th width='30%'>Nb tâches</th><th width='34%'>Durée moy</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
             }
-            document.getElementById('dashTeams').innerHTML = html;
+            document.getElementById('dashTeams').innerHTML = "<div style='font-size:0; margin:0 -8px;'>" + cols + "</div>";
         }
 
     // ==========================================================
