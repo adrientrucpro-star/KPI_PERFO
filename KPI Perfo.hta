@@ -1152,57 +1152,48 @@
             RenderWeeksChart(eligF);   // courbes par semaine : filtré
             RenderDashResp(eligF);
             RenderDashTeams(eligF);
-            setTimeout(EgaliserCadresEvolution, 60);
+            setTimeout(EgaliserDashboard, 60);
         }
-        // Aligne la hauteur des deux cartes Évolution (table-cell peu fiable sous IE10).
-        function EgaliserCadresEvolution() {
-            var c1 = document.getElementById('cardEvo3w'), c2 = document.getElementById('cardEvoWeek');
-            if (!c1 || !c2) return;
-            c1.style.height = ""; c2.style.height = "";
-            var hc = document.getElementById('hcWeeks');
-            if (hc) hc.style.height = "";
-            var lH = c1.offsetHeight;                       // hauteur naturelle de la carte gauche
-            if (lH <= 0) return;
-            // Redimensionne le graphique pour que la carte droite atteigne exactement lH.
-            if (hc && window.hcWeeksChart) {
-                var extra = c2.offsetHeight - hc.offsetHeight;   // bandeau (titre + marges/paddings) de la carte droite
-                var chartH = lH - extra; if (chartH < 150) chartH = 150;
-                hc.style.height = chartH + "px";
-                try { window.hcWeeksChart.setSize(hc.offsetWidth, chartH, false); } catch (e) {}
-            }
-            var h = Math.max(c1.offsetHeight, c2.offsetHeight);
-            c1.style.height = h + "px"; c2.style.height = h + "px";
+        // Égalise la hauteur de TOUTES les cartes graphiques du dashboard → les 3 lignes ont la même hauteur.
+        function EgaliserDashboard() {
+            var cards = document.querySelectorAll('#dashCharts .dashEqual');
+            if (!cards || !cards.length) return;
+            var max = 0, i;
+            for (i = 0; i < cards.length; i++) cards[i].style.height = "";
+            for (i = 0; i < cards.length; i++) { if (cards[i].offsetHeight > max) max = cards[i].offsetHeight; }
+            if (max > 0) { for (i = 0; i < cards.length; i++) cards[i].style.height = max + "px"; }
         }
 
-        // Agrégation par semaine de clôture -> points { week, n, g(global moy), t(équipe moy) }, triés.
-        function computeWeekPts(elig) {
+        function fmtDDMM(d) { var dd = d.getDate(), mm = d.getMonth() + 1; return (dd < 10 ? '0' + dd : '' + dd) + '/' + (mm < 10 ? '0' + mm : '' + mm); }
+        // Agrégation par semaine (ou par JOUR si byDay) de clôture -> points { week, label, n, g, t }, triés.
+        function computeWeekPts(elig, byDay) {
             var agg = {};
             for (var i = 0; i < elig.length; i++) {
                 var nc = elig[i]; if (!nc.end) continue;
-                var ws = getWeekStart(nc.end).getTime();
-                if (!agg[ws]) agg[ws] = { n: 0, sg: 0, ng: 0, st: 0, nt: 0 };
-                agg[ws].n++;
-                if (nc.durMs != null) { agg[ws].sg += nc.durMs; agg[ws].ng++; }
-                if (nc.chezMs != null) { agg[ws].st += nc.chezMs; agg[ws].nt++; }
+                var key = byDay ? new Date(nc.end.getFullYear(), nc.end.getMonth(), nc.end.getDate()).getTime() : getWeekStart(nc.end).getTime();
+                if (!agg[key]) agg[key] = { n: 0, sg: 0, ng: 0, st: 0, nt: 0 };
+                agg[key].n++;
+                if (nc.durMs != null) { agg[key].sg += nc.durMs; agg[key].ng++; }
+                if (nc.chezMs != null) { agg[key].st += nc.chezMs; agg[key].nt++; }
             }
             var keys = []; for (var w in agg) { if (agg.hasOwnProperty(w)) keys.push(parseInt(w, 10)); }
             keys.sort(function (a, b) { return a - b; });
             var pts = [];
             for (var k = 0; k < keys.length; k++) {
-                var a = agg[keys[k]], mon = new Date(keys[k]);
-                pts.push({ week: isoWeek(mon), n: a.n, g: a.ng ? a.sg / a.ng : 0, t: a.nt ? a.st / a.nt : 0 });
+                var a = agg[keys[k]], dd = new Date(keys[k]);
+                pts.push({ week: isoWeek(dd), label: byDay ? fmtDDMM(dd) : ("S" + isoWeek(dd)), n: a.n, g: a.ng ? a.sg / a.ng : 0, t: a.nt ? a.st / a.nt : 0 });
             }
             return pts;
         }
         // Résumé "3 dernières semaines" : TOUJOURS sur les NC non filtrées (3 dernières semaines réelles).
         function RenderDash3Weeks(eligAll) {
-            var pts = computeWeekPts(eligAll);
+            var pts = computeWeekPts(eligAll, false);
             if (!pts.length) { document.getElementById('dash3weeks').innerHTML = "<div class='msg-box msg-info'>Aucune donnée.</div>"; return; }
             document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts.slice(Math.max(0, pts.length - 3)));
         }
         // Graphique d'évolution par semaine : sur les NC filtrées par la période choisie.
         function RenderWeeksChart(elig) {
-            var pts = computeWeekPts(elig);
+            var pts = computeWeekPts(elig, dashFilter.gran === 'week');
             if (!pts.length) { document.getElementById('dashWeeks').innerHTML = "<div class='msg-box msg-info'>Aucune donnée.</div>"; return; }
             renderWeeksLineChart(pts);
         }
@@ -1273,13 +1264,10 @@
         function renderWeeksLineChart(pts) {
             var cont = document.getElementById('dashWeeks');
             if (typeof Highcharts === 'undefined') { cont.innerHTML = buildWeeksLine(pts); return; }
-            // Hauteur du graphique = pour que la carte droite remplisse la hauteur de la carte gauche.
-            var leftCard = document.getElementById('cardEvo3w'), avail = 240;
-            if (leftCard) { leftCard.style.height = ""; if (leftCard.offsetHeight > 0) { avail = leftCard.offsetHeight - 76; if (avail < 150) avail = 150; } }
-            cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:" + avail + "px;'></div>";
+            cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:280px;'></div>";
             var dMs = dayMs(), cats = [], gData = [], tData = [];
             for (var i = 0; i < pts.length; i++) {
-                cats.push("S" + pts[i].week);
+                cats.push(pts[i].label);
                 gData.push({ y: Math.round(pts[i].g / dMs * 100) / 100, ms: pts[i].g });
                 tData.push({ y: Math.round(pts[i].t / dMs * 100) / 100, ms: pts[i].t });
             }
@@ -1288,7 +1276,7 @@
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null },
                     credits: { enabled: false },
-                    legend: { enabled: true },
+                    legend: { enabled: true, align: 'right', verticalAlign: 'top', floating: true, y: -8, padding: 0, itemStyle: { fontSize: '11px' } },
                     xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                     yAxis: {
                         title: { text: 'Durée (jours)' }, min: 0, tickInterval: 5,
@@ -1435,7 +1423,7 @@
             var data = [];
             for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) data.push({ name: nomMap[r], y: agg[r].sum / agg[r].n / dayMs(), ms: agg[r].sum / agg[r].n, ntasks: agg[r].n }); }
             data.sort(function (a, b) { return b.y - a.y; });
-            if (!data.length) { cont.innerHTML = "<div style='height:250px; margin:0; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune donnée</span></div>"; return; }
+            if (!data.length) { cont.innerHTML = "<div style='height:280px; margin:0; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune donnée</span></div>"; return; }
             try {
                 Highcharts.chart(id, {
                     chart: { type: 'pie', backgroundColor: 'transparent', spacing: [4, 2, 4, 2], style: { fontFamily: 'inherit' } },
@@ -1456,11 +1444,13 @@
                 var arr = teamDefs[t][1] || [];
                 for (var i = 0; i < arr.length; i++) { var u = NettoyerChaine(arr[i].user).toUpperCase(); if (u) umap[u] = { team: teamDefs[t][0], nom: arr[i].nom || u }; }
             }
-            // Agrégation : durée moyenne par user ET par semaine de clôture.
-            var weekSet = {}, agg = {};   // agg[user][weekTs] = { sum, n }
+            // Agrégation : durée moyenne par user ET par semaine (ou par JOUR si filtre semaine) de clôture.
+            var byDay = dashFilter.gran === 'week';
+            var weekSet = {}, agg = {};   // agg[user][bucketTs] = { sum, n }
             for (var e = 0; e < elig.length; e++) {
                 var nc = elig[e]; if (!nc.end) continue;
-                var wts = getWeekStart(nc.end).getTime(); weekSet[wts] = true;
+                var wts = byDay ? new Date(nc.end.getFullYear(), nc.end.getMonth(), nc.end.getDate()).getTime() : getWeekStart(nc.end).getTime();
+                weekSet[wts] = true;
                 var gaps = stepGaps(nc.lines);
                 for (var j = 0; j < gaps.length; j++) {
                     if (gaps[j].gap == null) continue;
@@ -1473,7 +1463,7 @@
             }
             var weeks = []; for (var w in weekSet) { if (weekSet.hasOwnProperty(w)) weeks.push(parseInt(w, 10)); }
             weeks.sort(function (a, b) { return a - b; });
-            var cats = []; for (var z = 0; z < weeks.length; z++) cats.push("S" + isoWeek(new Date(weeks[z])));
+            var cats = []; for (var z = 0; z < weeks.length; z++) cats.push(byDay ? fmtDDMM(new Date(weeks[z])) : "S" + isoWeek(new Date(weeks[z])));
             var order = ["ST", "TL", "IQ"];
             for (var o = 0; o < order.length; o++) {
                 var team = order[o], us = [];
@@ -1930,13 +1920,13 @@
                 <div id="dashCharts" style="display:none;">
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                         <div style="display:table-cell; width:40%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div id="cardEvo3w" class="card" style="margin-bottom:0; box-sizing:border-box;">
+                            <div id="cardEvo3w" class="card dashEqual" style="margin-bottom:0; box-sizing:border-box;">
                                 <h3>Évolution sur les 3 dernières semaines</h3>
                                 <div id="dash3weeks"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:60%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div id="cardEvoWeek" class="card" style="margin-bottom:0; box-sizing:border-box;">
+                            <div id="cardEvoWeek" class="card dashEqual" style="margin-bottom:0; box-sizing:border-box;">
                                 <h3>Évolution du traitement par semaine</h3>
                                 <div id="dashWeeks"></div>
                             </div>
@@ -1944,33 +1934,33 @@
                     </div>
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                         <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div class="card dashEqual" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                 <h3 style="margin:0 0 14px 0;">Durée moyenne - Responsables internes</h3>
-                                <div id="hcRespInt" style="width:100%; height:250px;"></div>
+                                <div id="hcRespInt" style="width:100%; height:280px;"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div class="card dashEqual" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                 <h3 style="margin:0 0 14px 0;">Durée moyenne - Responsables externes</h3>
-                                <div id="hcRespExt" style="width:100%; height:250px;"></div>
+                                <div id="hcRespExt" style="width:100%; height:280px;"></div>
                             </div>
                         </div>
                     </div>
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                         <div style="display:table-cell; width:33.33%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div class="card dashEqual" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                 <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe ST</h3>
                                 <div id="hcTeamST" style="width:100%; height:280px;"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:33.33%; padding:0 8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div class="card dashEqual" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                 <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe TL</h3>
                                 <div id="hcTeamTL" style="width:100%; height:280px;"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:33.33%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div class="card dashEqual" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                 <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe IQ</h3>
                                 <div id="hcTeamIQ" style="width:100%; height:280px;"></div>
                             </div>
