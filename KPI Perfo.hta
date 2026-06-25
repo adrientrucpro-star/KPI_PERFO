@@ -1150,6 +1150,15 @@
             RenderDashWeeks(elig);
             RenderDashResp(elig);
             RenderDashTeams(elig);
+            setTimeout(EgaliserCadresEvolution, 60);
+        }
+        // Aligne la hauteur des deux cartes Évolution (table-cell peu fiable sous IE10).
+        function EgaliserCadresEvolution() {
+            var c1 = document.getElementById('cardEvo3w'), c2 = document.getElementById('cardEvoWeek');
+            if (!c1 || !c2) return;
+            c1.style.height = ""; c2.style.height = "";
+            var h = Math.max(c1.offsetHeight, c2.offsetHeight);
+            if (h > 0) { c1.style.height = h + "px"; c2.style.height = h + "px"; }
         }
 
         // 1) Évolution par semaine : résumé 3 dernières semaines + courbes global / équipe.
@@ -1234,7 +1243,7 @@
         function renderWeeksLineChart(pts) {
             var cont = document.getElementById('dashWeeks');
             if (typeof Highcharts === 'undefined') { cont.innerHTML = buildWeeksLine(pts); return; }
-            cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:330px;'></div>";
+            cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:240px;'></div>";
             var dMs = dayMs(), cats = [], gData = [], tData = [];
             for (var i = 0; i < pts.length; i++) {
                 cats.push("S" + pts[i].week);
@@ -1760,13 +1769,13 @@
                 <div id="dashCharts" style="display:none;">
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                         <div style="display:table-cell; width:40%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div id="cardEvo3w" class="card" style="margin-bottom:0; box-sizing:border-box;">
                                 <h3>Évolution sur les 3 dernières semaines</h3>
                                 <div id="dash3weeks"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:60%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div id="cardEvoWeek" class="card" style="margin-bottom:0; box-sizing:border-box;">
                                 <h3>Évolution du traitement par semaine</h3>
                                 <div id="dashWeeks"></div>
                             </div>
