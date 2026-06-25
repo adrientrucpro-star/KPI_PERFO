@@ -62,6 +62,10 @@
         .date-wrap .input-date { padding-right: 24px; }
         .btn-clear-date { position: absolute; right: 2px; top: 0; height: 38px; line-height: 38px; border: none; background: none; color: #94a3b8; font-size: 18px; cursor: pointer; padding: 0 6px; }
         .btn-clear-date:hover { color: #ef4444; }
+        .nc-switch { display: inline-block; vertical-align: middle; width: 46px; height: 24px; border-radius: 12px; background: #16a34a; position: relative; cursor: pointer; margin-left: 8px; transition: background .2s; }
+        .nc-switch .knob { position: absolute; top: 2px; left: 24px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.3); transition: left .2s; }
+        .nc-switch.off { background: #dc2626; }
+        .nc-switch.off .knob { left: 2px; }
         .btn-green { background-color: #10b981; } .btn-green:hover { background-color: #059669; }
         .btn-grey { background-color: #64748b; } .btn-grey:hover { background-color: #475569; }
         .btn-disabled { background-color: #94a3b8 !important; cursor: wait !important; color: #f1f5f9 !important; }
@@ -1950,9 +1954,7 @@
                 if (e) prevEnd = e;
             }
             var comment = (appData.comments && appData.comments[nc.avis]) ? appData.comments[nc.avis] : "";
-            var exclBtn = nc.excluded
-                ? "<button type='button' onclick=\"ToggleExcludeNC('" + escapeHtml(nc.avis) + "')\" title='Réintégrer cette NC' style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:6px 12px; border-radius:6px; background:#16a34a; color:#fff; border:none; cursor:pointer; margin-left:8px;'>Réintégrer</button>"
-                : "<button type='button' onclick=\"ToggleExcludeNC('" + escapeHtml(nc.avis) + "')\" title='Exclure cette NC' style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:6px 12px; border-radius:6px; background:#dc2626; color:#fff; border:none; cursor:pointer; margin-left:8px;'>Exclure</button>";
+            var exclBtn = "<span class='nc-switch" + (nc.excluded ? " off" : "") + "' onclick=\"ToggleExcludeNC('" + escapeHtml(nc.avis) + "')\" title='" + (nc.excluded ? "Réintégrer cette NC" : "Exclure cette NC") + "'><span class='knob'></span></span>";
             return "<div class='card' style='padding:16px 25px;" + (nc.excluded ? " opacity:0.55; border-left:4px solid #dc2626;" : "") + "'>"
                 + "<div style='overflow:hidden; margin-bottom:16px;'>"
                 + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span> " + (nc.excluded ? "<span class='badge' style='background:#fee2e2; color:#b91c1c;'>Exclue</span> " : "") + "<span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
