@@ -1181,26 +1181,55 @@
                 pts.push({ week: isoWeek(mon), n: a.n, g: a.ng ? a.sg / a.ng : 0, t: a.nt ? a.st / a.nt : 0 });
             }
             var last3 = pts.slice(Math.max(0, pts.length - 3));
-            document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts) + buildWeekBadges(last3);
+            document.getElementById('dash3weeks').innerHTML = build3WeekSummary(last3);
             renderWeeksLineChart(pts);
         }
         // Résumé : amélioration (durée en baisse) ou dégradation entre les 2 semaines les plus récentes.
-        function build3WeekSummary(pts) {
-            if (pts.length < 2) return "<div class='msg-box msg-info'>Pas assez de semaines pour comparer.</div>";
-            var firstP = pts[pts.length - 2], lastP = pts[pts.length - 1];   // avant-dernière -> dernière semaine
-            function ind(label, fromV, toV, mr) {
-                var delta = toV - fromV;   // négatif = amélioration (durée qui baisse)
-                var amelio = delta < 0, degr = delta > 0;
-                var arrow = amelio ? "&#8600;" : (degr ? "&#8599;" : "&#8211;");
-                var col = amelio ? "#166534" : (degr ? "#b91c1c" : "#64748b");
-                var bg = amelio ? "#dcfce3" : (degr ? "#fee2e2" : "#f1f5f9");
-                var txt = amelio ? "Amélioration de " + fmtDHM(Math.abs(delta)) : (degr ? "Dégradation de " + fmtDHM(delta) : "Stable");
-                return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;" + (mr ? " margin-right:2%;" : "") + " background:" + bg + "; border-radius:8px; padding:8px 12px;'>"
-                    + "<div style='font-size:12px; font-weight:600; color:#475569; margin-bottom:3px;'>" + label + "</div>"
-                    + "<div style='font-size:14px; font-weight:700; color:" + col + ";'>" + arrow + " " + txt + "</div>"
-                    + "<div style='font-size:11px; color:#64748b; margin-top:3px;'>Sem " + firstP.week + " (" + fmtDHM(fromV) + ") &rarr; Sem " + lastP.week + " (" + fmtDHM(toV) + ")</div></div>";
+        // Panneau 3 semaines : L1 numéros de semaine, L2 cases (NC/global/équipe), L3 évolutions entre semaines.
+        function build3WeekSummary(wk) {
+            if (!wk.length) return "<div class='msg-box msg-info'>Aucune donnée.</div>";
+            var n = wk.length, cw = 100 / n, colW = cw.toFixed(2);
+            // Ligne 1 : numéros de semaine
+            var l1 = "<div style='font-size:0; margin-bottom:8px;'>";
+            for (var i = 0; i < n; i++) {
+                l1 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 4px; text-align:center; font-size:14px; font-weight:700; color:#334155;'>Semaine " + wk[i].week + "</div>";
             }
-            return "<div style='font-size:0; margin-bottom:18px;'>" + ind("Traitement global", firstP.g, lastP.g, true) + ind("Traitement équipe", firstP.t, lastP.t, false) + "</div>";
+            l1 += "</div>";
+            // Ligne 2 : une case par semaine (NC, global, équipe)
+            var l2 = "<div style='font-size:0; margin-bottom:10px;'>";
+            for (var j = 0; j < n; j++) {
+                l2 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 4px;'>"
+                    + "<div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px;'>"
+                    + "<div style='font-size:11px; color:#64748b; margin-bottom:5px;'>" + wk[j].n + " NC clôturées</div>"
+                    + "<div style='font-size:12px; color:#475569; margin-bottom:2px;'><span style='display:inline-block; width:9px; height:9px; background:#0C447C; border-radius:2px; margin-right:5px;'></span>Global : <b style='color:#0C447C;'>" + fmtDHM(wk[j].g) + "</b></div>"
+                    + "<div style='font-size:12px; color:#475569;'><span style='display:inline-block; width:9px; height:9px; background:#166534; border-radius:2px; margin-right:5px;'></span>Équipe : <b style='color:#166534;'>" + fmtDHM(wk[j].t) + "</b></div>"
+                    + "</div></div>";
+            }
+            l2 += "</div>";
+            // Ligne 3 : évolution entre semaines consécutives (centrée entre les 2 colonnes concernées)
+            var l3 = "";
+            if (n >= 2) {
+                l3 = "<div style='font-size:0;'>";
+                for (var k = 0; k < n - 1; k++) {
+                    var ml = (k === 0) ? (cw / 2).toFixed(2) : 0;
+                    l3 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 4px;" + (ml ? " margin-left:" + ml + "%;" : "") + "'>" + evoBox(wk[k], wk[k + 1]) + "</div>";
+                }
+                l3 += "</div>";
+            }
+            return l1 + l2 + l3;
+        }
+        function evoBox(a, b) {
+            function line(label, color, fromV, toV) {
+                var delta = toV - fromV, amelio = delta < 0, degr = delta > 0;
+                var arrow = amelio ? "&#8600;" : (degr ? "&#8599;" : "&#8211;");
+                var c = amelio ? "#166534" : (degr ? "#b91c1c" : "#64748b");
+                var txt = (delta === 0) ? "Stable" : ((amelio ? "-" : "+") + fmtDHM(Math.abs(delta)));
+                return "<div style='font-size:12px; color:#475569; margin-bottom:2px;'>" + label + " <b style='color:" + c + ";'>" + arrow + " " + txt + "</b></div>";
+            }
+            return "<div style='background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px;'>"
+                + "<div style='font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px; text-align:center;'>S" + a.week + " &rarr; S" + b.week + "</div>"
+                + line("Global", "#0C447C", a.g, b.g) + line("Équipe", "#166534", a.t, b.t)
+                + "</div>";
         }
         // Un badge par semaine : nombre de NC + traitement global + traitement équipe.
         function buildWeekBadges(pts) {
