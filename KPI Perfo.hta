@@ -1243,7 +1243,10 @@
         function renderWeeksLineChart(pts) {
             var cont = document.getElementById('dashWeeks');
             if (typeof Highcharts === 'undefined') { cont.innerHTML = buildWeeksLine(pts); return; }
-            cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:240px;'></div>";
+            // Hauteur du graphique = pour que la carte droite remplisse la hauteur de la carte gauche.
+            var leftCard = document.getElementById('cardEvo3w'), avail = 240;
+            if (leftCard && leftCard.offsetHeight > 0) { avail = leftCard.offsetHeight - 76; if (avail < 180) avail = 180; }
+            cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:" + avail + "px;'></div>";
             var dMs = dayMs(), cats = [], gData = [], tData = [];
             for (var i = 0; i < pts.length; i++) {
                 cats.push("S" + pts[i].week);
