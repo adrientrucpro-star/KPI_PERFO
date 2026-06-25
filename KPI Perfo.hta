@@ -1433,16 +1433,25 @@
             if (d2) d2 = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate(), 23, 59, 59);
             var q = NettoyerChaine(document.getElementById('filtreRecherche').value).toLowerCase();
 
-            var rows = "";
+            var filtered = [];
             for (var i = 0; i < ncList.length; i++) {
-                var nc = ncList[i];
-                if (!nc.eligible) continue;                          // NC non éligibles : totalement ignorées
-                if (d1 && nc.start && nc.start < d1) continue;
-                if (d2 && nc.start && nc.start > d2) continue;
+                var ncf = ncList[i];
+                if (!ncf.eligible) continue;                          // NC non éligibles : totalement ignorées
+                if (d1 && ncf.start && ncf.start < d1) continue;
+                if (d2 && ncf.start && ncf.start > d2) continue;
                 if (q) {
-                    var hay = (nc.avis + " " + nc.desc + " " + nc.statut).toLowerCase();
+                    var hay = (ncf.avis + " " + ncf.desc + " " + ncf.statut).toLowerCase();
                     if (hay.indexOf(q) === -1) continue;
                 }
+                filtered.push(ncf);
+            }
+            if (listeSort.col) {
+                var sc = listeSort.col, sd = listeSort.dir;
+                filtered.sort(function (a, b) { var va = listeSortVal(a, sc), vb = listeSortVal(b, sc); return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd; });
+            }
+            var rows = "";
+            for (var fi = 0; fi < filtered.length; fi++) {
+                var nc = filtered[fi];
                 var cmt = (appData.comments && appData.comments[nc.avis]) ? appData.comments[nc.avis] : "";
                 rows += "<tr><td style='text-align:center;'><button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(nc.avis) + "', this)\" title='Afficher la NC' style='padding:5px 8px; border-radius:5px; background:#0C447C; border:none; cursor:pointer; vertical-align:middle;'><svg width='14' height='14' viewBox='0 0 24 24' style='display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg></button></td>"
                     + "<td style='font-weight:700; text-align:center;'>" + escapeHtml(nc.avis) + "</td>"
@@ -1455,12 +1464,36 @@
                     + "</tr>";
             }
             cont.innerHTML = "<table class='data-table'><thead><tr>"
-                + "<th width='3%'></th><th width='7%'>Avis</th><th>Descriptif</th>"
-                + "<th width='10%'>Date création</th><th width='10%'>Date clôture</th>"
-                + "<th width='10%'>Traitement global</th><th width='10%'>Traitement équipe</th><th width='25%'>Commentaire</th>"
+                + "<th width='3%'></th>"
+                + listeTh('avis', 'Avis', "width='7%'")
+                + listeTh('desc', 'Descriptif', "")
+                + listeTh('start', 'Date création', "width='10%'")
+                + listeTh('end', 'Date clôture', "width='10%'")
+                + listeTh('dur', 'Traitement global', "width='10%'")
+                + listeTh('chez', 'Traitement équipe', "width='10%'")
+                + listeTh('cmt', 'Commentaire', "width='25%'")
                 + "</tr></thead><tbody>"
                 + (rows || "<tr><td colspan='8' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
                 + "</tbody></table>";
+        }
+        var listeSort = { col: null, dir: 1 };   // tri du tableau Extract NC (col + sens)
+        function listeTh(col, label, w) {
+            var arrow = (listeSort.col === col) ? (listeSort.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
+            return "<th " + w + " style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortListe('" + col + "')\" title='Trier'>" + label + arrow + "</th>";
+        }
+        function SortListe(col) {
+            if (listeSort.col === col) listeSort.dir = -listeSort.dir; else { listeSort.col = col; listeSort.dir = 1; }
+            RenderListe();
+        }
+        function listeSortVal(nc, col) {
+            if (col === 'avis') return parseInt(nc.avis, 10) || 0;
+            if (col === 'desc') return (nc.desc || "").toLowerCase();
+            if (col === 'start') return nc.start ? nc.start.getTime() : 0;
+            if (col === 'end') return nc.end ? nc.end.getTime() : 0;
+            if (col === 'dur') return nc.durMs || 0;
+            if (col === 'chez') return nc.chezMs || 0;
+            if (col === 'cmt') return ((appData.comments && appData.comments[nc.avis]) ? appData.comments[nc.avis] : "").toLowerCase();
+            return 0;
         }
         function parseFilterDate(v) {
             v = NettoyerChaine(v); if (!v) return null;
