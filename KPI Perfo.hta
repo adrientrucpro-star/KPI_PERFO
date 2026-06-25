@@ -41,6 +41,8 @@
         #sidebar-header .app-logo { font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #ffffff; }
         #sidebar-header .app-sub { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #7aafc7; margin-top: 6px; }
         .nav-item { padding: 16px 25px; cursor: pointer; color: #8fb8cc; font-size: 14px; font-weight: 500; display: block; border-left: 3px solid transparent; }
+        .subtab { background: none; border: none; border-bottom: 3px solid transparent; padding: 10px 18px; margin-right: 4px; font-size: 14px; font-weight: 600; color: #64748b; cursor: pointer; font-family: inherit; }
+        .subtab.active { color: #006698; border-bottom-color: #006698; }
         .nav-item:hover { background-color: rgba(0,102,152,0.25); color: #ffffff; border-left-color: #006698; }
         .nav-item.active { background-color: #006698; color: #ffffff; font-weight: 600; border-left-color: #E4342D; }
         #sidebar-footer { position: absolute; bottom: 0; left: 0; width: 100%; padding: 18px 20px; font-size: 13px; color: #7aafc7; text-align: center; border-top: 1px solid rgba(255,255,255,0.08); font-weight: 500; }
@@ -320,6 +322,88 @@
             VBS_ExtractQM13 = "OK"
             On Error GoTo 0
         End Function
+
+        ' ----------------------------------------------------------
+        ' Extraction des Ordres de Fabrication via COOIS (variante + plage de dates).
+        ' variant = LAROCHE_ST / LAROCHE_IQ ; dateField = S_ECKST / S_ISTEN ; fileName = EXPORT_ST/IQ.txt.
+        ' doExpand = True pour déplier le profil avant l'export (script IQ). Renvoie "OK" ou "ERREUR : ...".
+        ' ----------------------------------------------------------
+        Function VBS_ExtractCOOIS(variant, dateField, strLow, strHigh, fileName, doExpand)
+            On Error Resume Next
+            Dim wsh, fso, folderPath, exportPath, shellId, base, maxRetries, currentRetry, fileReady
+            Set wsh = CreateObject("WScript.Shell")
+            folderPath = wsh.ExpandEnvironmentStrings("%APPDATA%") & "\KPI_Perfo"
+            Set fso = CreateObject("Scripting.FileSystemObject")
+            If Not fso.FolderExists(folderPath) Then fso.CreateFolder(folderPath)
+            exportPath = folderPath & "\" & fileName
+            If fso.FileExists(exportPath) Then fso.DeleteFile exportPath, True
+
+            Set oSession = GetSAPSession()
+            If oSession Is Nothing Then
+                VBS_ExtractCOOIS = "ERREUR : SAP inaccessible. Ouvre SAP Logon et connecte-toi."
+                Exit Function
+            End If
+            oSession.FindById("wnd[0]").Maximize
+            oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "/ncoois"
+            oSession.FindById("wnd[0]").SendVKey 0
+            If Not AttendreElementSAP("wnd[0]/tbar[1]/btn[17]", 8) Then
+                VBS_ExtractCOOIS = "ERREUR : COOIS n'a pas démarré."
+                Exit Function
+            End If
+            ' Variante d'affichage
+            oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
+            If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
+                oSession.FindById("wnd[1]/usr/txtV-LOW").Text = variant
+                oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
+            End If
+            ' Plage de dates (dans le tabstrip de sélection)
+            base = "wnd[0]/usr/tabsTABSTRIP_SELBLOCK/tabpSEL_00/ssub%_SUBSCREEN_SELBLOCK:PPIO_ENTRY:1200/ctxt" & dateField
+            If Not AttendreElementSAP(base & "-LOW", 5) Then
+                VBS_ExtractCOOIS = "ERREUR : champ date introuvable (variante " & variant & " ?)."
+                Exit Function
+            End If
+            oSession.FindById(base & "-LOW").Text = strLow
+            oSession.FindById(base & "-HIGH").Text = strHigh
+            oSession.FindById("wnd[0]/tbar[1]/btn[8]").Press
+            ' Attente de la liste (grille ALV)
+            shellId = "wnd[0]/usr/cntlCUSTOM/shellcont/shell/shellcont/shell"
+            If Not AttendreElementSAP(shellId, 8) Then
+                VBS_ExtractCOOIS = "ERREUR : aucun OF pour cette période."
+                Exit Function
+            End If
+            ' Export local
+            If doExpand Then oSession.FindById(shellId).PressToolbarButton "&NAVIGATION_PROFILE_TOOLBAR_EXPAND"
+            oSession.FindById(shellId).PressToolbarContextButton "&MB_EXPORT"
+            oSession.FindById(shellId).SelectContextMenuItem "&PC"
+            If AttendreElementSAP("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[1,0]", 5) Then
+                oSession.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[1,0]").Select
+                oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
+            End If
+            oSession.FindById("wnd[1]/usr/ctxtDY_PATH").Text = folderPath
+            oSession.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = fileName
+            oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
+            ' Attente du fichier
+            maxRetries = 40 : currentRetry = 0 : fileReady = False
+            Do While Not fileReady And currentRetry < maxRetries
+                If fso.FileExists(exportPath) Then
+                    If fso.GetFile(exportPath).Size > 0 Then fileReady = True
+                End If
+                If Not fileReady Then Call PauseVBS(1) : currentRetry = currentRetry + 1
+            Loop
+            oSession.EndTransaction
+            If Not fileReady Then
+                VBS_ExtractCOOIS = "ERREUR : délai dépassé, fichier non généré."
+                Exit Function
+            End If
+            VBS_ExtractCOOIS = "OK"
+            On Error GoTo 0
+        End Function
+        Function VBS_ExtractOFCree(strLow, strHigh)   ' OFs créés (ST)
+            VBS_ExtractOFCree = VBS_ExtractCOOIS("LAROCHE_ST", "S_ECKST", strLow, strHigh, "EXPORT_ST.txt", False)
+        End Function
+        Function VBS_ExtractOFClot(strLow, strHigh)   ' OFs clôturés (IQ)
+            VBS_ExtractOFClot = VBS_ExtractCOOIS("LAROCHE_IQ", "S_ISTEN", strLow, strHigh, "EXPORT_IQ.txt", True)
+        End Function
     </script>
 
     <script language="javascript">
@@ -391,6 +475,8 @@
             if (!appData.comments) appData.comments = {};   // commentaires par NC : { "<avis>": "texte" }
             if (!appData.selLine) appData.selLine = {};      // ligne "Départ" sélectionnée par NC : { "<avis>": "<Nº>" }
             if (!appData.excluded) appData.excluded = {};    // NC exclues manuellement : { "<avis>": true }
+            if (!appData.ofCree) appData.ofCree = [];        // OF créés (EXPORT_ST) : [{of,user,date,heure}]
+            if (!appData.ofClot) appData.ofClot = [];        // OF clôturés (EXPORT_IQ)
             if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
             if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
             if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
@@ -426,6 +512,8 @@
                     comments: savedComments,
                     selLine: appData.selLine || {},
                     excluded: appData.excluded || {},
+                    ofCree: appData.ofCree || [],
+                    ofClot: appData.ofClot || [],
                     cfg: appData.cfg || {},
                     calc: appData.calc || {},
                     lastImport: appData.lastImport || ""
@@ -694,6 +782,86 @@
             } catch (e) {
                 AfficherErreur("Erreur de lecture : " + e.message);
             }
+        }
+
+        // ======================= ORDRES DE FABRICATION (OF) =======================
+        // Bascule entre les sous-onglets "Non-conformité" et "Ordre de Fabrication".
+        function ShowExtractSub(s) {
+            var nc = document.getElementById('extractSubNC'), of = document.getElementById('extractSubOF');
+            var tn = document.getElementById('subtabNC'), to = document.getElementById('subtabOF');
+            if (s === 'OF') {
+                nc.style.display = "none"; of.style.display = "block";
+                tn.className = "subtab"; to.className = "subtab active";
+                RenderOFTable('cree'); RenderOFTable('clot');
+            } else {
+                of.style.display = "none"; nc.style.display = "block";
+                to.className = "subtab"; tn.className = "subtab active";
+                RenderListe(); setTimeout(EgaliserHauteursExtraction, 30);
+            }
+        }
+        // Parse EXPORT_ST / EXPORT_IQ : colonnes Ordre de Fabrication, User, Date, Heure (tabulé, ANSI).
+        function ParseOF(content) {
+            var lines = content.split(/\r?\n/), out = [];
+            for (var i = 0; i < lines.length; i++) {
+                var raw = lines[i];
+                if (raw.indexOf("\t") === -1) continue;
+                var parts = raw.split("\t");
+                while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
+                if (parts.length < 4) continue;
+                var of = NettoyerChaine(parts[0]);
+                if (!/^\d{6,}$/.test(of)) continue;   // 1re colonne = n° d'OF (6+ chiffres)
+                out.push({ of: of, user: NettoyerChaine(parts[1]), date: NettoyerChaine(parts[2]), heure: NettoyerChaine(parts[3]) });
+            }
+            return out;
+        }
+        // Lit le fichier d'export OF, stocke, sauvegarde et affiche le tableau. type = 'cree' | 'clot'.
+        function LireOF(path, type) {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) { AfficherErreur("Fichier introuvable :\n" + path); return; }
+                var ts = fso.OpenTextFile(path, 1, false, 0);   // ANSI
+                var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
+                var data = ParseOF(content);
+                if (type === 'cree') appData.ofCree = data; else appData.ofClot = data;
+                SaveData();
+                RenderOFTable(type);
+                if (!data.length) alert("Extraction terminée, mais aucun OF exploitable détecté (format inattendu ?).");
+            } catch (e) { AfficherErreur("Erreur de lecture OF : " + e.message); }
+        }
+        function LancerExtractOF(type) {
+            var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
+            var d2 = NettoyerChaine(document.getElementById('ofDateFin').value).replace(/\//g, '.');
+            if (!d1 || !d2) { AfficherErreur("Choisis une plage de dates (Du / Au)."); return; }
+            var btnId = (type === 'cree') ? 'btnOFCree' : 'btnOFClot';
+            var label = (type === 'cree') ? "Extract OF créé" : "Extract OF clôturé";
+            var btn = document.getElementById(btnId);
+            if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction…"; }
+            setTimeout(function () {
+                try {
+                    var res = (type === 'cree') ? VBS_ExtractOFCree(d1, d2) : VBS_ExtractOFClot(d1, d2);
+                    if (res && res.indexOf("ERREUR") === -1) {
+                        var sh = new ActiveXObject("WScript.Shell");
+                        var file = (type === 'cree') ? "EXPORT_ST.txt" : "EXPORT_IQ.txt";
+                        LireOF(sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\" + file, type);
+                    } else { AfficherErreur(res || "Erreur inconnue lors de l'extraction OF."); }
+                } catch (e) { AfficherErreur("Erreur : " + e.message); }
+                if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = label; }
+            }, 80);
+        }
+        function RenderOFTable(type) {
+            var data = (type === 'cree') ? (appData.ofCree || []) : (appData.ofClot || []);
+            var cont = document.getElementById(type === 'cree' ? 'ofCreeTable' : 'ofClotTable');
+            if (!cont) return;
+            if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info'>Aucune extraction réalisée.</div>"; return; }
+            var rows = "";
+            for (var i = 0; i < data.length; i++) {
+                rows += "<tr><td style='text-align:center; font-weight:700;'>" + escapeHtml(data[i].of) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(data[i].user) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(data[i].date) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(data[i].heure) + "</td></tr>";
+            }
+            cont.innerHTML = "<div style='font-size:12px; color:#94a3b8; margin-bottom:8px;'>" + data.length + " OF</div>"
+                + "<table class='data-table'><thead><tr><th>Ordre de Fabrication</th><th width='25%'>User</th><th width='22%'>Date</th><th width='18%'>Heure</th></tr></thead><tbody>" + rows + "</tbody></table>";
         }
 
         function ParseExport(content) {
@@ -1986,8 +2154,13 @@
 
             <!-- PAGE ANALYSE NC -->
             <div id="pageAnalyse" class="page">
-                <h2>Extract NC</h2>
+                <h2>Extract</h2>
+                <div style="border-bottom:2px solid #e2e8f0; margin-bottom:18px;">
+                    <button id="subtabNC" class="subtab active" onclick="ShowExtractSub('NC')">Non-conformité</button>
+                    <button id="subtabOF" class="subtab" onclick="ShowExtractSub('OF')">Ordre de Fabrication</button>
+                </div>
 
+                <div id="extractSubNC">
                 <div style="display:table; width:100%; margin:0 0 20px 0;">
                     <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                         <div id="cardExtraction" class="card" style="margin-bottom:0; box-sizing:border-box;">
@@ -2025,6 +2198,37 @@
                 </div>
 
                 <div id="listeContainer"><div class="msg-box msg-info">Aucune extraction réalisée. Lance une extraction SAP ci-dessus.</div></div>
+                </div><!-- /extractSubNC -->
+
+                <div id="extractSubOF" style="display:none;">
+                    <div class="card" style="margin-bottom:20px;">
+                        <h3>Extraction des Ordres de Fabrication</h3>
+                        <table style="border:none;"><tr>
+                            <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
+                                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Du</label>
+                                <input type="text" id="ofDateDebut" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
+                            </td>
+                            <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
+                                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Au</label>
+                                <input type="text" id="ofDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
+                            </td>
+                            <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
+                                <button id="btnOFCree" class="btn-toolbar" onclick="LancerExtractOF('cree')">Extract OF créé</button>
+                                <button id="btnOFClot" class="btn-toolbar" style="margin-left:10px;" onclick="LancerExtractOF('clot')">Extract OF clôturé</button>
+                            </td>
+                        </tr></table>
+                    </div>
+                    <div style="display:table; width:100%; table-layout:fixed;">
+                        <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                            <h3 style="margin:0 0 12px 0;">OF créés</h3>
+                            <div id="ofCreeTable"><div class="msg-box msg-info">Aucune extraction réalisée.</div></div>
+                        </div>
+                        <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                            <h3 style="margin:0 0 12px 0;">OF clôturés</h3>
+                            <div id="ofClotTable"><div class="msg-box msg-info">Aucune extraction réalisée.</div></div>
+                        </div>
+                    </div>
+                </div><!-- /extractSubOF -->
             </div>
 
             <!-- PAGE PARCOURS / GOULOTS -->
