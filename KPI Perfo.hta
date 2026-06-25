@@ -1613,10 +1613,13 @@
         //  - équipe = étapes (ligne -> clôture) dont le responsable est INTERNE ET le "Terminé par" est en équipe
         function parcoursTotals(nc, lines, selIdx) {
             if (selIdx == null || selIdx < 0) return { g: nc.durMs, e: nc.chezMs };
-            var selEnd = parseDT(lines[selIdx].td, lines[selIdx].tt), clot = nc.end;
-            if (!selEnd || !clot || clot <= selEnd) return { g: 0, e: 0 };
-            var intS = internalRespSet(), usr = teamUserSet(), e = 0, prev = selEnd;
-            for (var k = selIdx + 1; k < lines.length; k++) {
+            var clot = nc.end;
+            // Réception de la tâche sélectionnée = fin de la tâche précédente (ordre Nº), ou création NC si 1re.
+            // On INCLUT la durée de la tâche sélectionnée (de sa réception jusqu'à l'APQ0).
+            var prev = (selIdx > 0) ? parseDT(lines[selIdx - 1].td, lines[selIdx - 1].tt) : nc.start;
+            if (!prev || !clot || clot <= prev) return { g: 0, e: 0 };
+            var selRecept = prev, intS = internalRespSet(), usr = teamUserSet(), e = 0;
+            for (var k = selIdx; k < lines.length; k++) {   // k commence à la tâche sélectionnée
                 var end = parseDT(lines[k].td, lines[k].tt);
                 if (!end || end <= prev) continue;
                 if (end > clot) break;
@@ -1624,7 +1627,7 @@
                 if (intS[r] && usr[tp]) e += durBetween(prev, end);
                 prev = end;
             }
-            return { g: durBetween(selEnd, clot), e: e };
+            return { g: durBetween(selRecept, clot), e: e };
         }
         // Sélection d'une ligne "Départ" : sauvegarde, recalcule TOUTE l'appli, met à jour les badges.
         function RecalcGlobalFromLine(avis, idx) {
