@@ -1412,7 +1412,8 @@
                     agg[r].sum += gaps[j].gap; agg[r].n++;
                 }
             }
-            var fb = document.getElementById('dashRespFilter'); if (fb) fb.innerHTML = dashRespFilterBar();
+            var fbi = document.getElementById('dashRespFilterInt'); if (fbi) fbi.innerHTML = dashRespFilterBar();
+            var fbe = document.getElementById('dashRespFilterExt'); if (fbe) fbe.innerHTML = dashRespFilterBar();
             hcRespPie('hcRespInt', intNom, agg);
             hcRespPie('hcRespExt', extNom, agg);
         }
@@ -1927,18 +1928,22 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card">
-                        <div style="overflow:hidden; margin-bottom:16px;">
-                            <h3 style="margin:0; display:inline-block; vertical-align:middle;">Durée moyenne par responsable</h3>
-                            <span id="dashRespFilter" style="float:right;"></span>
-                        </div>
-                        <div style="display:table; width:100%; table-layout:fixed;">
-                            <div style="display:table-cell; width:50%; padding-right:12px; box-sizing:border-box; vertical-align:top;">
-                                <div style="font-weight:700; color:#334155; margin-bottom:8px;">Responsables internes</div>
+                    <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
+                        <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <div style="overflow:hidden; margin-bottom:14px;">
+                                    <h3 style="margin:0; display:inline-block; vertical-align:middle;">Durée moyenne - Responsables internes</h3>
+                                    <span id="dashRespFilterInt" style="float:right;"></span>
+                                </div>
                                 <div id="hcRespInt" style="width:100%; height:250px;"></div>
                             </div>
-                            <div style="display:table-cell; width:50%; padding-left:12px; box-sizing:border-box; vertical-align:top;">
-                                <div style="font-weight:700; color:#334155; margin-bottom:8px;">Responsables externes</div>
+                        </div>
+                        <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <div style="overflow:hidden; margin-bottom:14px;">
+                                    <h3 style="margin:0; display:inline-block; vertical-align:middle;">Durée moyenne - Responsables externes</h3>
+                                    <span id="dashRespFilterExt" style="float:right;"></span>
+                                </div>
                                 <div id="hcRespExt" style="width:100%; height:250px;"></div>
                             </div>
                         </div>
@@ -1946,22 +1951,19 @@
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                         <div style="display:table-cell; width:33.33%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                             <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 4px 0;">Équipe ST</h3>
-                                <div style="font-size:12px; color:#94a3b8; margin-bottom:12px;">Durée moyenne par membre</div>
+                                <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe ST</h3>
                                 <div id="hcTeamST" style="width:100%; height:280px;"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:33.33%; padding:0 8px; box-sizing:border-box; vertical-align:top;">
                             <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 4px 0;">Équipe TL</h3>
-                                <div style="font-size:12px; color:#94a3b8; margin-bottom:12px;">Durée moyenne par membre</div>
+                                <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe TL</h3>
                                 <div id="hcTeamTL" style="width:100%; height:280px;"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:33.33%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
                             <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 4px 0;">Équipe IQ</h3>
-                                <div style="font-size:12px; color:#94a3b8; margin-bottom:12px;">Durée moyenne par membre</div>
+                                <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe IQ</h3>
                                 <div id="hcTeamIQ" style="width:100%; height:280px;"></div>
                             </div>
                         </div>
