@@ -1157,8 +1157,19 @@
             var c1 = document.getElementById('cardEvo3w'), c2 = document.getElementById('cardEvoWeek');
             if (!c1 || !c2) return;
             c1.style.height = ""; c2.style.height = "";
+            var hc = document.getElementById('hcWeeks');
+            if (hc) hc.style.height = "";
+            var lH = c1.offsetHeight;                       // hauteur naturelle de la carte gauche
+            if (lH <= 0) return;
+            // Redimensionne le graphique pour que la carte droite atteigne exactement lH.
+            if (hc && window.hcWeeksChart) {
+                var extra = c2.offsetHeight - hc.offsetHeight;   // bandeau (titre + marges/paddings) de la carte droite
+                var chartH = lH - extra; if (chartH < 150) chartH = 150;
+                hc.style.height = chartH + "px";
+                try { window.hcWeeksChart.setSize(hc.offsetWidth, chartH, false); } catch (e) {}
+            }
             var h = Math.max(c1.offsetHeight, c2.offsetHeight);
-            if (h > 0) { c1.style.height = h + "px"; c2.style.height = h + "px"; }
+            c1.style.height = h + "px"; c2.style.height = h + "px";
         }
 
         // 1) Évolution par semaine : résumé 3 dernières semaines + courbes global / équipe.
@@ -1190,15 +1201,15 @@
             if (!wk.length) return "<div class='msg-box msg-info'>Aucune donnée.</div>";
             var n = wk.length, cw = 100 / n, colW = cw.toFixed(2);
             // Ligne 1 : numéros de semaine
-            var l1 = "<div style='font-size:0; margin-bottom:8px;'>";
+            var l1 = "<div style='font-size:0; margin-bottom:16px;'>";
             for (var i = 0; i < n; i++) {
                 l1 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 4px; text-align:center; font-size:14px; font-weight:700; color:#334155;'>Semaine " + wk[i].week + "</div>";
             }
             l1 += "</div>";
             // Ligne 2 : une case par semaine (NC, global, équipe)
-            var l2 = "<div style='font-size:0; margin-bottom:10px;'>";
+            var l2 = "<div style='font-size:0; margin-bottom:18px;'>";
             for (var j = 0; j < n; j++) {
-                l2 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 4px;'>"
+                l2 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 7px;'>"
                     + "<div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px 12px;'>"
                     + "<div style='font-size:13px; color:#64748b; margin-bottom:9px;'>" + wk[j].n + " NC clôturées</div>"
                     + "<div style='font-size:14px; color:#475569; margin-bottom:6px;'><span style='display:inline-block; width:10px; height:10px; background:#0C447C; border-radius:2px; margin-right:6px;'></span>Global : <b style='color:#0C447C;'>" + fmtDHM(wk[j].g) + "</b></div>"
@@ -1212,7 +1223,7 @@
                 l3 = "<div style='font-size:0;'>";
                 var ew = (100 / (n - 1)).toFixed(2);
                 for (var k = 0; k < n - 1; k++) {
-                    l3 += "<div style='display:inline-block; vertical-align:top; width:" + ew + "%; box-sizing:border-box; padding:0 4px;'>" + evoBox(wk[k], wk[k + 1]) + "</div>";
+                    l3 += "<div style='display:inline-block; vertical-align:top; width:" + ew + "%; box-sizing:border-box; padding:0 7px;'>" + evoBox(wk[k], wk[k + 1]) + "</div>";
                 }
                 l3 += "</div>";
             }
@@ -1283,7 +1294,7 @@
                 tData.push({ y: Math.round(pts[i].t / dMs * 100) / 100, ms: pts[i].t });
             }
             try {
-                Highcharts.chart('hcWeeks', {
+                window.hcWeeksChart = Highcharts.chart('hcWeeks', {
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null },
                     credits: { enabled: false },
