@@ -1301,21 +1301,22 @@
                     if (hay.indexOf(q) === -1) continue;
                 }
                 var cmt = (appData.comments && appData.comments[nc.avis]) ? appData.comments[nc.avis] : "";
-                rows += "<tr><td style='font-weight:700; text-align:center;'>" + escapeHtml(nc.avis) + "</td>"
+                rows += "<tr><td style='text-align:center;'><button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(nc.avis) + "', this)\" title='Afficher la NC' style='padding:5px 8px; border-radius:5px; background:#0C447C; border:none; cursor:pointer; vertical-align:middle;'><svg width='14' height='14' viewBox='0 0 24 24' style='display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg></button></td>"
+                    + "<td style='font-weight:700; text-align:center;'>" + escapeHtml(nc.avis) + "</td>"
                     + "<td>" + escapeHtml(nc.desc) + "</td>"
                     + "<td style='text-align:center;'>" + (nc.start ? FormatDateString(nc.start) : "-") + "</td>"
                     + "<td style='text-align:center;'>" + (nc.end ? FormatDateString(nc.end) : "-") + "</td>"
                     + "<td style='text-align:center; font-weight:700; color:#006698;'>" + fmtDHM(nc.durMs) + "</td>"
-                    + "<td style='text-align:center; color:#166534;'>" + fmtDHM(nc.chezMs) + "</td>"
+                    + "<td style='text-align:center; font-weight:700; color:#166534;'>" + fmtDHM(nc.chezMs) + "</td>"
                     + "<td>" + escapeHtml(cmt) + "</td>"
                     + "</tr>";
             }
             cont.innerHTML = "<table class='data-table'><thead><tr>"
-                + "<th width='9%'>Avis</th><th>Descriptif</th>"
-                + "<th width='11%'>Date création</th><th width='11%'>Date clôture</th>"
-                + "<th width='13%'>Traitement global</th><th width='13%'>Traitement équipe</th><th width='18%'>Commentaire</th>"
+                + "<th width='4%'></th><th width='8%'>Avis</th><th>Descriptif</th>"
+                + "<th width='10%'>Date création</th><th width='10%'>Date clôture</th>"
+                + "<th width='12%'>Traitement global</th><th width='12%'>Traitement équipe</th><th width='24%'>Commentaire</th>"
                 + "</tr></thead><tbody>"
-                + (rows || "<tr><td colspan='7' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
+                + (rows || "<tr><td colspan='8' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
                 + "</tbody></table>";
         }
         function parseFilterDate(v) {
@@ -1649,9 +1650,7 @@
                     </div>
                 </div>
 
-                <div class="card">
-                    <div id="listeContainer"><div class="msg-box msg-info">Aucune extraction réalisée. Lance une extraction SAP ci-dessus.</div></div>
-                </div>
+                <div id="listeContainer"><div class="msg-box msg-info">Aucune extraction réalisée. Lance une extraction SAP ci-dessus.</div></div>
             </div>
 
             <!-- PAGE PARCOURS / GOULOTS -->
