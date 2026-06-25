@@ -1245,7 +1245,7 @@
             if (typeof Highcharts === 'undefined') { cont.innerHTML = buildWeeksLine(pts); return; }
             // Hauteur du graphique = pour que la carte droite remplisse la hauteur de la carte gauche.
             var leftCard = document.getElementById('cardEvo3w'), avail = 240;
-            if (leftCard && leftCard.offsetHeight > 0) { avail = leftCard.offsetHeight - 76; if (avail < 150) avail = 150; }
+            if (leftCard) { leftCard.style.height = ""; if (leftCard.offsetHeight > 0) { avail = leftCard.offsetHeight - 76; if (avail < 150) avail = 150; } }
             cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:" + avail + "px;'></div>";
             var dMs = dayMs(), cats = [], gData = [], tData = [];
             for (var i = 0; i < pts.length; i++) {
