@@ -389,6 +389,7 @@
             if (!appData.teamTL) appData.teamTL = [];
             if (!appData.teamIQ) appData.teamIQ = [];
             if (!appData.comments) appData.comments = {};   // commentaires par NC : { "<avis>": "texte" }
+            if (!appData.selLine) appData.selLine = {};      // ligne "Départ" sélectionnée par NC : { "<avis>": "<Nº>" }
             if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
             if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
             if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
@@ -421,6 +422,7 @@
                     roleDesig: appData.roleDesig || [],
                     teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
                     comments: savedComments,
+                    selLine: appData.selLine || {},
                     cfg: appData.cfg || {},
                     calc: appData.calc || {},
                     lastImport: appData.lastImport || ""
@@ -1608,6 +1610,10 @@
         function renderParcoursCard(nc, decS, clotS, decCode, clotCode) {
             // Tâches triées par Nº. Durée = écart réception (fin précédente, ou création NC pour la 1re) -> passage (sa fin).
             var lines = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
+            var selN = (appData.selLine && appData.selLine[nc.avis] != null) ? NettoyerChaine(appData.selLine[nc.avis]) : "";
+            var selIdx = -1;
+            if (selN !== "") { for (var si = 0; si < lines.length; si++) { if (NettoyerChaine(lines[si].n) === selN) { selIdx = si; break; } } }
+            var tot = parcoursTotals(nc, lines, selIdx);
             var rows = "", prevEnd = nc.start;   // réception de la 1re tâche = création NC
             for (var j = 0; j < lines.length; j++) {
                 var LL = lines[j];
@@ -1619,7 +1625,7 @@
                 if (rU === "70005847" || rU === "70009001") bg = "background:#FAEEDA;";   // orange-jaune (CT)
                 else if (rU === "70005852") bg = "background:#DBEAFE;";                    // bleu (Prod)
                 else if (rU === "70005848") bg = "background:#DCFCE3;";                    // vert (Qualité)
-                rows += "<tr style='" + bg + "'><td style='text-align:center;'><input type='radio' name='sel_" + escapeHtml(nc.avis) + "' title='Calculer le traitement global depuis cette ligne' onclick=\"RecalcGlobalFromLine('" + escapeHtml(nc.avis) + "', " + j + ")\"></td>"
+                rows += "<tr style='" + bg + "'><td style='text-align:center;'><input type='radio' name='sel_" + escapeHtml(nc.avis) + "'" + (j === selIdx ? " checked" : "") + " title='Calculer le traitement depuis cette ligne' onclick=\"RecalcGlobalFromLine('" + escapeHtml(nc.avis) + "', " + j + ")\"></td>"
                     + "<td style='font-weight:700; text-align:center;'>" + escapeHtml(LL.c) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(LL.r) + "</td>"
                     + "<td>" + escapeHtml(LL.dg) + "</td>"
@@ -1633,8 +1639,8 @@
                 + "<div style='overflow:hidden; margin-bottom:16px;'>"
                 + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span> <span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
                 + "<div style='float:right;'>"
-                + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#E6F1FB; color:#0C447C;'>Traitement global : <span id='gbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(nc.durMs) + "</span></span>"
-                + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#dcfce3; color:#166534; margin-left:8px;'>Traitement équipe : " + fmtDHM(nc.chezMs) + "</span>"
+                + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#E6F1FB; color:#0C447C;'>Traitement global : <span id='gbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(tot.g) + "</span></span>"
+                + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#dcfce3; color:#166534; margin-left:8px;'>Traitement équipe : <span id='tbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(tot.e) + "</span></span>"
                 + "<button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(nc.avis) + "', this)\" title='Afficher la NC' style='display:inline-block; vertical-align:middle; padding:6px 10px; border-radius:6px; background:#0C447C; color:#fff; border:none; cursor:pointer; margin-left:8px;'>"
                 + "<svg width='15' height='15' viewBox='0 0 24 24' style='vertical-align:middle; display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg>"
                 + "</button>"
@@ -1643,7 +1649,7 @@
                 + "<div style='margin-bottom:14px;'>"
                 + "<input type='text' value='" + escapeHtml(comment) + "' onchange=\"SetNCComment('" + escapeHtml(nc.avis) + "', this.value)\" placeholder='Saisir un commentaire' style='width:100%; height:34px; border:1px solid #c5d5de; border-radius:6px; padding:6px 10px; font-family:inherit; font-size:13px; color:#1e293b; box-sizing:border-box;'>"
                 + "</div>"
-                + "<table class='data-table'><thead><tr><th width='6%' style='text-align:center;'>Départ</th><th width='13%' style='text-align:center;'>Code</th><th width='14%' style='text-align:center;'>Responsable</th><th width='23%'>Désignation</th><th width='13%' style='text-align:center;'>Terminé par</th><th width='16%' style='text-align:center;'>Date et Heure</th><th width='15%' style='text-align:center;'>Durée</th></tr></thead><tbody>"
+                + "<table class='data-table'><thead><tr><th width='6%'></th><th width='13%' style='text-align:center;'>Code</th><th width='14%' style='text-align:center;'>Responsable</th><th width='23%'>Désignation</th><th width='13%' style='text-align:center;'>Terminé par</th><th width='16%' style='text-align:center;'>Date et Heure</th><th width='15%' style='text-align:center;'>Durée</th></tr></thead><tbody>"
                 + rows + "</tbody></table></div>";
         }
         function SetNCComment(avis, val) {
@@ -1651,17 +1657,43 @@
             appData.comments[avis] = NettoyerChaine(val);
             SaveData();
         }
-        // Recalcule le traitement global = de la ligne sélectionnée à la clôture APQ0 (70005848).
+        // Responsables EXTERNES (tableau 1, type ext) — exclus du traitement équipe.
+        function extRespSet() {
+            var s = {}, rd = appData.roleDesig || [];
+            for (var i = 0; i < rd.length; i++) { if (NettoyerChaine(rd[i].type) === "ext") { var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (rc) s[rc] = true; } }
+            return s;
+        }
+        // Totaux du parcours. selIdx < 0 = valeurs par défaut ; sinon de la ligne sélectionnée à l'APQ0.
+        //  - global = ligne sélectionnée -> clôture APQ0
+        //  - équipe = idem en EXCLUANT les étapes d'un responsable externe
+        function parcoursTotals(nc, lines, selIdx) {
+            if (selIdx == null || selIdx < 0) return { g: nc.durMs, e: nc.chezMs };
+            var selEnd = parseDT(lines[selIdx].td, lines[selIdx].tt), clot = nc.end;
+            if (!selEnd || !clot || clot <= selEnd) return { g: 0, e: 0 };
+            var ext = extRespSet(), e = 0, prev = selEnd;
+            for (var k = selIdx + 1; k < lines.length; k++) {
+                var end = parseDT(lines[k].td, lines[k].tt);
+                if (!end || end <= prev) continue;
+                if (end > clot) break;
+                if (!ext[(lines[k].r || "").toUpperCase()]) e += durBetween(prev, end);
+                prev = end;
+            }
+            return { g: durBetween(selEnd, clot), e: e };
+        }
+        // Sélection d'une ligne "Départ" : sauvegarde + recalcule global et équipe jusqu'à l'APQ0.
         function RecalcGlobalFromLine(avis, idx) {
             var nc = null;
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].avis === avis) { nc = ncList[i]; break; } }
             if (!nc) return;
             var lines = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
             if (idx < 0 || idx >= lines.length) return;
-            var selEnd = parseDT(lines[idx].td, lines[idx].tt);
-            var el = document.getElementById('gbadge_' + avis);
-            if (!el) return;
-            el.innerHTML = (selEnd && nc.end && nc.end > selEnd) ? fmtDHM(durBetween(selEnd, nc.end)) : "-";
+            if (!appData.selLine) appData.selLine = {};
+            appData.selLine[avis] = NettoyerChaine(lines[idx].n);   // sauvegarde du Nº de la ligne
+            SaveData();
+            var tot = parcoursTotals(nc, lines, idx);
+            var g = document.getElementById('gbadge_' + avis), t = document.getElementById('tbadge_' + avis);
+            if (g) g.innerHTML = fmtDHM(tot.g);
+            if (t) t.innerHTML = fmtDHM(tot.e);
         }
         // Ouvre l'avis dans SAP PEA (transaction QM03). Curseur "sablier" pendant l'exécution
         // (sur le bouton ET le body), comme lors de l'extraction.
