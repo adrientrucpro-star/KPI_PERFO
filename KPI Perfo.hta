@@ -1178,19 +1178,19 @@
             if (pts.length < 2) return "<div class='msg-box msg-info'>Pas assez de semaines pour comparer.</div>";
             var last3 = pts.slice(Math.max(0, pts.length - 3));
             var firstP = last3[0], lastP = last3[last3.length - 1];
-            function ind(label, fromV, toV) {
+            function ind(label, fromV, toV, mr) {
                 var delta = toV - fromV;   // négatif = amélioration (durée qui baisse)
                 var amelio = delta < 0, degr = delta > 0;
                 var arrow = amelio ? "&#9660;" : (degr ? "&#9650;" : "&#8211;");
                 var col = amelio ? "#166534" : (degr ? "#b91c1c" : "#64748b");
                 var bg = amelio ? "#dcfce3" : (degr ? "#fee2e2" : "#f1f5f9");
                 var txt = amelio ? "Amélioration de " + fmtDHM(Math.abs(delta)) : (degr ? "Dégradation de " + fmtDHM(delta) : "Stable");
-                return "<div style='background:" + bg + "; border-radius:8px; padding:12px 16px; margin-bottom:12px;'>"
+                return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;" + (mr ? " margin-right:2%;" : "") + " background:" + bg + "; border-radius:8px; padding:12px 14px;'>"
                     + "<div style='font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;'>" + label + "</div>"
                     + "<div style='font-size:15px; font-weight:700; color:" + col + ";'>" + arrow + " " + txt + "</div>"
                     + "<div style='font-size:11px; color:#64748b; margin-top:4px;'>Sem " + firstP.week + " (" + fmtDHM(fromV) + ") &rarr; Sem " + lastP.week + " (" + fmtDHM(toV) + ")</div></div>";
             }
-            return ind("Traitement global", firstP.g, lastP.g) + ind("Traitement équipe", firstP.t, lastP.t);
+            return "<div style='font-size:0; margin-bottom:18px;'>" + ind("Traitement global", firstP.g, lastP.g, true) + ind("Traitement équipe", firstP.t, lastP.t, false) + "</div>";
         }
         // Graphique à barres : par semaine, 2 barres (global bleu / équipe vert), comme "par responsable".
         function buildWeeksChart(pts) {
@@ -1226,7 +1226,7 @@
             var maxScale = maxDays * dMs;
             function x(i2) { return mL + (n === 1 ? plotW / 2 : plotW * i2 / (n - 1)); }
             function y(v) { return mT + plotH - (v / maxScale) * plotH; }
-            var svg = "<svg viewBox='0 0 " + W + " " + H + "' width='100%' style='font-family:inherit;'>";
+            var svg = "<svg viewBox='0 0 " + W + " " + H + "' preserveAspectRatio='xMidYMid meet' style='position:absolute; top:0; left:0; width:100%; height:100%; font-family:inherit;'>";
             for (var d = 0; d <= maxDays; d += step) {
                 var yy = y(d * dMs);
                 svg += "<line x1='" + mL + "' y1='" + yy + "' x2='" + (W - mR) + "' y2='" + yy + "' stroke='#e2e8f0' stroke-width='1'/>";
@@ -1245,10 +1245,10 @@
                 return s;
             }
             svg += poly('g', '#0C447C') + poly('t', '#166534') + "</svg>";
-            var legend = "<div style='text-align:center; margin-top:4px; font-size:12px; color:#334155;'>"
+            var legend = "<div style='text-align:center; margin-top:10px; font-size:12px; color:#334155;'>"
                 + "<span style='display:inline-block; width:12px; height:12px; background:#0C447C; border-radius:2px; vertical-align:middle; margin-right:6px;'></span>Traitement global"
                 + "<span style='display:inline-block; width:12px; height:12px; background:#166534; border-radius:2px; vertical-align:middle; margin:0 6px 0 18px;'></span>Traitement équipe</div>";
-            return svg + legend;
+            return "<div style='position:relative; width:100%; height:0; padding-bottom:" + (H / W * 100).toFixed(1) + "%;'>" + svg + "</div>" + legend;
         }
 
         // 2) Durée moyenne par responsable du tableau 1.
