@@ -1442,37 +1442,58 @@
             var teamDefs = [["ST", appData.teamST], ["TL", appData.teamTL], ["IQ", appData.teamIQ]];
             for (var t = 0; t < teamDefs.length; t++) {
                 var arr = teamDefs[t][1] || [];
-                for (var i = 0; i < arr.length; i++) { var u = NettoyerChaine(arr[i].user).toUpperCase(); if (u) umap[u] = { team: teamDefs[t][0], nom: arr[i].nom || "" }; }
+                for (var i = 0; i < arr.length; i++) { var u = NettoyerChaine(arr[i].user).toUpperCase(); if (u) umap[u] = { team: teamDefs[t][0], nom: arr[i].nom || u }; }
             }
-            var agg = {};
+            // Agrégation : durée moyenne par user ET par semaine de clôture.
+            var weekSet = {}, agg = {};   // agg[user][weekTs] = { sum, n }
             for (var e = 0; e < elig.length; e++) {
-                var gaps = stepGaps(elig[e].lines);
+                var nc = elig[e]; if (!nc.end) continue;
+                var wts = getWeekStart(nc.end).getTime(); weekSet[wts] = true;
+                var gaps = stepGaps(nc.lines);
                 for (var j = 0; j < gaps.length; j++) {
                     if (gaps[j].gap == null) continue;
                     var uu = (gaps[j].tp || "").toUpperCase();
                     if (!umap[uu]) continue;
-                    if (!agg[uu]) agg[uu] = { sum: 0, n: 0 };
-                    agg[uu].sum += gaps[j].gap; agg[uu].n++;
+                    if (!agg[uu]) agg[uu] = {};
+                    if (!agg[uu][wts]) agg[uu][wts] = { sum: 0, n: 0 };
+                    agg[uu][wts].sum += gaps[j].gap; agg[uu][wts].n++;
                 }
             }
-            var order = ["ST", "TL", "IQ"], colors = { ST: "#b45309", TL: "#1d4ed8", IQ: "#047857" }, cols = "";
+            var weeks = []; for (var w in weekSet) { if (weekSet.hasOwnProperty(w)) weeks.push(parseInt(w, 10)); }
+            weeks.sort(function (a, b) { return a - b; });
+            var cats = []; for (var z = 0; z < weeks.length; z++) cats.push("S" + isoWeek(new Date(weeks[z])));
+            var order = ["ST", "TL", "IQ"];
             for (var o = 0; o < order.length; o++) {
                 var team = order[o], us = [];
                 for (var u2 in umap) { if (umap.hasOwnProperty(u2) && umap[u2].team === team) us.push(u2); }
-                us.sort(function (a, b) { return (agg[b] ? agg[b].n : 0) - (agg[a] ? agg[a].n : 0); });
-                var rows = "";
-                for (var k = 0; k < us.length; k++) {
-                    var key = us[k], st = agg[key] || { sum: 0, n: 0 };
-                    rows += "<tr><td style='font-weight:700;' title='" + escapeHtml(umap[key].nom) + "'>" + escapeHtml(key) + "</td>"
-                        + "<td style='text-align:center;'>" + st.n + "</td>"
-                        + "<td style='text-align:center;'>" + (st.n ? fmtDHM(st.sum / st.n) : "-") + "</td></tr>";
-                }
-                if (!rows) rows = "<tr><td colspan='3' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucun membre</td></tr>";
-                cols += "<div style='display:inline-block; vertical-align:top; width:33.33%; padding:0 8px; box-sizing:border-box;'>"
-                    + "<div style='font-weight:700; font-size:14px; color:" + colors[team] + "; margin-bottom:8px;'>Équipe " + team + "</div>"
-                    + "<table class='data-table'><thead><tr><th>User</th><th width='30%'>Nb tâches</th><th width='34%'>Durée moy</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+                hcTeamChart('hcTeam' + team, us, umap, weeks, cats, agg);
             }
-            document.getElementById('dashTeams').innerHTML = "<div style='font-size:0; margin:0 -8px;'>" + cols + "</div>";
+        }
+        // Graphique courbes : une courbe par user (durée moyenne), abscisse = semaines.
+        function hcTeamChart(id, users, umap, weeks, cats, agg) {
+            var cont = document.getElementById(id); if (!cont) return;
+            if (!users.length) { cont.innerHTML = "<div style='height:280px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
+            if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
+            var dMs = dayMs(), series = [];
+            for (var i = 0; i < users.length; i++) {
+                var u = users[i], data = [];
+                for (var k = 0; k < weeks.length; k++) {
+                    var a = agg[u] && agg[u][weeks[k]];
+                    if (a && a.n) data.push({ y: a.sum / a.n / dMs, ms: a.sum / a.n }); else data.push(null);
+                }
+                series.push({ name: umap[u].nom || u, data: data });
+            }
+            try {
+                Highcharts.chart(id, {
+                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
+                    title: { text: null }, credits: { enabled: false },
+                    xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
+                    yAxis: { title: { text: 'Durée moyenne (jours)' }, min: 0 },
+                    tooltip: { useHTML: true, formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.key + ' : ' + fmtDHM(this.point.ms); } },
+                    plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
+                    series: series
+                });
+            } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
 
     // ==========================================================
@@ -1923,9 +1944,16 @@
                         </div>
                     </div>
                     <div class="card">
-                        <h3>Activité des équipes (ST / TL / IQ)</h3>
-                        <p style="color:#94a3b8; font-size:12px; margin:0 0 14px 0;">Nombre de tâches réalisées (colonne « Terminé par ») et durée moyenne par membre.</p>
-                        <div id="dashTeams"></div>
+                        <h3>Équipe ST - Durée moyenne par membre</h3>
+                        <div id="hcTeamST" style="width:100%; height:280px;"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Équipe TL - Durée moyenne par membre</h3>
+                        <div id="hcTeamTL" style="width:100%; height:280px;"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Équipe IQ - Durée moyenne par membre</h3>
+                        <div id="hcTeamIQ" style="width:100%; height:280px;"></div>
                     </div>
                 </div>
             </div>
