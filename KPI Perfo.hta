@@ -849,9 +849,15 @@
             }, 80);
         }
         function RenderOFTable(type) {
-            var data = (type === 'cree') ? (appData.ofCree || []) : (appData.ofClot || []);
             var cont = document.getElementById(type === 'cree' ? 'ofCreeTable' : 'ofClotTable');
             if (!cont) return;
+            // On ne garde que les OF dont le user appartient à l'équipe : ST pour les créés, IQ pour les clôturés.
+            var teamArr = (type === 'cree') ? (appData.teamST || []) : (appData.teamIQ || []);
+            var teamSet = {};
+            for (var t = 0; t < teamArr.length; t++) { var tu = NettoyerChaine(teamArr[t].user).toUpperCase(); if (tu) teamSet[tu] = true; }
+            var all = (type === 'cree') ? (appData.ofCree || []) : (appData.ofClot || []);
+            var data = [];
+            for (var d = 0; d < all.length; d++) { if (teamSet[NettoyerChaine(all[d].user).toUpperCase()]) data.push(all[d]); }
             if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info'>Aucune extraction réalisée.</div>"; return; }
             var rows = "";
             for (var i = 0; i < data.length; i++) {
@@ -860,8 +866,8 @@
                     + "<td style='text-align:center;'>" + escapeHtml(data[i].date) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(data[i].heure) + "</td></tr>";
             }
-            cont.innerHTML = "<div style='font-size:12px; color:#94a3b8; margin-bottom:8px;'>" + data.length + " OF</div>"
-                + "<table class='data-table'><thead><tr><th>Ordre de Fabrication</th><th width='25%'>User</th><th width='22%'>Date</th><th width='18%'>Heure</th></tr></thead><tbody>" + rows + "</tbody></table>";
+            cont.innerHTML = "<div style='max-height:60vh; overflow-y:auto; padding-bottom:14px;'>"
+                + "<table class='data-table'><thead><tr><th width='25%'>Ordre de Fabrication</th><th width='25%'>User</th><th width='25%'>Date</th><th width='25%'>Heure</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
         }
 
         function ParseExport(content) {
