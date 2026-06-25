@@ -1277,7 +1277,7 @@
                     xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                     yAxis: {
                         title: { text: 'Durée (jours)' }, min: 0, tickInterval: 5,
-                        plotLines: [{ value: 2, color: '#dc2626', dashStyle: 'Dash', width: 1.5, zIndex: 5, label: { text: 'Objectif 2 j', align: 'left', x: 8, y: -4, style: { color: '#dc2626', fontWeight: 'bold' } } }]
+                        plotLines: [{ value: 2, color: '#dc2626', dashStyle: 'Dash', width: 1.5, zIndex: 5 }]
                     },
                     tooltip: {
                         useHTML: true,
@@ -1338,25 +1338,58 @@
         }
 
         // 2) Durée moyenne par responsable du tableau 1.
-        var dashRespPeriod = 'all';   // filtre durée moyenne par responsable : week/month/year/all
-        // Vrai si la date (clôture) est dans la période courante (semaine/mois/année) relative à aujourd'hui.
-        function inPeriod(d, period) {
-            if (period === 'all' || !period) return true;
+        // Filtre durée moyenne : gran = 'all' | 'year' | 'month' | 'week' ; mois/semaine dépendent de l'année.
+        var dashFilter = { gran: 'all', year: null, month: null, week: null };
+        function inSelectedPeriod(d) {
+            if (dashFilter.gran === 'all') return true;
             if (!d) return false;
-            var now = new Date();
-            if (period === 'year') return d.getFullYear() === now.getFullYear();
-            if (period === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-            if (period === 'week') return getWeekStart(d).getTime() === getWeekStart(now).getTime();
+            if (d.getFullYear() !== dashFilter.year) return false;
+            if (dashFilter.gran === 'year') return true;
+            if (dashFilter.gran === 'month') return d.getMonth() === dashFilter.month;
+            if (dashFilter.gran === 'week') return isoWeek(d) === dashFilter.week;
             return true;
         }
-        function dashRespFilterBar() {
-            function btn(p, label) {
-                var on = dashRespPeriod === p;
-                return "<button type='button' onclick=\"SetDashRespPeriod('" + p + "')\" style='font-size:11px; font-weight:600; padding:4px 9px; border:1px solid #c5d5de; cursor:pointer; vertical-align:middle; margin-left:-1px; " + (on ? "background:#0C447C; color:#fff; border-color:#0C447C; position:relative; z-index:1;" : "background:#fff; color:#475569;") + "'>" + label + "</button>";
-            }
-            return "<span style='font-size:0; white-space:nowrap;'>" + btn('week', 'Semaine') + btn('month', 'Mois') + btn('year', 'Année') + btn('all', 'Toutes') + "</span>";
+        function dashYearsList() {
+            var ys = {}, out = [];
+            for (var i = 0; i < ncList.length; i++) { var nc = ncList[i]; if (nc.eligible && nc.end) ys[nc.end.getFullYear()] = true; }
+            for (var y in ys) { if (ys.hasOwnProperty(y)) out.push(parseInt(y, 10)); }
+            out.sort(function (a, b) { return b - a; });
+            if (!out.length) out.push(new Date().getFullYear());
+            return out;
         }
-        function SetDashRespPeriod(p) { dashRespPeriod = p; RenderDashboard(); }
+        function dashMonthsList(year) {
+            var ms = {}, out = [];
+            for (var i = 0; i < ncList.length; i++) { var nc = ncList[i]; if (nc.eligible && nc.end && nc.end.getFullYear() === year) ms[nc.end.getMonth()] = true; }
+            for (var m in ms) { if (ms.hasOwnProperty(m)) out.push(parseInt(m, 10)); }
+            out.sort(function (a, b) { return a - b; }); return out;
+        }
+        function dashWeeksList(year) {
+            var ws = {}, out = [];
+            for (var i = 0; i < ncList.length; i++) { var nc = ncList[i]; if (nc.eligible && nc.end && nc.end.getFullYear() === year) ws[isoWeek(nc.end)] = true; }
+            for (var w in ws) { if (ws.hasOwnProperty(w)) out.push(parseInt(w, 10)); }
+            out.sort(function (a, b) { return a - b; }); return out;
+        }
+        var MOIS_NOMS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        function dashRespFilterBar() {
+            var years = dashYearsList();
+            if (dashFilter.year == null || years.indexOf(dashFilter.year) === -1) dashFilter.year = years[0];
+            function sel(active) { return "font-size:12px; padding:4px 6px; border-radius:6px; vertical-align:middle; cursor:pointer; border:1px solid " + (active ? "#0C447C" : "#c5d5de") + "; " + (active ? "background:#0C447C; color:#fff;" : "background:#fff; color:#1e293b;"); }
+            var allOn = dashFilter.gran === 'all';
+            var bar = "<button type='button' onclick=\"SetDashGran('all')\" style='font-size:11px; font-weight:600; padding:5px 11px; border:1px solid " + (allOn ? "#0C447C" : "#c5d5de") + "; border-radius:6px; cursor:pointer; vertical-align:middle; margin-right:16px; " + (allOn ? "background:#0C447C; color:#fff;" : "background:#fff; color:#475569;") + "'>Toutes les NC</button>";
+            var yopt = ""; for (var i = 0; i < years.length; i++) yopt += "<option value='" + years[i] + "'" + (years[i] === dashFilter.year ? " selected" : "") + ">" + years[i] + "</option>";
+            bar += "<span style='font-size:12px; color:#475569; margin-right:5px; vertical-align:middle;'>Année</span><select onchange=\"SetDashYear(this.value)\" style='" + sel(dashFilter.gran === 'year') + "'>" + yopt + "</select>";
+            var months = dashMonthsList(dashFilter.year);
+            var mopt = "<option value=''>Mois…</option>"; for (var m = 0; m < months.length; m++) mopt += "<option value='" + months[m] + "'" + (dashFilter.gran === 'month' && months[m] === dashFilter.month ? " selected" : "") + ">" + MOIS_NOMS[months[m]] + "</option>";
+            bar += "<select onchange=\"SetDashMonth(this.value)\" style='" + sel(dashFilter.gran === 'month') + " margin-left:10px;'>" + mopt + "</select>";
+            var weeks = dashWeeksList(dashFilter.year);
+            var wopt = "<option value=''>Semaine…</option>"; for (var w = 0; w < weeks.length; w++) wopt += "<option value='" + weeks[w] + "'" + (dashFilter.gran === 'week' && weeks[w] === dashFilter.week ? " selected" : "") + ">S" + weeks[w] + "</option>";
+            bar += "<select onchange=\"SetDashWeek(this.value)\" style='" + sel(dashFilter.gran === 'week') + " margin-left:7px;'>" + wopt + "</select>";
+            return "<span style='white-space:nowrap;'>" + bar + "</span>";
+        }
+        function SetDashGran(g) { dashFilter.gran = g; RenderDashboard(); }
+        function SetDashYear(y) { dashFilter.year = parseInt(y, 10); if (dashFilter.gran === 'all') dashFilter.gran = 'year'; RenderDashboard(); }
+        function SetDashMonth(m) { if (m === '') return; dashFilter.month = parseInt(m, 10); dashFilter.gran = 'month'; RenderDashboard(); }
+        function SetDashWeek(w) { if (w === '') return; dashFilter.week = parseInt(w, 10); dashFilter.gran = 'week'; RenderDashboard(); }
         function RenderDashResp(elig) {
             var intNom = {}, extNom = {}, rd = appData.roleDesig || [];
             for (var i = 0; i < rd.length; i++) {
@@ -1365,7 +1398,7 @@
             }
             var agg = {};
             for (var e = 0; e < elig.length; e++) {
-                if (!inPeriod(elig[e].end, dashRespPeriod)) continue;   // filtre Semaine/Mois/Année/Toutes
+                if (!inSelectedPeriod(elig[e].end)) continue;   // filtre Année / Mois / Semaine / Toutes
                 var gaps = stepGaps(elig[e].lines);
                 for (var j = 0; j < gaps.length; j++) {
                     if (gaps[j].gap == null) continue;
@@ -1375,8 +1408,7 @@
                     agg[r].sum += gaps[j].gap; agg[r].n++;
                 }
             }
-            var fb = document.getElementById('dashRespFilterInt'); if (fb) fb.innerHTML = dashRespFilterBar();
-            var fb2 = document.getElementById('dashRespFilterExt'); if (fb2) fb2.innerHTML = dashRespFilterBar();
+            var fb = document.getElementById('dashRespFilter'); if (fb) fb.innerHTML = dashRespFilterBar();
             hcRespPie('hcRespInt', intNom, agg);
             hcRespPie('hcRespExt', extNom, agg);
         }
@@ -1870,16 +1902,18 @@
                             </div>
                         </div>
                     </div>
-                    <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
-                        <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <div style="overflow:hidden; margin-bottom:14px;"><h3 style="margin:0; display:inline-block; vertical-align:middle;">Durée moyenne - Responsables internes</h3><span id="dashRespFilterInt" style="float:right;"></span></div>
+                    <div class="card">
+                        <div style="overflow:hidden; margin-bottom:16px;">
+                            <h3 style="margin:0; display:inline-block; vertical-align:middle;">Durée moyenne par responsable</h3>
+                            <span id="dashRespFilter" style="float:right;"></span>
+                        </div>
+                        <div style="display:table; width:100%; table-layout:fixed;">
+                            <div style="display:table-cell; width:50%; padding-right:12px; box-sizing:border-box; vertical-align:top;">
+                                <div style="font-weight:700; color:#334155; margin-bottom:8px;">Responsables internes</div>
                                 <div id="hcRespInt" style="width:100%; height:250px;"></div>
                             </div>
-                        </div>
-                        <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <div style="overflow:hidden; margin-bottom:14px;"><h3 style="margin:0; display:inline-block; vertical-align:middle;">Durée moyenne - Responsables externes</h3><span id="dashRespFilterExt" style="float:right;"></span></div>
+                            <div style="display:table-cell; width:50%; padding-left:12px; box-sizing:border-box; vertical-align:top;">
+                                <div style="font-weight:700; color:#334155; margin-bottom:8px;">Responsables externes</div>
                                 <div id="hcRespExt" style="width:100%; height:250px;"></div>
                             </div>
                         </div>
