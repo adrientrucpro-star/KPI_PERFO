@@ -390,6 +390,7 @@
             if (!appData.teamIQ) appData.teamIQ = [];
             if (!appData.comments) appData.comments = {};   // commentaires par NC : { "<avis>": "texte" }
             if (!appData.selLine) appData.selLine = {};      // ligne "Départ" sélectionnée par NC : { "<avis>": "<Nº>" }
+            if (!appData.excluded) appData.excluded = {};    // NC exclues manuellement : { "<avis>": true }
             if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
             if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
             if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
@@ -410,9 +411,10 @@
             try {
                 var path = getAppDataFilePath();
                 if (!path) return;
-                // On ne sauvegarde QUE les lignes des NC analysées (éligibles).
+                // On sauvegarde les lignes des NC analysables (eligRaw = avant exclusion manuelle),
+                // pour pouvoir réintégrer une NC exclue après rechargement.
                 var eligAvis = {};
-                for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible) eligAvis[ncList[i].avis] = true; }
+                for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligRaw) eligAvis[ncList[i].avis] = true; }
                 var allRows = appData.rows || [], savedRows = [];
                 for (var j = 0; j < allRows.length; j++) { if (eligAvis[allRows[j].a]) savedRows.push(allRows[j]); }
                 var savedComments = {};
@@ -423,6 +425,7 @@
                     teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
                     comments: savedComments,
                     selLine: appData.selLine || {},
+                    excluded: appData.excluded || {},
                     cfg: appData.cfg || {},
                     calc: appData.calc || {},
                     lastImport: appData.lastImport || ""
@@ -862,8 +865,10 @@
                     var sIdx = effectiveSelIdx(nc.avis, sl);
                     if (sIdx >= 0) { var tt0 = parcoursTotals(nc, sl, sIdx); nc.durMs = tt0.g; nc.chezMs = tt0.e; nc.pasMs = Math.max(0, tt0.g - tt0.e); }
                 }
-                // Analysée si : tâche CT interne (user équipe) ET clôture APQ0 valide, ET PAS d'ORI0 par 70005848.
-                nc.eligible = hasCT && hasClot && !hasOri0Q;
+                // Analysable si : tâche CT interne (user équipe) ET clôture APQ0 valide, ET PAS d'ORI0 par 70005848.
+                nc.eligRaw = hasCT && hasClot && !hasOri0Q;
+                nc.excluded = !!(appData.excluded && appData.excluded[nc.avis]);   // exclusion manuelle
+                nc.eligible = nc.eligRaw && !nc.excluded;
                 ncList.push(nc);
             }
             ncList.sort(function (a, b) { return parseInt(a.avis,10) - parseInt(b.avis,10); });
@@ -1540,7 +1545,7 @@
 
             // NC analysées (ST + IQ) ET clôturées par la qualité (APQ0 + Responsable du tableau 1).
             var closed = [];
-            for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible && ncList[i].end) closed.push(ncList[i]); }
+            for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligRaw && ncList[i].end) closed.push(ncList[i]); }
             var wc = document.getElementById('weekCount');
             var card = document.getElementById('weekSelectCard');
             if (!closed.length) {
@@ -1600,15 +1605,19 @@
                 if (e) prevEnd = e;
             }
             var comment = (appData.comments && appData.comments[nc.avis]) ? appData.comments[nc.avis] : "";
-            return "<div class='card' style='padding:16px 25px;'>"
+            var exclBtn = nc.excluded
+                ? "<button type='button' onclick=\"ToggleExcludeNC('" + escapeHtml(nc.avis) + "')\" title='Réintégrer cette NC' style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:6px 12px; border-radius:6px; background:#16a34a; color:#fff; border:none; cursor:pointer; margin-left:8px;'>Réintégrer</button>"
+                : "<button type='button' onclick=\"ToggleExcludeNC('" + escapeHtml(nc.avis) + "')\" title='Exclure cette NC' style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:6px 12px; border-radius:6px; background:#dc2626; color:#fff; border:none; cursor:pointer; margin-left:8px;'>Exclure</button>";
+            return "<div class='card' style='padding:16px 25px;" + (nc.excluded ? " opacity:0.55; border-left:4px solid #dc2626;" : "") + "'>"
                 + "<div style='overflow:hidden; margin-bottom:16px;'>"
-                + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span> <span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
+                + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span> " + (nc.excluded ? "<span class='badge' style='background:#fee2e2; color:#b91c1c;'>Exclue</span> " : "") + "<span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
                 + "<div style='float:right;'>"
                 + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#E6F1FB; color:#0C447C;'>Traitement global : <span id='gbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(nc.durMs) + "</span></span>"
                 + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#dcfce3; color:#166534; margin-left:8px;'>Traitement équipe : <span id='tbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(nc.chezMs) + "</span></span>"
                 + "<button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(nc.avis) + "', this)\" title='Afficher la NC' style='display:inline-block; vertical-align:middle; padding:6px 10px; border-radius:6px; background:#0C447C; color:#fff; border:none; cursor:pointer; margin-left:8px;'>"
                 + "<svg width='15' height='15' viewBox='0 0 24 24' style='vertical-align:middle; display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg>"
                 + "</button>"
+                + exclBtn
                 + "</div>"
                 + "</div>"
                 + "<div style='margin-bottom:14px;'>"
@@ -1621,6 +1630,14 @@
             if (!appData.comments) appData.comments = {};
             appData.comments[avis] = NettoyerChaine(val);
             SaveData();
+        }
+        // Exclure / réintégrer une NC de l'analyse (impacte Extract NC et le dashboard ; reste visible ici).
+        function ToggleExcludeNC(avis) {
+            if (!appData.excluded) appData.excluded = {};
+            if (appData.excluded[avis]) { delete appData.excluded[avis]; } else { appData.excluded[avis] = true; }
+            RecomputeAll();
+            SaveData();
+            RenderParcours();
         }
         // Ensembles depuis les paramètres.
         function internalRespSet() { var s = {}, rd = appData.roleDesig || []; for (var i = 0; i < rd.length; i++) { if (NettoyerChaine(rd[i].type) === "int") { var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (rc) s[rc] = true; } } return s; }
