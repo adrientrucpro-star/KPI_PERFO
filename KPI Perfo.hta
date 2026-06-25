@@ -486,6 +486,7 @@
             if (!appData.excluded) appData.excluded = {};    // NC exclues manuellement : { "<avis>": true }
             if (!appData.ofCree) appData.ofCree = [];        // OF créés (EXPORT_ST) : [{of,user,date,heure}]
             if (!appData.ofClot) appData.ofClot = [];        // OF clôturés (EXPORT_IQ)
+            if (!appData.lastOFImport) appData.lastOFImport = "";   // date/heure de la dernière extraction OF
             if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
             if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
             if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
@@ -523,6 +524,7 @@
                     excluded: appData.excluded || {},
                     ofCree: appData.ofCree || [],
                     ofClot: appData.ofClot || [],
+                    lastOFImport: appData.lastOFImport || "",
                     cfg: appData.cfg || {},
                     calc: appData.calc || {},
                     lastImport: appData.lastImport || ""
@@ -646,6 +648,7 @@
             if (appData.rows && appData.rows.length) {
                 RecomputeAll();
             }
+            PrefillExtractDates();
             ShowPage("pageDashboard");
             // Au lancement la mise en page n'est pas encore stabilisée : on re-rend le dashboard
             // une fois posé pour que les graphiques Highcharts se dimensionnent correctement.
@@ -859,7 +862,13 @@
                 var ts = fso.OpenTextFile(path, 1, false, 0);   // ANSI
                 var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
                 var data = ParseOF(content);
-                if (type === 'cree') appData.ofCree = data; else appData.ofClot = data;
+                // Fusion avec l'historique : on n'ajoute que les OF non déjà présents (dédoublonnage par n° d'OF).
+                var cur = (type === 'cree') ? (appData.ofCree || []) : (appData.ofClot || []);
+                var seen = {};
+                for (var i = 0; i < cur.length; i++) seen[cur[i].of] = true;
+                for (var j = 0; j < data.length; j++) { if (!seen[data[j].of]) { cur.push(data[j]); seen[data[j].of] = true; } }
+                if (type === 'cree') appData.ofCree = cur; else appData.ofClot = cur;
+                appData.lastOFImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
                 SaveData();
                 RenderOFTable(type);
                 if (!data.length) alert("Extraction terminée, mais aucun OF exploitable détecté (format inattendu ?).");
@@ -1766,19 +1775,22 @@
     // ==========================================================
     // PAGE : ANALYSE NC (liste détaillée + filtres)
     // ==========================================================
+        function firstOfMonthStr() { var n = new Date(); return "01/" + (n.getMonth() + 1 < 10 ? "0" : "") + (n.getMonth() + 1) + "/" + n.getFullYear(); }
+        function setDateIfEmpty(id, val) { var el = document.getElementById(id); if (el && !NettoyerChaine(el.value)) el.value = val; }
+        // Pré-remplissage : « à partir du » = date de la dernière extraction ; « jusqu'au » = aujourd'hui.
+        function PrefillExtractDates() {
+            var today = FormatDateString(new Date());
+            var lastNC = appData.lastImport ? NettoyerChaine(appData.lastImport).split(' ')[0] : firstOfMonthStr();
+            var lastOF = appData.lastOFImport ? NettoyerChaine(appData.lastOFImport).split(' ')[0] : firstOfMonthStr();
+            setDateIfEmpty('extractDate', lastNC);
+            setDateIfEmpty('extractDateFin', today);
+            setDateIfEmpty('ofDateDebut', lastOF);
+            setDateIfEmpty('ofDateFin', today);
+        }
         function RenderListe() {
-            // Date de dernière extraction + date d'extraction par défaut (1er du mois courant).
             var lbl = document.getElementById('lastExtractDate');
             if (lbl) lbl.innerText = appData.lastImport ? appData.lastImport : "Jamais";
-            var ed = document.getElementById('extractDate');
-            if (ed && !NettoyerChaine(ed.value)) {
-                if (appData.lastImport) {
-                    ed.value = NettoyerChaine(appData.lastImport).split(' ')[0];   // date du dernier extract
-                } else {
-                    var now = new Date();
-                    ed.value = "01/" + (now.getMonth() + 1 < 10 ? "0" : "") + (now.getMonth() + 1) + "/" + now.getFullYear();
-                }
-            }
+            PrefillExtractDates();
             var cont = document.getElementById('listeContainer');
             if (!ncList.length) { cont.innerHTML = "<div class='msg-box msg-info'>Aucune extraction réalisée. Lance une extraction SAP ci-dessus.</div>"; return; }
 
@@ -1954,10 +1966,10 @@
                 if (e) prevEnd = e;
             }
             var comment = (appData.comments && appData.comments[nc.avis]) ? appData.comments[nc.avis] : "";
-            var exclBtn = "<span class='nc-switch" + (nc.excluded ? " off" : "") + "' onclick=\"ToggleExcludeNC('" + escapeHtml(nc.avis) + "')\" title='" + (nc.excluded ? "Réintégrer cette NC" : "Exclure cette NC") + "'><span class='knob'></span></span>";
+            var exclBtn = "<span class='nc-switch" + (nc.excluded ? " off" : "") + "' onclick=\"ToggleExcludeNC('" + escapeHtml(nc.avis) + "')\"><span class='knob'></span></span>";
             return "<div class='card' style='padding:16px 25px;" + (nc.excluded ? " opacity:0.55; border-left:4px solid #dc2626;" : "") + "'>"
                 + "<div style='overflow:hidden; margin-bottom:16px;'>"
-                + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span> " + (nc.excluded ? "<span class='badge' style='background:#fee2e2; color:#b91c1c;'>Exclue</span> " : "") + "<span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
+                + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span> <span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
                 + "<div style='float:right;'>"
                 + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#E6F1FB; color:#0C447C;'>Traitement global : <span id='gbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(nc.durMs) + "</span></span>"
                 + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#dcfce3; color:#166534; margin-left:8px;'>Traitement équipe : <span id='tbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(nc.chezMs) + "</span></span>"
