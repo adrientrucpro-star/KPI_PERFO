@@ -58,6 +58,8 @@
         /* ====================== BOUTONS / CHAMPS ====================== */
         .btn-toolbar { font-weight: 600; font-size: 13px; height: 38px; line-height: 38px; padding: 0 20px; border: none; border-radius: 6px; cursor: pointer; color: white; display: inline-block; vertical-align: bottom; text-align: center; box-sizing: border-box; background-color: #006698; }
         .btn-toolbar:hover { background-color: #00557f; }
+        .btn-clear-date { margin-left: 4px; border: none; background: none; color: #94a3b8; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; vertical-align: bottom; height: 38px; }
+        .btn-clear-date:hover { color: #ef4444; }
         .btn-green { background-color: #10b981; } .btn-green:hover { background-color: #059669; }
         .btn-grey { background-color: #64748b; } .btn-grey:hover { background-color: #475569; }
         .btn-disabled { background-color: #94a3b8 !important; cursor: wait !important; color: #f1f5f9 !important; }
@@ -714,6 +716,13 @@
                 if (dpInput.getAttribute('data-filter') === 'of') RenderOFAll(); else RenderListe();
             }
         }
+        // Efface une date (bouton ×) et rafraîchit le rendu si c'est un filtre.
+        function clearDate(id, event) {
+            var el = document.getElementById(id); if (el) el.value = "";
+            var f = el ? el.getAttribute('data-filter') : null;
+            if (f === 'of') RenderOFAll(); else if (f) RenderListe();
+            if (event && event.stopPropagation) event.stopPropagation();
+        }
         document.onclick = function (e) {
             var ev = e || window.event; var t = ev.target || ev.srcElement;
             var dp = document.getElementById('custom-datepicker');
@@ -731,10 +740,10 @@
             var btn = document.getElementById('btnExtract');
             var dateVal = NettoyerChaine(document.getElementById('extractDate').value);
             var dateFin = NettoyerChaine(document.getElementById('extractDateFin').value);
-            if (!dateVal) { AfficherErreur("Choisis une date de début d'extraction."); return; }
+            if (!dateVal || !dateFin) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
             var dateSAP = dateVal.replace(/\//g, '.');          // JJ/MM/AAAA -> JJ.MM.AAAA
             var dateSAPFin = dateFin.replace(/\//g, '.');
-            if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction…"; }
+            if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
             setTimeout(function () {
                 try {
                     var res = VBS_ExtractQM13(dateSAP, dateSAPFin);
@@ -748,7 +757,7 @@
                 } catch (e) {
                     AfficherErreur("Erreur : " + e.message);
                 }
-                if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Lancer l'extraction"; }
+                if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Extract NC"; }
             }, 80);
         }
         function LireEtAnalyser(path) {
@@ -836,11 +845,11 @@
         function LancerExtractOF(type) {
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('ofDateFin').value).replace(/\//g, '.');
-            if (!d1 || !d2) { AfficherErreur("Choisis une plage de dates (Du / Au)."); return; }
+            if (!d1 || !d2) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
             var btnId = (type === 'cree') ? 'btnOFCree' : 'btnOFClot';
-            var label = (type === 'cree') ? "Extract OF créé" : "Extract OF clôturé";
+            var label = (type === 'cree') ? "Extract création" : "Extract clôture";
             var btn = document.getElementById(btnId);
-            if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction…"; }
+            if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
             setTimeout(function () {
                 try {
                     var res = (type === 'cree') ? VBS_ExtractOFCree(d1, d2) : VBS_ExtractOFClot(d1, d2);
@@ -2205,13 +2214,13 @@
                             <div>
                                 <span style="display:inline-block; margin-right:14px; vertical-align:bottom;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire à partir du</label>
-                                    <input type="text" id="extractDate" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
+                                    <input type="text" id="extractDate" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('extractDate', event)" title="Effacer">&times;</button>
                                 </span>
                                 <span style="display:inline-block; margin-right:14px; vertical-align:bottom;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire jusqu'au</label>
-                                    <input type="text" id="extractDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
+                                    <input type="text" id="extractDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('extractDateFin', event)" title="Effacer">&times;</button>
                                 </span>
-                                <button id="btnExtract" class="btn-toolbar" style="vertical-align:bottom;" onclick="LancerExtractionSAP()">Lancer l'extraction</button>
+                                <button id="btnExtract" class="btn-toolbar" style="vertical-align:bottom; min-width:150px;" onclick="LancerExtractionSAP()">Extract NC</button>
                                 <span style="display:inline-block; margin-left:14px; padding:8px 16px; height:38px; line-height:20px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; vertical-align:bottom;">Dernière extraction : <b id="lastExtractDate">-</b></span>
                             </div>
                         </div>
@@ -2219,16 +2228,16 @@
                     <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
                         <div id="cardFiltres" class="card" style="margin-bottom:0; box-sizing:border-box;">
                             <table style="border:none; width:100%;"><tr>
-                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
-                                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Du (date création)</label>
-                                    <input type="text" id="filtreDateDebut" data-filter="1" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
+                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
+                                    <input type="text" id="filtreDateDebut" data-filter="1" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateDebut', event)" title="Effacer">&times;</button>
                                 </td>
-                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
-                                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Au</label>
-                                    <input type="text" id="filtreDateFin" data-filter="1" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
+                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
+                                    <input type="text" id="filtreDateFin" data-filter="1" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateFin', event)" title="Effacer">&times;</button>
                                 </td>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
-                                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche (avis / description)</label>
+                                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
                                     <input type="text" id="filtreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="RenderListe()" placeholder="Tape pour filtrer">
                                 </td>
                                 <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
@@ -2243,40 +2252,46 @@
                 </div><!-- /extractSubNC -->
 
                 <div id="extractSubOF" style="display:none;">
-                    <div class="card" style="margin-bottom:20px;">
-                        <table style="border:none;"><tr>
-                            <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
-                                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire à partir du</label>
-                                <input type="text" id="ofDateDebut" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
-                            </td>
-                            <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
-                                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire jusqu'au</label>
-                                <input type="text" id="ofDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
-                            </td>
-                            <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
-                                <button id="btnOFCree" class="btn-toolbar" onclick="LancerExtractOF('cree')">Extract OF créé</button>
-                                <button id="btnOFClot" class="btn-toolbar" style="margin-left:10px;" onclick="LancerExtractOF('clot')">Extract OF clôturé</button>
-                            </td>
-                        </tr></table>
-                    </div>
-                    <div class="card" style="margin-bottom:20px;">
-                        <table style="border:none; width:100%;"><tr>
-                            <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
-                                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Du</label>
-                                <input type="text" id="ofFiltreDateDebut" data-filter="of" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
-                            </td>
-                            <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
-                                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Au</label>
-                                <input type="text" id="ofFiltreDateFin" data-filter="of" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
-                            </td>
-                            <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
-                                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche (OF / user)</label>
-                                <input type="text" id="ofFiltreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="RenderOFAll()" placeholder="Tape pour filtrer">
-                            </td>
-                            <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
-                                <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetOFFiltres()">Réinitialiser</button>
-                            </td>
-                        </tr></table>
+                    <div style="display:table; width:100%; margin:0 0 20px 0;">
+                        <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <table style="border:none;"><tr>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire à partir du</label>
+                                        <input type="text" id="ofDateDebut" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofDateDebut', event)" title="Effacer">&times;</button>
+                                    </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire jusqu'au</label>
+                                        <input type="text" id="ofDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofDateFin', event)" title="Effacer">&times;</button>
+                                    </td>
+                                    <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
+                                        <button id="btnOFCree" class="btn-toolbar" style="min-width:160px;" onclick="LancerExtractOF('cree')">Extract création</button>
+                                        <button id="btnOFClot" class="btn-toolbar" style="margin-left:10px; min-width:160px;" onclick="LancerExtractOF('clot')">Extract clôture</button>
+                                    </td>
+                                </tr></table>
+                            </div>
+                        </div>
+                        <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <table style="border:none; width:100%;"><tr>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
+                                        <input type="text" id="ofFiltreDateDebut" data-filter="of" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateDebut', event)" title="Effacer">&times;</button>
+                                    </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
+                                        <input type="text" id="ofFiltreDateFin" data-filter="of" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateFin', event)" title="Effacer">&times;</button>
+                                    </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
+                                        <input type="text" id="ofFiltreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="RenderOFAll()" placeholder="Tape pour filtrer">
+                                    </td>
+                                    <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
+                                        <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetOFFiltres()">Réinitialiser</button>
+                                    </td>
+                                </tr></table>
+                            </div>
+                        </div>
                     </div>
                     <div style="display:table; width:100%; table-layout:fixed;">
                         <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
