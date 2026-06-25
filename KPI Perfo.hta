@@ -1134,6 +1134,7 @@
         function RenderDashboard() {
             var elig = [];
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible) elig.push(ncList[i]); }
+            var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
 
             if (elig.length === 0) {
                 document.getElementById('dashEmpty').style.display = "block";
@@ -1143,9 +1144,13 @@
             document.getElementById('dashEmpty').style.display = "none";
             document.getElementById('dashCharts').style.display = "block";
 
-            RenderDashWeeks(elig);
-            RenderDashResp(elig);
-            RenderDashTeams(elig);
+            // Filtre période (haut de page) appliqué à TOUS les graphiques du tableau de bord.
+            var eligF = [];
+            for (var f = 0; f < elig.length; f++) { if (inSelectedPeriod(elig[f].end)) eligF.push(elig[f]); }
+
+            RenderDashWeeks(eligF);
+            RenderDashResp(eligF);
+            RenderDashTeams(eligF);
             setTimeout(EgaliserCadresEvolution, 60);
         }
         // Aligne la hauteur des deux cartes Évolution (table-cell peu fiable sous IE10).
@@ -1283,7 +1288,7 @@
                         useHTML: true,
                         formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.key + ' : ' + fmtDHM(this.point.ms); }
                     },
-                    plotOptions: { line: { marker: { radius: 4 }, lineWidth: 2.5 } },
+                    plotOptions: { line: { animation: false, marker: { radius: 4 }, lineWidth: 2.5 } },
                     series: [
                         { name: 'Traitement global', data: gData, color: '#0C447C' },
                         { name: 'Traitement équipe', data: tData, color: '#166534' }
@@ -1388,12 +1393,11 @@
             bar += "<select onchange=\"SetDashWeek(this.value)\" style='" + sel(dashFilter.gran === 'week') + " margin-left:7px;'>" + wopt + "</select>";
             return "<span style='white-space:nowrap;'>" + bar + "</span>";
         }
-        // Ne re-rend QUE les camemberts (pas tout le dashboard) → pas de ré-animation du graphique en courbes.
-        function RefreshDashResp() { var el = []; for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible) el.push(ncList[i]); } RenderDashResp(el); }
-        function SetDashGran(g) { dashFilter.gran = g; RefreshDashResp(); }
-        function SetDashYear(y) { if (y === '') return; dashFilter.year = parseInt(y, 10); if (dashFilter.gran === 'all') dashFilter.gran = 'year'; RefreshDashResp(); }
-        function SetDashMonth(m) { if (m === '') return; dashFilter.month = parseInt(m, 10); dashFilter.gran = 'month'; RefreshDashResp(); }
-        function SetDashWeek(w) { if (w === '') return; dashFilter.week = parseInt(w, 10); dashFilter.gran = 'week'; RefreshDashResp(); }
+        // Le filtre pilote TOUS les graphiques → re-rendu complet (animations désactivées = pas de clignotement).
+        function SetDashGran(g) { dashFilter.gran = g; RenderDashboard(); }
+        function SetDashYear(y) { if (y === '') return; dashFilter.year = parseInt(y, 10); if (dashFilter.gran === 'all') dashFilter.gran = 'year'; RenderDashboard(); }
+        function SetDashMonth(m) { if (m === '') return; dashFilter.month = parseInt(m, 10); dashFilter.gran = 'month'; RenderDashboard(); }
+        function SetDashWeek(w) { if (w === '') return; dashFilter.week = parseInt(w, 10); dashFilter.gran = 'week'; RenderDashboard(); }
         function RenderDashResp(elig) {
             var intNom = {}, extNom = {}, rd = appData.roleDesig || [];
             for (var i = 0; i < rd.length; i++) {
@@ -1402,7 +1406,6 @@
             }
             var agg = {};
             for (var e = 0; e < elig.length; e++) {
-                if (!inSelectedPeriod(elig[e].end)) continue;   // filtre Année / Mois / Semaine / Toutes
                 var gaps = stepGaps(elig[e].lines);
                 for (var j = 0; j < gaps.length; j++) {
                     if (gaps[j].gap == null) continue;
@@ -1412,8 +1415,6 @@
                     agg[r].sum += gaps[j].gap; agg[r].n++;
                 }
             }
-            var fbi = document.getElementById('dashRespFilterInt'); if (fbi) fbi.innerHTML = dashRespFilterBar();
-            var fbe = document.getElementById('dashRespFilterExt'); if (fbe) fbe.innerHTML = dashRespFilterBar();
             hcRespPie('hcRespInt', intNom, agg);
             hcRespPie('hcRespExt', extNom, agg);
         }
@@ -1906,7 +1907,10 @@
 
             <!-- PAGE TABLEAU DE BORD -->
             <div id="pageDashboard" class="page active">
-                <h2>Tableau de bord</h2>
+                <div style="overflow:hidden; margin-bottom:12px;">
+                    <h2 style="margin:0; display:inline-block; vertical-align:middle;">Tableau de bord</h2>
+                    <span id="dashFilterBar" style="float:right; margin-top:6px;"></span>
+                </div>
 
                 <div id="dashEmpty" class="card" style="display:none;">
                     <p style="color:#475569; margin:0 0 14px 0;">Aucune NC analysable pour l'instant. Importe un export QM13 puis classe les rôles <b>ST</b> et <b>IQ</b> pour que les NC deviennent analysables.</p>
@@ -1931,19 +1935,13 @@
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                         <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                             <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <div style="overflow:hidden; margin-bottom:14px;">
-                                    <h3 style="margin:0; display:inline-block; vertical-align:middle;">Durée moyenne - Responsables internes</h3>
-                                    <span id="dashRespFilterInt" style="float:right;"></span>
-                                </div>
+                                <h3 style="margin:0 0 14px 0;">Durée moyenne - Responsables internes</h3>
                                 <div id="hcRespInt" style="width:100%; height:250px;"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
                             <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <div style="overflow:hidden; margin-bottom:14px;">
-                                    <h3 style="margin:0; display:inline-block; vertical-align:middle;">Durée moyenne - Responsables externes</h3>
-                                    <span id="dashRespFilterExt" style="float:right;"></span>
-                                </div>
+                                <h3 style="margin:0 0 14px 0;">Durée moyenne - Responsables externes</h3>
                                 <div id="hcRespExt" style="width:100%; height:250px;"></div>
                             </div>
                         </div>
