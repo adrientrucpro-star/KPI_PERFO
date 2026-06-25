@@ -1199,9 +1199,9 @@
             var l2 = "<div style='font-size:0; margin-bottom:10px;'>";
             for (var j = 0; j < n; j++) {
                 l2 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 4px;'>"
-                    + "<div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px;'>"
-                    + "<div style='font-size:11px; color:#64748b; margin-bottom:5px;'>" + wk[j].n + " NC clôturées</div>"
-                    + "<div style='font-size:12px; color:#475569; margin-bottom:2px;'><span style='display:inline-block; width:9px; height:9px; background:#0C447C; border-radius:2px; margin-right:5px;'></span>Global : <b style='color:#0C447C;'>" + fmtDHM(wk[j].g) + "</b></div>"
+                    + "<div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px 12px;'>"
+                    + "<div style='font-size:11px; color:#64748b; margin-bottom:9px;'>" + wk[j].n + " NC clôturées</div>"
+                    + "<div style='font-size:12px; color:#475569; margin-bottom:6px;'><span style='display:inline-block; width:9px; height:9px; background:#0C447C; border-radius:2px; margin-right:5px;'></span>Global : <b style='color:#0C447C;'>" + fmtDHM(wk[j].g) + "</b></div>"
                     + "<div style='font-size:12px; color:#475569;'><span style='display:inline-block; width:9px; height:9px; background:#166534; border-radius:2px; margin-right:5px;'></span>Équipe : <b style='color:#166534;'>" + fmtDHM(wk[j].t) + "</b></div>"
                     + "</div></div>";
             }
@@ -1210,9 +1210,9 @@
             var l3 = "";
             if (n >= 2) {
                 l3 = "<div style='font-size:0;'>";
+                var ew = (100 / (n - 1)).toFixed(2);
                 for (var k = 0; k < n - 1; k++) {
-                    var ml = (k === 0) ? (cw / 2).toFixed(2) : 0;
-                    l3 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 4px;" + (ml ? " margin-left:" + ml + "%;" : "") + "'>" + evoBox(wk[k], wk[k + 1]) + "</div>";
+                    l3 += "<div style='display:inline-block; vertical-align:top; width:" + ew + "%; box-sizing:border-box; padding:0 4px;'>" + evoBox(wk[k], wk[k + 1]) + "</div>";
                 }
                 l3 += "</div>";
             }
@@ -1224,10 +1224,10 @@
                 var arrow = amelio ? "&#8600;" : (degr ? "&#8599;" : "&#8211;");
                 var c = amelio ? "#166534" : (degr ? "#b91c1c" : "#64748b");
                 var txt = (delta === 0) ? "Stable" : ((amelio ? "-" : "+") + fmtDHM(Math.abs(delta)));
-                return "<div style='font-size:12px; color:#475569; margin-bottom:2px;'>" + label + " <b style='color:" + c + ";'>" + arrow + " " + txt + "</b></div>";
+                return "<div style='font-size:12px; color:#475569; margin-bottom:6px;'>" + label + " <b style='color:" + c + ";'>" + arrow + " " + txt + "</b></div>";
             }
-            return "<div style='background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px;'>"
-                + "<div style='font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px; text-align:center;'>S" + a.week + " &rarr; S" + b.week + "</div>"
+            return "<div style='background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:14px 12px;'>"
+                + "<div style='font-size:11px; font-weight:600; color:#64748b; margin-bottom:9px; text-align:center;'>S" + a.week + " &rarr; S" + b.week + "</div>"
                 + line("Global", "#0C447C", a.g, b.g) + line("Équipe", "#166534", a.t, b.t)
                 + "</div>";
         }
