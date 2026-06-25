@@ -1281,16 +1281,26 @@
             if (!items.length) return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'>" + head + "<div class='msg-box msg-info'>Aucune donnée.</div></div>";
             var total = 0; for (var i = 0; i < items.length; i++) total += items[i].avg;
             if (total <= 0) total = 1;
-            var slices = "", legend = "", ang = -90;
+            var slices = "", labels = "", legend = "", ang = -90;
             for (var k = 0; k < items.length; k++) {
                 var frac = items[k].avg / total, col = PIE_COLORS[k % PIE_COLORS.length];
-                slices += pieSlice(90, 90, 80, ang, ang + frac * 360, col); ang += frac * 360;
-                legend += "<div style='font-size:12px; margin-bottom:5px;'><span style='display:inline-block; width:11px; height:11px; background:" + col + "; border-radius:2px; vertical-align:middle; margin-right:6px;'></span>"
-                    + escapeHtml(items[k].name) + " <span style='color:#94a3b8;'>· moy. " + fmtDHM(items[k].avg) + " · " + Math.round(frac * 100) + "% · " + items[k].n + " tâches</span></div>";
+                var a0 = ang, a1 = ang + frac * 360; ang = a1;
+                slices += pieSlice(90, 90, 80, a0, a1, col);
+                var pct = Math.round(frac * 100);
+                if (pct >= 6) {   // % affiché dans la part (si assez grande)
+                    var mid = (a0 + a1) / 2 * Math.PI / 180;
+                    var lx = 90 + 50 * Math.cos(mid), ly = 90 + 50 * Math.sin(mid);
+                    labels += "<text x='" + lx.toFixed(1) + "' y='" + (ly + 4).toFixed(1) + "' text-anchor='middle' font-size='13' font-weight='700' fill='#ffffff'>" + pct + "%</text>";
+                }
+                legend += "<div style='font-size:12px; margin-bottom:7px; color:#334155;'><span style='display:inline-block; width:11px; height:11px; background:" + col + "; border-radius:2px; vertical-align:middle; margin-right:6px;'></span>"
+                    + escapeHtml(items[k].name) + " <span style='color:#94a3b8;'>· Moy. " + fmtDHM(items[k].avg) + "</span></div>";
             }
-            var svg = "<svg viewBox='0 0 180 180' width='180' height='180' style='vertical-align:middle;'>" + slices + "</svg>";
+            var svg = "<svg viewBox='0 0 180 180' width='160' height='160' style='vertical-align:middle;'>" + slices + labels + "</svg>";
             return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'>" + head
-                + "<div style='text-align:center; margin-bottom:12px;'>" + svg + "</div>" + legend + "</div>";
+                + "<div style='font-size:0;'>"
+                + "<div style='display:inline-block; vertical-align:middle; width:58%;'>" + legend + "</div>"
+                + "<div style='display:inline-block; vertical-align:middle; width:42%; text-align:center;'>" + svg + "</div>"
+                + "</div></div>";
         }
         function pieSlice(cx, cy, r, a0, a1, color) {
             if (a1 - a0 >= 359.99) return "<circle cx='" + cx + "' cy='" + cy + "' r='" + r + "' fill='" + color + "'/>";
