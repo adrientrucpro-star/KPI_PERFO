@@ -1243,7 +1243,7 @@
             }
             try {
                 Highcharts.chart('hcWeeks', {
-                    chart: { type: 'line', backgroundColor: 'transparent', style: { fontFamily: 'inherit' } },
+                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null },
                     credits: { enabled: false },
                     legend: { enabled: true },
@@ -1328,7 +1328,36 @@
                     agg[r].sum += gaps[j].gap; agg[r].n++;
                 }
             }
-            document.getElementById('dashResp').innerHTML = respPie(intNom, agg, "Responsables internes") + respPie(extNom, agg, "Responsables externes");
+            if (typeof Highcharts === 'undefined') {
+                document.getElementById('dashResp').innerHTML = respPie(intNom, agg, "Responsables internes") + respPie(extNom, agg, "Responsables externes");
+                return;
+            }
+            document.getElementById('dashResp').innerHTML =
+                "<div style='font-size:0;'>"
+                + "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'><div style='font-weight:700; color:#334155; margin-bottom:10px;'>Responsables internes</div><div id='hcRespInt' style='width:100%; height:250px;'></div></div>"
+                + "<div style='display:inline-block; vertical-align:top; width:2%;'></div>"
+                + "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'><div style='font-weight:700; color:#334155; margin-bottom:10px;'>Responsables externes</div><div id='hcRespExt' style='width:100%; height:250px;'></div></div>"
+                + "</div>";
+            hcRespPie('hcRespInt', intNom, agg);
+            hcRespPie('hcRespExt', extNom, agg);
+        }
+        // Camembert Highcharts de la durée moyenne par responsable (part = part de la durée moyenne).
+        function hcRespPie(id, nomMap, agg) {
+            var cont = document.getElementById(id);
+            var data = [];
+            for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) data.push({ name: nomMap[r], y: agg[r].sum / agg[r].n / dayMs(), ms: agg[r].sum / agg[r].n, ntasks: agg[r].n }); }
+            data.sort(function (a, b) { return b.y - a.y; });
+            if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info' style='height:225px; padding:0; text-align:center;'><span style='display:inline-block; line-height:225px;'>Aucune donnée.</span></div>"; return; }
+            try {
+                Highcharts.chart(id, {
+                    chart: { type: 'pie', backgroundColor: 'transparent', spacing: [4, 2, 4, 2], style: { fontFamily: 'inherit' } },
+                    title: { text: null }, credits: { enabled: false }, colors: PIE_COLORS,
+                    tooltip: { useHTML: true, formatter: function () { return '<b>' + this.point.name + '</b><br/>Moy. ' + fmtDHM(this.point.ms) + '<br/>' + Highcharts.numberFormat(this.percentage, 0) + '% &middot; ' + this.point.ntasks + ' tâches'; } },
+                    legend: { align: 'left', verticalAlign: 'middle', layout: 'vertical', itemMarginBottom: 5, useHTML: true, itemStyle: { fontWeight: 'normal', fontSize: '12px', color: '#334155' }, labelFormatter: function () { return this.name + ' <span style="color:#94a3b8">&middot; Moy. ' + fmtDHM(this.y * dayMs()) + '</span>'; } },
+                    plotOptions: { pie: { showInLegend: true, size: '92%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -26, style: { color: '#ffffff', fontSize: '12px', fontWeight: 'bold', textOutline: 'none' } } } },
+                    series: [{ name: 'Durée moyenne', data: data }]
+                });
+            } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
         var PIE_COLORS = ['#0C447C', '#0284c7', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#65a30d', '#db2777', '#475569'];
         // Camembert de la durée moyenne par responsable (chaque part = part de la durée moyenne).
