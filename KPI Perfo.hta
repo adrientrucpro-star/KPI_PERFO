@@ -325,10 +325,10 @@
 
         ' ----------------------------------------------------------
         ' Extraction des Ordres de Fabrication via COOIS (variante + plage de dates).
-        ' variant = LAROCHE_ST / LAROCHE_IQ ; dateField = S_ECKST / S_ISTEN ; fileName = EXPORT_ST/IQ.txt.
+        ' varNom = LAROCHE_ST / LAROCHE_IQ ; dateField = S_ECKST / S_ISTEN ; fileName = EXPORT_ST/IQ.txt.
         ' doExpand = True pour déplier le profil avant l'export (script IQ). Renvoie "OK" ou "ERREUR : ...".
         ' ----------------------------------------------------------
-        Function VBS_ExtractCOOIS(variant, dateField, strLow, strHigh, fileName, doExpand)
+        Function VBS_ExtractCOOIS(varNom, dateField, strLow, strHigh, fileName, doExpand)
             On Error Resume Next
             Dim wsh, fso, folderPath, exportPath, shellId, base, maxRetries, currentRetry, fileReady
             Set wsh = CreateObject("WScript.Shell")
@@ -353,13 +353,13 @@
             ' Variante d'affichage
             oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
             If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
-                oSession.FindById("wnd[1]/usr/txtV-LOW").Text = variant
+                oSession.FindById("wnd[1]/usr/txtV-LOW").Text = varNom
                 oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
             End If
             ' Plage de dates (dans le tabstrip de sélection)
             base = "wnd[0]/usr/tabsTABSTRIP_SELBLOCK/tabpSEL_00/ssub%_SUBSCREEN_SELBLOCK:PPIO_ENTRY:1200/ctxt" & dateField
             If Not AttendreElementSAP(base & "-LOW", 5) Then
-                VBS_ExtractCOOIS = "ERREUR : champ date introuvable (variante " & variant & " ?)."
+                VBS_ExtractCOOIS = "ERREUR : champ date introuvable (variante " & varNom & " ?)."
                 Exit Function
             End If
             oSession.FindById(base & "-LOW").Text = strLow
