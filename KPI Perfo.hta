@@ -1629,7 +1629,7 @@
                     <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
                         <div id="cardFiltres" class="card" style="margin-bottom:0; box-sizing:border-box;">
                             <h3>Filtres</h3>
-                            <table style="border:none;"><tr>
+                            <table style="border:none; width:100%;"><tr>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Du (date création)</label>
                                     <input type="text" id="filtreDateDebut" data-filter="1" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
@@ -1638,11 +1638,11 @@
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Au</label>
                                     <input type="text" id="filtreDateFin" data-filter="1" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly">
                                 </td>
-                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom;">
+                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche (avis / description)</label>
-                                    <input type="text" id="filtreRecherche" class="input-text" style="width:200px;" onkeyup="RenderListe()" placeholder="Tape pour filtrer">
+                                    <input type="text" id="filtreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="RenderListe()" placeholder="Tape pour filtrer">
                                 </td>
-                                <td style="border:none; padding:0; vertical-align:bottom;">
+                                <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                     <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetFiltres()">Réinitialiser</button>
                                 </td>
                             </tr></table>
