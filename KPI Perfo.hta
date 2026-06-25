@@ -4,6 +4,8 @@
     <meta http-equiv="x-ua-compatible" content="IE=10">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>KPI Perfo - Analyse NC (QM13) - SAP PEA</title>
+    <!-- Highcharts v6.2.0 : compatible IE10. Repli sur SVG fait-main si non chargé (hors-ligne). -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts@6.2.0/highcharts.js"></script>
     <hta:application id="oApp" applicationname="KPIPerfo" border="thin" maximizebutton="yes" minimizebutton="yes" scroll="no" windowstate="maximize" />
 
     <style>
@@ -1171,7 +1173,7 @@
             }
             var last3 = pts.slice(Math.max(0, pts.length - 3));
             document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts) + buildWeekBadges(last3);
-            document.getElementById('dashWeeks').innerHTML = buildWeeksLine(pts);
+            renderWeeksLineChart(pts);
         }
         // Résumé : amélioration (durée en baisse) ou dégradation entre les 2 semaines les plus récentes.
         function build3WeekSummary(pts) {
@@ -1228,7 +1230,41 @@
             }
             return html;
         }
-        // Graphique en courbes : x = semaines (+ nb NC), y = temps de traitement (global bleu / équipe vert).
+        // Rendu du graphique d'évolution : Highcharts si dispo, sinon repli SVG fait-main.
+        function renderWeeksLineChart(pts) {
+            var cont = document.getElementById('dashWeeks');
+            if (typeof Highcharts === 'undefined') { cont.innerHTML = buildWeeksLine(pts); return; }
+            cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:330px;'></div>";
+            var dMs = dayMs(), cats = [], gData = [], tData = [];
+            for (var i = 0; i < pts.length; i++) {
+                cats.push("S" + pts[i].week);
+                gData.push({ y: Math.round(pts[i].g / dMs * 100) / 100, ms: pts[i].g });
+                tData.push({ y: Math.round(pts[i].t / dMs * 100) / 100, ms: pts[i].t });
+            }
+            try {
+                Highcharts.chart('hcWeeks', {
+                    chart: { type: 'line', backgroundColor: 'transparent', style: { fontFamily: 'inherit' } },
+                    title: { text: null },
+                    credits: { enabled: false },
+                    legend: { enabled: true },
+                    xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
+                    yAxis: {
+                        title: { text: 'Durée (jours)' }, min: 0,
+                        plotLines: [{ value: 2, color: '#dc2626', dashStyle: 'Dash', width: 1.5, zIndex: 5, label: { text: 'Objectif 2 j', align: 'right', style: { color: '#dc2626', fontWeight: 'bold' } } }]
+                    },
+                    tooltip: {
+                        useHTML: true,
+                        formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.key + ' : ' + fmtDHM(this.point.ms); }
+                    },
+                    plotOptions: { line: { marker: { radius: 4 }, lineWidth: 2.5 } },
+                    series: [
+                        { name: 'Traitement global', data: gData, color: '#0C447C' },
+                        { name: 'Traitement équipe', data: tData, color: '#166534' }
+                    ]
+                });
+            } catch (e) { cont.innerHTML = buildWeeksLine(pts); }
+        }
+        // Graphique en courbes (repli) : x = semaines, y = temps de traitement (global bleu / équipe vert).
         function buildWeeksLine(pts) {
             var W = 760, H = 320, mL = 52, mR = 18, mT = 16, mB = 52;
             var plotW = W - mL - mR, plotH = H - mT - mB, n = pts.length;
