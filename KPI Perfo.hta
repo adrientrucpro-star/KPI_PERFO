@@ -331,6 +331,7 @@
         var VERSION_ACTUELLE = "1.0";
         var DOSSIER_DONNEES = "KPI_Perfo";               // %APPDATA%\KPI_Perfo\
         var CLOTURE_CODE = "APQ0";                       // défaut : code SAP de clôture qualité
+        var CLOTURE_RESP = "70005848";                   // Responsable qualité dont l'APQ0 marque la clôture
         var DECISION_CODE = "DEC0";                      // défaut : code SAP de la décision technique
         var DECISION_RESP = "70009001;70005847";         // défaut : Responsables CT (décision)
         // Valeur de configuration éditable (Paramètres), repli sur la constante par défaut.
@@ -815,6 +816,10 @@
             var userSet = {};  // Users présents dans les équipes ST/TL/IQ
             var teams = [appData.teamST, appData.teamTL, appData.teamIQ];
             for (var tt = 0; tt < teams.length; tt++) { var ta = teams[tt] || []; for (var ui = 0; ui < ta.length; ui++) { var uu = NettoyerChaine(ta[ui].user).toUpperCase(); if (uu) userSet[uu] = true; } }
+            var iqSet = {};    // Users du tableau IQ uniquement (pour la clôture qualité)
+            var iqA = appData.teamIQ || [];
+            for (var qi = 0; qi < iqA.length; qi++) { var qu = NettoyerChaine(iqA[qi].user).toUpperCase(); if (qu) iqSet[qu] = true; }
+            var clotResp = NettoyerChaine(CLOTURE_RESP).toUpperCase();   // responsable qualité de la clôture (70005848)
             var map = {};
             for (var i = 0; i < rows.length; i++) {
                 var r = rows[i], k = r.a;
@@ -842,8 +847,8 @@
                     var inTeam = !!userSet[tpU];
                     // Éligibilité : tâche d'un responsable CT interne (user en équipe).
                     if (decSet[rU] && inTeam) hasCT = true;
-                    // Éligibilité : tâche APQ0 d'un responsable interne (user en équipe) = clôture.
-                    if (cU === clotCode && t1int[rU] && inTeam) { hasClot = true; if (g.end && (!clot || g.end > clot)) clot = g.end; }
+                    // Clôture = APQ0 du responsable qualité (70005848) "Terminé par" un user du tableau IQ.
+                    if (cU === clotCode && rU === clotResp && iqSet[tpU]) { hasClot = true; if (g.end && (!clot || g.end > clot)) clot = g.end; }
                     // Traitement équipe : tâches responsable INTERNE ET "Terminé par" en équipe.
                     if (g.gap != null && t1int[rU] && inTeam) chezMs += g.gap;
                 }
@@ -870,10 +875,10 @@
                 if (ncList[j].hasClot) nClot++;
             }
             var t = "Pourquoi 0 NC analysée ?\n";
-            t += "Une NC est analysée si elle a une tâche d'un responsable CT interne ET une tâche " + clotCode + " d'un responsable interne, faites par des users présents dans les équipes.\n";
-            t += "Sur " + total + " NC : " + nCT + " avec une tâche CT interne (user en équipe), " + nClot + " avec une " + clotCode + " interne (user en équipe).\n";
+            t += "Une NC est analysée si elle a une tâche d'un responsable CT interne (user en équipe) ET une clôture " + clotCode + " du responsable " + CLOTURE_RESP + " terminée par un user du tableau IQ.\n";
+            t += "Sur " + total + " NC : " + nCT + " avec une tâche CT interne, " + nClot + " avec une clôture " + clotCode + " valide (resp " + CLOTURE_RESP + " + user IQ).\n";
             if (nCT === 0) t += "- Aucune tâche CT interne reconnue : vérifie le responsable CT (tableau 1, type interne) et les équipes.\n";
-            if (nClot === 0) t += "- Aucune clôture " + clotCode + " interne reconnue : vérifie le responsable qualité (tableau 1, type interne) et les équipes.\n";
+            if (nClot === 0) t += "- Aucune clôture " + clotCode + " valide : vérifie que le responsable " + CLOTURE_RESP + " fait l'APQ0 et que son 'Terminé par' est bien dans le tableau IQ.\n";
             return t;
         }
 
