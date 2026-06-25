@@ -1134,25 +1134,8 @@
     // PAGE : DASHBOARD
     // ==========================================================
         function RenderDashboard() {
-            var elig = [], ignored = 0, withDur = [];
-            for (var i = 0; i < ncList.length; i++) {
-                if (ncList[i].eligible) { elig.push(ncList[i]); if (ncList[i].durMs != null) withDur.push(ncList[i].durMs); }
-                else ignored++;
-            }
-            // KPIs
-            document.getElementById('kpiNbNC').innerText = elig.length;
-            document.getElementById('kpiIgnored').innerText = ignored;
-            var moy = "-", med = "-";
-            if (withDur.length) {
-                var sum = 0; for (var s = 0; s < withDur.length; s++) sum += withDur[s];
-                moy = frNum(round1(days(sum / withDur.length)));
-                var sorted = withDur.slice(0).sort(function (a, b) { return a - b; });
-                var mid = Math.floor(sorted.length / 2);
-                var medMs = (sorted.length % 2) ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-                med = frNum(round1(days(medMs)));
-            }
-            document.getElementById('kpiMoy').innerText = moy;
-            document.getElementById('kpiMed').innerText = med;
+            var elig = [];
+            for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible) elig.push(ncList[i]); }
 
             if (elig.length === 0) {
                 document.getElementById('dashEmpty').style.display = "block";
@@ -1201,50 +1184,33 @@
                 var col = amelio ? "#166534" : (degr ? "#b91c1c" : "#64748b");
                 var bg = amelio ? "#dcfce3" : (degr ? "#fee2e2" : "#f1f5f9");
                 var txt = amelio ? "Amélioration de " + fmtDHM(Math.abs(delta)) : (degr ? "Dégradation de " + fmtDHM(delta) : "Stable");
-                return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box; background:" + bg + "; border-radius:8px; padding:12px 16px;'>"
+                return "<div style='background:" + bg + "; border-radius:8px; padding:12px 16px; margin-bottom:12px;'>"
                     + "<div style='font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;'>" + label + "</div>"
                     + "<div style='font-size:15px; font-weight:700; color:" + col + ";'>" + arrow + " " + txt + "</div>"
                     + "<div style='font-size:11px; color:#64748b; margin-top:4px;'>Sem " + firstP.week + " (" + fmtDHM(fromV) + ") &rarr; Sem " + lastP.week + " (" + fmtDHM(toV) + ")</div></div>";
             }
-            return ind("Traitement global", firstP.g, lastP.g) + "<span style='display:inline-block; width:2%;'></span>"
-                + ind("Traitement équipe", firstP.t, lastP.t);
+            return ind("Traitement global", firstP.g, lastP.g) + ind("Traitement équipe", firstP.t, lastP.t);
         }
-        // Graphique en courbes : x = semaines (+ nb NC), y = durée moyenne (global bleu, équipe vert).
+        // Graphique à barres : par semaine, 2 barres (global bleu / équipe vert), comme "par responsable".
         function buildWeeksChart(pts) {
-            var W = 820, H = 340, mL = 56, mR = 20, mT = 18, mB = 58;
-            var plotW = W - mL - mR, plotH = H - mT - mB, n = pts.length;
-            var maxV = 0;
-            for (var i = 0; i < n; i++) { if (pts[i].g > maxV) maxV = pts[i].g; if (pts[i].t > maxV) maxV = pts[i].t; }
-            var dMs = dayMs();
-            var maxDays = Math.max(1, Math.ceil(maxV / dMs));
-            var step = Math.max(1, Math.ceil(maxDays / 5));
-            maxDays = Math.ceil(maxDays / step) * step;
-            var maxScale = maxDays * dMs;
-            function x(i2) { return mL + (n === 1 ? plotW / 2 : plotW * i2 / (n - 1)); }
-            function y(v) { return mT + plotH - (v / maxScale) * plotH; }
-            var svg = "<svg viewBox='0 0 " + W + " " + H + "' width='100%' style='font-family:inherit;'>";
-            for (var d = 0; d <= maxDays; d += step) {
-                var yy = y(d * dMs);
-                svg += "<line x1='" + mL + "' y1='" + yy + "' x2='" + (W - mR) + "' y2='" + yy + "' stroke='#e2e8f0' stroke-width='1'/>";
-                svg += "<text x='" + (mL - 8) + "' y='" + (yy + 4) + "' text-anchor='end' font-size='11' fill='#64748b'>" + d + " j</text>";
+            var max = 0;
+            for (var i = 0; i < pts.length; i++) { if (pts[i].g > max) max = pts[i].g; if (pts[i].t > max) max = pts[i].t; }
+            if (max <= 0) max = 1;
+            function bar(label, val, green) {
+                var pct = Math.round(val / max * 100);
+                var fill = "width:" + pct + "%;" + (green ? " background:#166534; background-image:none;" : "");
+                return "<div class='bar-line'><div class='bar-head'><span class='bar-name'>" + label + "</span> <span class='bar-meta'>· " + fmtDHM(val) + "</span></div>"
+                    + "<div class='bar-track'><div class='bar-fill' style='" + fill + "'></div></div></div>";
             }
-            for (var j = 0; j < n; j++) {
-                var xx = x(j);
-                svg += "<text x='" + xx + "' y='" + (H - mB + 22) + "' text-anchor='middle' font-size='12' fill='#334155' font-weight='600'>S" + pts[j].week + "</text>";
-                svg += "<text x='" + xx + "' y='" + (H - mB + 39) + "' text-anchor='middle' font-size='11' fill='#64748b'>" + pts[j].n + " NC</text>";
+            var html = "";
+            for (var k = 0; k < pts.length; k++) {
+                html += "<div style='margin-bottom:16px;'>"
+                    + "<div style='font-weight:700; color:#334155; font-size:13px; margin-bottom:6px;'>Semaine " + pts[k].week + " &middot; " + pts[k].n + " NC clôturées</div>"
+                    + bar("Traitement global", pts[k].g, false)
+                    + bar("Traitement équipe", pts[k].t, true)
+                    + "</div>";
             }
-            function poly(key, color) {
-                var path = "";
-                for (var p = 0; p < n; p++) { path += (p ? " L" : "M") + x(p).toFixed(1) + " " + y(pts[p][key]).toFixed(1); }
-                var s = "<path d='" + path + "' fill='none' stroke='" + color + "' stroke-width='2.5'/>";
-                for (var c = 0; c < n; c++) { s += "<circle cx='" + x(c).toFixed(1) + "' cy='" + y(pts[c][key]).toFixed(1) + "' r='4' fill='" + color + "'/>"; }
-                return s;
-            }
-            svg += poly('g', '#0C447C') + poly('t', '#166534') + "</svg>";
-            var legend = "<div style='text-align:center; margin-top:4px; font-size:12px; color:#334155;'>"
-                + "<span style='display:inline-block; width:12px; height:12px; background:#0C447C; border-radius:2px; vertical-align:middle; margin-right:6px;'></span>Traitement global"
-                + "<span style='display:inline-block; width:12px; height:12px; background:#166534; border-radius:2px; vertical-align:middle; margin:0 6px 0 22px;'></span>Traitement équipe</div>";
-            return svg + legend;
+            return html;
         }
 
         // 2) Durée moyenne par responsable du tableau 1.
@@ -1634,27 +1600,25 @@
             <div id="pageDashboard" class="page active">
                 <h2>Tableau de bord</h2>
 
-                <div class="kpi-row" style="margin-bottom:20px;">
-                    <div class="kpi-card"><div class="kpi-inner kpi-blue"><div class="kpi-label">NC analysées (ST + IQ)</div><div class="kpi-value" id="kpiNbNC">0</div></div></div>
-                    <div class="kpi-card"><div class="kpi-inner kpi-green"><div class="kpi-label">Durée moyenne</div><div class="kpi-value" id="kpiMoy">-</div><div class="kpi-unit">jours</div></div></div>
-                    <div class="kpi-card"><div class="kpi-inner kpi-orange"><div class="kpi-label">Durée médiane</div><div class="kpi-value" id="kpiMed">-</div><div class="kpi-unit">jours</div></div></div>
-                    <div class="kpi-card"><div class="kpi-inner kpi-grey"><div class="kpi-label">NC ignorées (ST ou IQ manquant)</div><div class="kpi-value" id="kpiIgnored">0</div></div></div>
-                </div>
-
                 <div id="dashEmpty" class="card" style="display:none;">
                     <p style="color:#475569; margin:0 0 14px 0;">Aucune NC analysable pour l'instant. Importe un export QM13 puis classe les rôles <b>ST</b> et <b>IQ</b> pour que les NC deviennent analysables.</p>
                     <button class="btn-toolbar" onclick="ShowPage('pageAnalyse')">Importer un export QM13</button>
                 </div>
 
                 <div id="dashCharts" style="display:none;">
-                    <div class="card">
-                        <h3>Évolution sur les 3 dernières semaines</h3>
-                        <div id="dash3weeks"></div>
-                    </div>
-                    <div class="card">
-                        <h3>Évolution du traitement par semaine</h3>
-                        <p style="color:#94a3b8; font-size:12px; margin:0 0 14px 0;">En abscisse : les semaines et le nombre de NC clôturées. Courbes = traitement global et traitement équipe moyens (une durée plus basse = amélioration).</p>
-                        <div id="dashWeeks"></div>
+                    <div style="font-size:0; margin:0 -8px;">
+                        <div style="display:inline-block; vertical-align:top; width:50%; padding:0 8px; box-sizing:border-box;">
+                            <div class="card" style="margin-bottom:20px;">
+                                <h3>Évolution sur les 3 dernières semaines</h3>
+                                <div id="dash3weeks"></div>
+                            </div>
+                        </div>
+                        <div style="display:inline-block; vertical-align:top; width:50%; padding:0 8px; box-sizing:border-box;">
+                            <div class="card" style="margin-bottom:20px;">
+                                <h3>Évolution du traitement par semaine</h3>
+                                <div id="dashWeeks"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="card">
                         <h3>Durée moyenne par responsable</h3>
