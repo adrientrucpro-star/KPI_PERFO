@@ -1186,11 +1186,12 @@
                 var a = agg[keys[k]], mon = new Date(keys[k]);
                 pts.push({ week: isoWeek(mon), n: a.n, g: a.ng ? a.sg / a.ng : 0, t: a.nt ? a.st / a.nt : 0 });
             }
-            document.getElementById('dashWeeks').innerHTML = build3WeekSummary(pts) + buildWeeksChart(pts);
+            document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts);
+            document.getElementById('dashWeeks').innerHTML = buildWeeksChart(pts);
         }
         // Résumé : amélioration (durée en baisse) ou dégradation sur les 3 dernières semaines.
         function build3WeekSummary(pts) {
-            if (pts.length < 2) return "";
+            if (pts.length < 2) return "<div class='msg-box msg-info'>Pas assez de semaines pour comparer.</div>";
             var last3 = pts.slice(Math.max(0, pts.length - 3));
             var firstP = last3[0], lastP = last3[last3.length - 1];
             function ind(label, fromV, toV) {
@@ -1205,11 +1206,8 @@
                     + "<div style='font-size:15px; font-weight:700; color:" + col + ";'>" + arrow + " " + txt + "</div>"
                     + "<div style='font-size:11px; color:#64748b; margin-top:4px;'>Sem " + firstP.week + " (" + fmtDHM(fromV) + ") &rarr; Sem " + lastP.week + " (" + fmtDHM(toV) + ")</div></div>";
             }
-            return "<div style='margin-bottom:18px;'>"
-                + "<div style='font-size:13px; font-weight:700; color:#334155; margin-bottom:10px;'>Évolution sur les 3 dernières semaines</div>"
-                + ind("Traitement global", firstP.g, lastP.g) + "<span style='display:inline-block; width:2%;'></span>"
-                + ind("Traitement équipe", firstP.t, lastP.t)
-                + "</div>";
+            return ind("Traitement global", firstP.g, lastP.g) + "<span style='display:inline-block; width:2%;'></span>"
+                + ind("Traitement équipe", firstP.t, lastP.t);
         }
         // Graphique en courbes : x = semaines (+ nb NC), y = durée moyenne (global bleu, équipe vert).
         function buildWeeksChart(pts) {
@@ -1649,6 +1647,10 @@
                 </div>
 
                 <div id="dashCharts" style="display:none;">
+                    <div class="card">
+                        <h3>Évolution sur les 3 dernières semaines</h3>
+                        <div id="dash3weeks"></div>
+                    </div>
                     <div class="card">
                         <h3>Évolution du traitement par semaine</h3>
                         <p style="color:#94a3b8; font-size:12px; margin:0 0 14px 0;">En abscisse : les semaines et le nombre de NC clôturées. Courbes = traitement global et traitement équipe moyens (une durée plus basse = amélioration).</p>
