@@ -1385,26 +1385,17 @@
                     agg[r].sum += gaps[j].gap; agg[r].n++;
                 }
             }
-            if (typeof Highcharts === 'undefined') {
-                document.getElementById('dashResp').innerHTML = respPie(intNom, agg, "Responsables internes") + respPie(extNom, agg, "Responsables externes");
-                return;
-            }
-            document.getElementById('dashResp').innerHTML =
-                "<div style='font-size:0;'>"
-                + "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'><div style='font-weight:700; color:#334155; margin-bottom:10px;'>Responsables internes</div><div id='hcRespInt' style='width:100%; height:250px;'></div></div>"
-                + "<div style='display:inline-block; vertical-align:top; width:2%;'></div>"
-                + "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'><div style='font-weight:700; color:#334155; margin-bottom:10px;'>Responsables externes</div><div id='hcRespExt' style='width:100%; height:250px;'></div></div>"
-                + "</div>";
             hcRespPie('hcRespInt', intNom, agg);
             hcRespPie('hcRespExt', extNom, agg);
         }
         // Camembert Highcharts de la durée moyenne par responsable (part = part de la durée moyenne).
         function hcRespPie(id, nomMap, agg) {
             var cont = document.getElementById(id);
+            if (!cont) return;
             var data = [];
             for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) data.push({ name: nomMap[r], y: agg[r].sum / agg[r].n / dayMs(), ms: agg[r].sum / agg[r].n, ntasks: agg[r].n }); }
             data.sort(function (a, b) { return b.y - a.y; });
-            if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info' style='height:225px; padding:0; text-align:center; display:table; width:100%;'><span style='display:table-cell; vertical-align:middle;'>Aucune<br>donnée</span></div>"; return; }
+            if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info' style='height:250px; padding:0; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune<br>donnée</span></div>"; return; }
             try {
                 Highcharts.chart(id, {
                     chart: { type: 'pie', backgroundColor: 'transparent', spacing: [4, 2, 4, 2], style: { fontFamily: 'inherit' } },
@@ -1829,9 +1820,19 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card">
-                        <h3>Durée moyenne par responsable</h3>
-                        <div id="dashResp"></div>
+                    <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
+                        <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <h3>Durée moyenne — Responsables internes</h3>
+                                <div id="hcRespInt" style="width:100%; height:250px;"></div>
+                            </div>
+                        </div>
+                        <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <h3>Durée moyenne — Responsables externes</h3>
+                                <div id="hcRespExt" style="width:100%; height:250px;"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="card">
                         <h3>Activité des équipes (ST / TL / IQ)</h3>
