@@ -836,10 +836,12 @@
                 }
                 // Étapes triées par Nº ; durée = écart réception -> passage.
                 var gaps = stepGaps(nc.lines);
-                var chezMs = 0, hasCT = false, hasClot = false, clot = null;
+                var chezMs = 0, hasCT = false, hasClot = false, hasOri0Q = false, clot = null;
                 for (var gi = 0; gi < gaps.length; gi++) {
                     var g = gaps[gi], rU = (g.r || "").toUpperCase(), tpU = (g.tp || "").toUpperCase(), cU = (g.code || "").toUpperCase();
                     var inTeam = !!userSet[tpU];
+                    // Exclusion : NC avec une tâche ORI0 du responsable 70005848.
+                    if (cU === "ORI0" && rU === clotResp) hasOri0Q = true;
                     // Éligibilité : tâche d'un responsable CT interne (user en équipe).
                     if (decSet[rU] && inTeam) hasCT = true;
                     // Clôture = APQ0 du responsable qualité (70005848) "Terminé par" un user du tableau IQ.
@@ -860,8 +862,8 @@
                     var sIdx = effectiveSelIdx(nc.avis, sl);
                     if (sIdx >= 0) { var tt0 = parcoursTotals(nc, sl, sIdx); nc.durMs = tt0.g; nc.chezMs = tt0.e; nc.pasMs = Math.max(0, tt0.g - tt0.e); }
                 }
-                // Analysée si : tâche CT interne (user équipe) ET APQ0 interne (user équipe).
-                nc.eligible = hasCT && hasClot;
+                // Analysée si : tâche CT interne (user équipe) ET clôture APQ0 valide, ET PAS d'ORI0 par 70005848.
+                nc.eligible = hasCT && hasClot && !hasOri0Q;
                 ncList.push(nc);
             }
             ncList.sort(function (a, b) { return parseInt(a.avis,10) - parseInt(b.avis,10); });
