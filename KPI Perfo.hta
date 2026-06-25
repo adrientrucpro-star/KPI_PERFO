@@ -1968,7 +1968,7 @@
                 + "<div style='margin-bottom:14px;'>"
                 + "<input type='text' value='" + escapeHtml(comment) + "' onchange=\"SetNCComment('" + escapeHtml(nc.avis) + "', this.value)\" placeholder='Saisir un commentaire' style='width:100%; height:34px; border:1px solid #c5d5de; border-radius:6px; padding:6px 10px; font-family:inherit; font-size:13px; color:#1e293b; box-sizing:border-box;'>"
                 + "</div>"
-                + "<table class='data-table'><thead><tr><th width='6%'></th><th width='13%' style='text-align:center;'>Code</th><th width='14%' style='text-align:center;'>Responsable</th><th width='23%'>Désignation</th><th width='13%' style='text-align:center;'>Terminé par</th><th width='16%' style='text-align:center;'>Date et Heure</th><th width='15%' style='text-align:center;'>Durée</th></tr></thead><tbody>"
+                + "<table class='data-table'><thead><tr><th width='5%'></th><th width='14%' style='text-align:center;'>Code</th><th width='14%' style='text-align:center;'>Responsable</th><th width='25%'>Désignation</th><th width='14%' style='text-align:center;'>Terminé par</th><th width='14%' style='text-align:center;'>Date et Heure</th><th width='14%' style='text-align:center;'>Durée</th></tr></thead><tbody>"
                 + rows + "</tbody></table></div>";
         }
         function SetNCComment(avis, val) {
@@ -2240,7 +2240,7 @@
                 <div style="display:table; width:100%; margin:0 0 20px 0;">
                     <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                         <div id="cardExtraction" class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                            <table style="border:none;"><tr>
+                            <table style="border:none; width:100%;"><tr>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire à partir du</label>
                                     <span class="date-wrap"><input type="text" id="extractDate" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('extractDate', event)" title="Effacer">&times;</button></span>
@@ -2251,7 +2251,9 @@
                                 </td>
                                 <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                     <button id="btnExtract" class="btn-toolbar" style="vertical-align:bottom; padding:0 10px; min-width:130px;" onclick="LancerExtractionSAP()">Extract NC</button>
-                                    <span style="display:inline-block; margin-left:10px; padding:0 9px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:12px; box-sizing:border-box; vertical-align:bottom; white-space:nowrap;">Dernière extr. : <b id="lastExtractDate">-</b></span>
+                                </td>
+                                <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
+                                    <span style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Dernière extraction : <b id="lastExtractDate">-</b></span>
                                 </td>
                             </tr></table>
                         </div>
