@@ -550,6 +550,9 @@
                 RecomputeAll();
             }
             ShowPage("pageDashboard");
+            // Au lancement la mise en page n'est pas encore stabilisée : on re-rend le dashboard
+            // une fois posé pour que les graphiques Highcharts se dimensionnent correctement.
+            setTimeout(function () { try { if (document.getElementById('pageDashboard').className.indexOf('active') !== -1) RenderDashboard(); } catch (e) {} }, 300);
         }
 
     // ==========================================================
@@ -1384,7 +1387,7 @@
             var data = [];
             for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) data.push({ name: nomMap[r], y: agg[r].sum / agg[r].n / dayMs(), ms: agg[r].sum / agg[r].n, ntasks: agg[r].n }); }
             data.sort(function (a, b) { return b.y - a.y; });
-            if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info' style='height:250px; padding:0; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune<br>donnée</span></div>"; return; }
+            if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info' style='height:250px; padding:0; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune donnée</span></div>"; return; }
             try {
                 Highcharts.chart(id, {
                     chart: { type: 'pie', backgroundColor: 'transparent', spacing: [4, 2, 4, 2], style: { fontFamily: 'inherit' } },
