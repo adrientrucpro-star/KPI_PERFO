@@ -714,9 +714,26 @@
             var dd = (d < 10 ? '0' : '') + d, mm = ((m + 1) < 10 ? '0' : '') + (m + 1);
             if (dpInput) dpInput.value = dd + '/' + mm + '/' + y;
             document.getElementById('custom-datepicker').style.display = 'none';
+            if (dpInput) validateDatePair(dpInput.id);
             if (dpInput && dpInput.getAttribute('data-filter')) {
                 if (dpInput.getAttribute('data-filter') === 'of') RenderOFAll(); else RenderListe();
             }
+        }
+        // Paires de dates (du, au) : la date "à partir du" ne doit pas dépasser "jusqu'au".
+        var DATE_PAIRS = [['extractDate', 'extractDateFin'], ['filtreDateDebut', 'filtreDateFin'], ['ofDateDebut', 'ofDateFin'], ['ofFiltreDateDebut', 'ofFiltreDateFin']];
+        function validateDatePair(id) {
+            for (var i = 0; i < DATE_PAIRS.length; i++) {
+                if (DATE_PAIRS[i][0] === id || DATE_PAIRS[i][1] === id) {
+                    var lo = document.getElementById(DATE_PAIRS[i][0]), hi = document.getElementById(DATE_PAIRS[i][1]);
+                    var nlo = dateToNum(lo.value), nhi = dateToNum(hi.value);
+                    if (nlo != null && nhi != null && nlo > nhi) {
+                        AfficherErreur("La date « à partir du » ne peut pas être postérieure à la date « jusqu'au ».");
+                        document.getElementById(id).value = "";   // annule la saisie fautive
+                        return false;
+                    }
+                }
+            }
+            return true;
         }
         // Efface une date (bouton ×) et rafraîchit le rendu si c'est un filtre.
         function clearDate(id, event) {
@@ -1760,8 +1777,8 @@
             for (var i = 0; i < ncList.length; i++) {
                 var ncf = ncList[i];
                 if (!ncf.eligible) continue;                          // NC non éligibles : totalement ignorées
-                if (d1 && ncf.start && ncf.start < d1) continue;
-                if (d2 && ncf.start && ncf.start > d2) continue;
+                if (d1 && ncf.end && ncf.end < d1) continue;   // filtre sur la date de clôture
+                if (d2 && ncf.end && ncf.end > d2) continue;
                 if (q) {
                     var hay = (ncf.avis + " " + ncf.desc + " " + ncf.statut).toLowerCase();
                     if (hay.indexOf(q) === -1) continue;
@@ -1789,12 +1806,12 @@
             cont.innerHTML = "<table class='data-table'><thead><tr>"
                 + "<th width='3%'></th>"
                 + listeTh('avis', 'Avis', "width='7%'")
-                + listeTh('desc', 'Descriptif', "")
+                + listeTh('desc', 'Descriptif', "width='15%'")
                 + listeTh('start', 'Date création', "width='10%'")
                 + listeTh('end', 'Date clôture', "width='10%'")
                 + listeTh('dur', 'Traitement global', "width='10%'")
                 + listeTh('chez', 'Traitement équipe', "width='10%'")
-                + listeTh('cmt', 'Commentaire', "width='25%'")
+                + listeTh('cmt', 'Commentaire', "width='35%'")
                 + "</tr></thead><tbody>"
                 + (rows || "<tr><td colspan='8' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
                 + "</tbody></table>";
@@ -2212,23 +2229,25 @@
                 <div id="extractSubNC">
                 <div style="display:table; width:100%; margin:0 0 20px 0;">
                     <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                        <div id="cardExtraction" class="card" style="margin-bottom:0; box-sizing:border-box;">
-                            <div>
-                                <span style="display:inline-block; margin-right:14px; vertical-align:bottom;">
+                        <div id="cardExtraction" class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <table style="border:none;"><tr>
+                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire à partir du</label>
                                     <span class="date-wrap"><input type="text" id="extractDate" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('extractDate', event)" title="Effacer">&times;</button></span>
-                                </span>
-                                <span style="display:inline-block; margin-right:14px; vertical-align:bottom;">
+                                </td>
+                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire jusqu'au</label>
                                     <span class="date-wrap"><input type="text" id="extractDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('extractDateFin', event)" title="Effacer">&times;</button></span>
-                                </span>
-                                <button id="btnExtract" class="btn-toolbar" style="vertical-align:bottom; padding:0 10px; min-width:130px;" onclick="LancerExtractionSAP()">Extract NC</button>
-                                <span style="display:inline-block; margin-left:10px; padding:0 9px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:12px; box-sizing:border-box; vertical-align:bottom; white-space:nowrap;">Dernière extr. : <b id="lastExtractDate">-</b></span>
-                            </div>
+                                </td>
+                                <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
+                                    <button id="btnExtract" class="btn-toolbar" style="vertical-align:bottom; padding:0 10px; min-width:130px;" onclick="LancerExtractionSAP()">Extract NC</button>
+                                    <span style="display:inline-block; margin-left:10px; padding:0 9px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:12px; box-sizing:border-box; vertical-align:bottom; white-space:nowrap;">Dernière extr. : <b id="lastExtractDate">-</b></span>
+                                </td>
+                            </tr></table>
                         </div>
                     </div>
                     <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                        <div id="cardFiltres" class="card" style="margin-bottom:0; box-sizing:border-box;">
+                        <div id="cardFiltres" class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                             <table style="border:none; width:100%;"><tr>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
