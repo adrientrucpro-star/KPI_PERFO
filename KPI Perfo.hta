@@ -1169,7 +1169,8 @@
                 var a = agg[keys[k]], mon = new Date(keys[k]);
                 pts.push({ week: isoWeek(mon), n: a.n, g: a.ng ? a.sg / a.ng : 0, t: a.nt ? a.st / a.nt : 0 });
             }
-            document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts);
+            var last3 = pts.slice(Math.max(0, pts.length - 3));
+            document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts) + buildWeeksChart(last3);
             document.getElementById('dashWeeks').innerHTML = buildWeeksChart(pts);
         }
         // Résumé : amélioration (durée en baisse) ou dégradation sur les 3 dernières semaines.
@@ -1231,22 +1232,36 @@
                     agg[r].sum += gaps[j].gap; agg[r].n++;
                 }
             }
-            document.getElementById('dashResp').innerHTML = respBars(intNom, agg, "Responsables internes") + respBars(extNom, agg, "Responsables externes");
+            document.getElementById('dashResp').innerHTML = respPie(intNom, agg, "Responsables internes") + respPie(extNom, agg, "Responsables externes");
         }
-        function respBars(nomMap, agg, title) {
-            var arr = [];
-            for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) arr.push({ r: r, avg: agg[r].sum / agg[r].n, n: agg[r].n }); }
-            arr.sort(function (a, b) { return b.avg - a.avg; });
-            var head = "<div style='font-weight:700; color:#334155; margin-bottom:8px;'>" + title + "</div>";
-            if (!arr.length) return "<div style='margin-bottom:18px;'>" + head + "<div class='msg-box msg-info'>Aucune donnée.</div></div>";
-            var max = arr[0].avg, html = "<div style='margin-bottom:18px;'>" + head;
-            for (var k = 0; k < arr.length; k++) {
-                var pct = max > 0 ? Math.round(arr[k].avg / max * 100) : 0;
-                html += "<div class='bar-line'><div class='bar-head'><span class='bar-name'>" + escapeHtml(nomMap[arr[k].r] || arr[k].r) + "</span> "
-                    + "<span class='bar-meta'>· " + escapeHtml(arr[k].r) + " · " + arr[k].n + " tâches · moy. " + fmtDHM(arr[k].avg) + "</span></div>"
-                    + "<div class='bar-track'><div class='bar-fill' style='width:" + pct + "%;'></div></div></div>";
+        var PIE_COLORS = ['#0C447C', '#0284c7', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#65a30d', '#db2777', '#475569'];
+        // Camembert de la durée moyenne par responsable (chaque part = part de la durée moyenne).
+        function respPie(nomMap, agg, title) {
+            var items = [];
+            for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) items.push({ r: r, name: nomMap[r], avg: agg[r].sum / agg[r].n, n: agg[r].n }); }
+            items.sort(function (a, b) { return b.avg - a.avg; });
+            var head = "<div style='font-weight:700; color:#334155; margin-bottom:10px;'>" + title + "</div>";
+            if (!items.length) return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'>" + head + "<div class='msg-box msg-info'>Aucune donnée.</div></div>";
+            var total = 0; for (var i = 0; i < items.length; i++) total += items[i].avg;
+            if (total <= 0) total = 1;
+            var slices = "", legend = "", ang = -90;
+            for (var k = 0; k < items.length; k++) {
+                var frac = items[k].avg / total, col = PIE_COLORS[k % PIE_COLORS.length];
+                slices += pieSlice(90, 90, 80, ang, ang + frac * 360, col); ang += frac * 360;
+                legend += "<div style='font-size:12px; margin-bottom:5px;'><span style='display:inline-block; width:11px; height:11px; background:" + col + "; border-radius:2px; vertical-align:middle; margin-right:6px;'></span>"
+                    + escapeHtml(items[k].name) + " <span style='color:#94a3b8;'>· moy. " + fmtDHM(items[k].avg) + " · " + Math.round(frac * 100) + "% · " + items[k].n + " tâches</span></div>";
             }
-            return html + "</div>";
+            var svg = "<svg viewBox='0 0 180 180' width='180' height='180' style='vertical-align:middle;'>" + slices + "</svg>";
+            return "<div style='display:inline-block; vertical-align:top; width:49%; box-sizing:border-box;'>" + head
+                + "<div style='text-align:center; margin-bottom:12px;'>" + svg + "</div>" + legend + "</div>";
+        }
+        function pieSlice(cx, cy, r, a0, a1, color) {
+            if (a1 - a0 >= 359.99) return "<circle cx='" + cx + "' cy='" + cy + "' r='" + r + "' fill='" + color + "'/>";
+            var r0 = a0 * Math.PI / 180, r1 = a1 * Math.PI / 180;
+            var x0 = (cx + r * Math.cos(r0)).toFixed(2), y0 = (cy + r * Math.sin(r0)).toFixed(2);
+            var x1 = (cx + r * Math.cos(r1)).toFixed(2), y1 = (cy + r * Math.sin(r1)).toFixed(2);
+            var large = (a1 - a0) > 180 ? 1 : 0;
+            return "<path d='M" + cx + " " + cy + " L" + x0 + " " + y0 + " A" + r + " " + r + " 0 " + large + " 1 " + x1 + " " + y1 + " Z' fill='" + color + "' stroke='#fff' stroke-width='1'/>";
         }
 
         // 3) Activité des équipes ST / TL / IQ : nb de tâches + durée moyenne par user.
