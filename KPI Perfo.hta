@@ -1148,7 +1148,8 @@
             var eligF = [];
             for (var f = 0; f < elig.length; f++) { if (inSelectedPeriod(elig[f].end)) eligF.push(elig[f]); }
 
-            RenderDashWeeks(eligF);
+            RenderDash3Weeks(elig);    // 3 dernières semaines : NON filtré
+            RenderWeeksChart(eligF);   // courbes par semaine : filtré
             RenderDashResp(eligF);
             RenderDashTeams(eligF);
             setTimeout(EgaliserCadresEvolution, 60);
@@ -1173,8 +1174,8 @@
             c1.style.height = h + "px"; c2.style.height = h + "px";
         }
 
-        // 1) Évolution par semaine : résumé 3 dernières semaines + courbes global / équipe.
-        function RenderDashWeeks(elig) {
+        // Agrégation par semaine de clôture -> points { week, n, g(global moy), t(équipe moy) }, triés.
+        function computeWeekPts(elig) {
             var agg = {};
             for (var i = 0; i < elig.length; i++) {
                 var nc = elig[i]; if (!nc.end) continue;
@@ -1186,14 +1187,23 @@
             }
             var keys = []; for (var w in agg) { if (agg.hasOwnProperty(w)) keys.push(parseInt(w, 10)); }
             keys.sort(function (a, b) { return a - b; });
-            if (!keys.length) { document.getElementById('dashWeeks').innerHTML = "<div class='msg-box msg-info'>Aucune donnée.</div>"; return; }
             var pts = [];
             for (var k = 0; k < keys.length; k++) {
                 var a = agg[keys[k]], mon = new Date(keys[k]);
                 pts.push({ week: isoWeek(mon), n: a.n, g: a.ng ? a.sg / a.ng : 0, t: a.nt ? a.st / a.nt : 0 });
             }
-            var last3 = pts.slice(Math.max(0, pts.length - 3));
-            document.getElementById('dash3weeks').innerHTML = build3WeekSummary(last3);
+            return pts;
+        }
+        // Résumé "3 dernières semaines" : TOUJOURS sur les NC non filtrées (3 dernières semaines réelles).
+        function RenderDash3Weeks(eligAll) {
+            var pts = computeWeekPts(eligAll);
+            if (!pts.length) { document.getElementById('dash3weeks').innerHTML = "<div class='msg-box msg-info'>Aucune donnée.</div>"; return; }
+            document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts.slice(Math.max(0, pts.length - 3)));
+        }
+        // Graphique d'évolution par semaine : sur les NC filtrées par la période choisie.
+        function RenderWeeksChart(elig) {
+            var pts = computeWeekPts(elig);
+            if (!pts.length) { document.getElementById('dashWeeks').innerHTML = "<div class='msg-box msg-info'>Aucune donnée.</div>"; return; }
             renderWeeksLineChart(pts);
         }
         // Résumé : amélioration (durée en baisse) ou dégradation entre les 2 semaines les plus récentes.
