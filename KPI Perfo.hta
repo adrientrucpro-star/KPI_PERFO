@@ -855,6 +855,14 @@
                 nc.durMs = (start && maxEnd) ? durBetween(start, maxEnd) : null;
                 nc.chezMs = chezMs;
                 nc.pasMs = (nc.durMs != null) ? Math.max(0, nc.durMs - chezMs) : null;
+                // Override : si une ligne "Départ" est sélectionnée (Analyse NC), recalcule global/équipe = ligne -> APQ0.
+                var selN0 = (appData.selLine && appData.selLine[nc.avis] != null) ? NettoyerChaine(appData.selLine[nc.avis]) : "";
+                if (selN0 !== "" && nc.end) {
+                    var sl = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
+                    var sIdx = -1;
+                    for (var sj = 0; sj < sl.length; sj++) { if (NettoyerChaine(sl[sj].n) === selN0) { sIdx = sj; break; } }
+                    if (sIdx >= 0) { var tt0 = parcoursTotals(nc, sl, sIdx); nc.durMs = tt0.g; nc.chezMs = tt0.e; nc.pasMs = Math.max(0, tt0.g - tt0.e); }
+                }
                 // Analysée si : tâche CT interne (user équipe) ET APQ0 interne (user équipe).
                 nc.eligible = hasCT && hasClot;
                 ncList.push(nc);
@@ -1613,7 +1621,6 @@
             var selN = (appData.selLine && appData.selLine[nc.avis] != null) ? NettoyerChaine(appData.selLine[nc.avis]) : "";
             var selIdx = -1;
             if (selN !== "") { for (var si = 0; si < lines.length; si++) { if (NettoyerChaine(lines[si].n) === selN) { selIdx = si; break; } } }
-            var tot = parcoursTotals(nc, lines, selIdx);
             var rows = "", prevEnd = nc.start;   // réception de la 1re tâche = création NC
             for (var j = 0; j < lines.length; j++) {
                 var LL = lines[j];
@@ -1639,8 +1646,8 @@
                 + "<div style='overflow:hidden; margin-bottom:16px;'>"
                 + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span> <span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
                 + "<div style='float:right;'>"
-                + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#E6F1FB; color:#0C447C;'>Traitement global : <span id='gbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(tot.g) + "</span></span>"
-                + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#dcfce3; color:#166534; margin-left:8px;'>Traitement équipe : <span id='tbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(tot.e) + "</span></span>"
+                + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#E6F1FB; color:#0C447C;'>Traitement global : <span id='gbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(nc.durMs) + "</span></span>"
+                + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#dcfce3; color:#166534; margin-left:8px;'>Traitement équipe : <span id='tbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(nc.chezMs) + "</span></span>"
                 + "<button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(nc.avis) + "', this)\" title='Afficher la NC' style='display:inline-block; vertical-align:middle; padding:6px 10px; border-radius:6px; background:#0C447C; color:#fff; border:none; cursor:pointer; margin-left:8px;'>"
                 + "<svg width='15' height='15' viewBox='0 0 24 24' style='vertical-align:middle; display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg>"
                 + "</button>"
@@ -1680,7 +1687,7 @@
             }
             return { g: durBetween(selEnd, clot), e: e };
         }
-        // Sélection d'une ligne "Départ" : sauvegarde + recalcule global et équipe jusqu'à l'APQ0.
+        // Sélection d'une ligne "Départ" : sauvegarde, recalcule TOUTE l'appli, met à jour les badges.
         function RecalcGlobalFromLine(avis, idx) {
             var nc = null;
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].avis === avis) { nc = ncList[i]; break; } }
@@ -1689,11 +1696,16 @@
             if (idx < 0 || idx >= lines.length) return;
             if (!appData.selLine) appData.selLine = {};
             appData.selLine[avis] = NettoyerChaine(lines[idx].n);   // sauvegarde du Nº de la ligne
+            RecomputeAll();   // applique l'override sur nc.durMs/chezMs pour TOUTE l'appli
             SaveData();
-            var tot = parcoursTotals(nc, lines, idx);
-            var g = document.getElementById('gbadge_' + avis), t = document.getElementById('tbadge_' + avis);
-            if (g) g.innerHTML = fmtDHM(tot.g);
-            if (t) t.innerHTML = fmtDHM(tot.e);
+            // Met à jour les badges de la carte sans re-rendre toute la page (pas de saut de scroll).
+            var nc2 = null;
+            for (var k = 0; k < ncList.length; k++) { if (ncList[k].avis === avis) { nc2 = ncList[k]; break; } }
+            if (nc2) {
+                var g = document.getElementById('gbadge_' + avis), t = document.getElementById('tbadge_' + avis);
+                if (g) g.innerHTML = fmtDHM(nc2.durMs);
+                if (t) t.innerHTML = fmtDHM(nc2.chezMs);
+            }
         }
         // Ouvre l'avis dans SAP PEA (transaction QM03). Curseur "sablier" pendant l'exécution
         // (sur le bouton ET le body), comme lors de l'extraction.
