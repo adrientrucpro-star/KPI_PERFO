@@ -1165,7 +1165,20 @@
         }
 
         function fmtDDMM(d) { var dd = d.getDate(), mm = d.getMonth() + 1; return (dd < 10 ? '0' + dd : '' + dd) + '/' + (mm < 10 ? '0' + mm : '' + mm); }
+        // Lundi de la semaine ISO (year, week).
+        function isoWeekMonday(year, week) {
+            var jan4 = new Date(year, 0, 4), jan4Day = (jan4.getDay() + 6) % 7;   // lundi = 0
+            var w1Mon = new Date(year, 0, 4 - jan4Day);                            // lundi de la semaine 1
+            return new Date(w1Mon.getFullYear(), w1Mon.getMonth(), w1Mon.getDate() + (week - 1) * 7);
+        }
+        // Les 7 jours (ts) de la semaine sélectionnée dans le filtre.
+        function selectedWeekDays() {
+            var mon = isoWeekMonday(dashFilter.year, dashFilter.week), out = [];
+            for (var i = 0; i < 7; i++) { var d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i); out.push(d.getTime()); }
+            return out;
+        }
         // Agrégation par semaine (ou par JOUR si byDay) de clôture -> points { week, label, n, g, t }, triés.
+        // En mode jour, on affiche TOUS les jours de la semaine sélectionnée (g/t = null si pas de données).
         function computeWeekPts(elig, byDay) {
             var agg = {};
             for (var i = 0; i < elig.length; i++) {
@@ -1176,12 +1189,13 @@
                 if (nc.durMs != null) { agg[key].sg += nc.durMs; agg[key].ng++; }
                 if (nc.chezMs != null) { agg[key].st += nc.chezMs; agg[key].nt++; }
             }
-            var keys = []; for (var w in agg) { if (agg.hasOwnProperty(w)) keys.push(parseInt(w, 10)); }
-            keys.sort(function (a, b) { return a - b; });
+            var keys;
+            if (byDay) { keys = selectedWeekDays(); }
+            else { keys = []; for (var w in agg) { if (agg.hasOwnProperty(w)) keys.push(parseInt(w, 10)); } keys.sort(function (a, b) { return a - b; }); }
             var pts = [];
             for (var k = 0; k < keys.length; k++) {
                 var a = agg[keys[k]], dd = new Date(keys[k]);
-                pts.push({ week: isoWeek(dd), label: byDay ? fmtDDMM(dd) : ("S" + isoWeek(dd)), n: a.n, g: a.ng ? a.sg / a.ng : 0, t: a.nt ? a.st / a.nt : 0 });
+                pts.push({ week: isoWeek(dd), label: byDay ? fmtDDMM(dd) : ("S" + isoWeek(dd)), n: a ? a.n : 0, g: (a && a.ng) ? a.sg / a.ng : null, t: (a && a.nt) ? a.st / a.nt : null });
             }
             return pts;
         }
@@ -1268,15 +1282,15 @@
             var dMs = dayMs(), cats = [], gData = [], tData = [];
             for (var i = 0; i < pts.length; i++) {
                 cats.push(pts[i].label);
-                gData.push({ y: Math.round(pts[i].g / dMs * 100) / 100, ms: pts[i].g });
-                tData.push({ y: Math.round(pts[i].t / dMs * 100) / 100, ms: pts[i].t });
+                gData.push(pts[i].g == null ? null : { y: Math.round(pts[i].g / dMs * 100) / 100, ms: pts[i].g });
+                tData.push(pts[i].t == null ? null : { y: Math.round(pts[i].t / dMs * 100) / 100, ms: pts[i].t });
             }
             try {
                 window.hcWeeksChart = Highcharts.chart('hcWeeks', {
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null },
                     credits: { enabled: false },
-                    legend: { enabled: true, align: 'right', verticalAlign: 'top', floating: true, y: -8, padding: 0, itemStyle: { fontSize: '11px' } },
+                    legend: { enabled: true, align: 'right', verticalAlign: 'top', floating: false, padding: 2, margin: 4, itemStyle: { fontSize: '11px' } },
                     xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                     yAxis: {
                         title: { text: 'Durée (jours)' }, min: 0, tickInterval: 5,
@@ -1286,7 +1300,7 @@
                         useHTML: true,
                         formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.key + ' : ' + fmtDHM(this.point.ms); }
                     },
-                    plotOptions: { line: { animation: false, marker: { radius: 4 }, lineWidth: 2.5 } },
+                    plotOptions: { line: { animation: false, marker: { radius: 4 }, lineWidth: 2.5 }, series: { connectNulls: true } },
                     series: [
                         { name: 'Traitement global', data: gData, color: '#0C447C' },
                         { name: 'Traitement équipe', data: tData, color: '#166534' }
@@ -1461,8 +1475,9 @@
                     agg[uu][wts].sum += gaps[j].gap; agg[uu][wts].n++;
                 }
             }
-            var weeks = []; for (var w in weekSet) { if (weekSet.hasOwnProperty(w)) weeks.push(parseInt(w, 10)); }
-            weeks.sort(function (a, b) { return a - b; });
+            var weeks;
+            if (byDay) { weeks = selectedWeekDays(); }
+            else { weeks = []; for (var w in weekSet) { if (weekSet.hasOwnProperty(w)) weeks.push(parseInt(w, 10)); } weeks.sort(function (a, b) { return a - b; }); }
             var cats = []; for (var z = 0; z < weeks.length; z++) cats.push(byDay ? fmtDDMM(new Date(weeks[z])) : "S" + isoWeek(new Date(weeks[z])));
             var order = ["ST", "TL", "IQ"];
             for (var o = 0; o < order.length; o++) {
