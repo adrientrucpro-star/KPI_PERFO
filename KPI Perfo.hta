@@ -168,16 +168,6 @@
             On Error GoTo 0
         End Sub
 
-        ' Échappe le HTML (pour injecter du texte SAP dans la page sans casser le DOM).
-        Function VBS_EscapeHTML(str)
-            Dim t
-            If IsNull(str) Then VBS_EscapeHTML = "" : Exit Function
-            t = CStr(str)
-            t = Replace(t, "&", "&amp;") : t = Replace(t, "<", "&lt;") : t = Replace(t, ">", "&gt;")
-            t = Replace(t, """", "&quot;") : t = Replace(t, "'", "&#39;")
-            VBS_EscapeHTML = t
-        End Function
-
         ' Récupère la session SAP GUI active (Nothing si SAP fermé / scripting désactivé).
         Function GetSAPSession()
             On Error Resume Next
@@ -203,18 +193,6 @@
                 Call PauseVBS(1)
                 tentatives = tentatives + 1
             Loop
-            On Error GoTo 0
-        End Function
-
-        ' Test rapide de connexion SAP (renvoie "OK ..." ou "ERREUR : ...").
-        Function VBS_TestConnexionSAP()
-            On Error Resume Next
-            Set oSession = GetSAPSession()
-            If oSession Is Nothing Then
-                VBS_TestConnexionSAP = "ERREUR : SAP inaccessible. Ouvre SAP Logon et connecte-toi."
-                Exit Function
-            End If
-            VBS_TestConnexionSAP = "OK : session SAP détectée (" & oSession.Info.SystemName & ")."
             On Error GoTo 0
         End Function
 
@@ -477,7 +455,7 @@
                 if (path && fso.FileExists(path)) {
                     var f = fso.OpenTextFile(path, 1, false, -1);
                     var c = f.ReadAll(); f.Close();
-                    appData = (NettoyerChaine(c) !== "") ? eval('(' + c + ')') : {};
+                    appData = (NettoyerChaine(c) !== "") ? JSON.parse(c) : {};
                 } else { appData = {}; }
             } catch (e) { appData = {}; }
             if (!appData.roleDesig) appData.roleDesig = [];   // tableau 1 saisi manuellement : [{resp,nom}]
@@ -1191,15 +1169,6 @@
     // ==========================================================
     // OUTILS D'AFFICHAGE
     // ==========================================================
-        function fmtDur(ms) {
-            if (ms == null || isNaN(ms)) return "-";
-            var totalH = ms / 3600000;
-            var d = Math.floor(totalH / 24);
-            var h = Math.round(totalH - d * 24);
-            if (h === 24) { d += 1; h = 0; }
-            if (d >= 1) return d + " j" + (h > 0 ? " " + h + " h" : "");
-            return (Math.round(totalH * 10) / 10) + " h";
-        }
         // Format jour / heure / minute (ex : "2 j 5 h 12 min").
         // Un "jour" = 24h dans les deux modes (les jours ouvrés comptent des journées complètes).
         function dayMs() { return 86400000; }
@@ -1240,7 +1209,7 @@
             }
             return 12;
         }
-        function cloneObj(o) { return eval('(' + toJSON(o) + ')'); }
+        function cloneObj(o) { return JSON.parse(toJSON(o)); }
         function padRoleDesig() { while (appData.roleDesig.length < PARAM_EDIT_ROWS) appData.roleDesig.push({ resp: "", nom: "", type: "" }); }
         function padTeam(role) { var a = teamArr(role); while (a.length < PARAM_EDIT_ROWS) a.push({ user: "", nom: "" }); }
 
@@ -1378,10 +1347,6 @@
             appData.roleDesig[idx].nom = m[code] || "";
             RenderRolesTable();
         }
-        function DelRoleDesig(idx) {
-            appData.roleDesig[idx] = { resp: "", nom: "", type: "int" };
-            RenderRolesTable();
-        }
         function UpdateRoleDesig(idx, field, val) {
             appData.roleDesig[idx][field] = NettoyerChaine(val);
         }
@@ -1413,10 +1378,6 @@
             html += "</tbody></table>";
             cont.innerHTML = html;
         }
-        function DelTeam(role, idx) {
-            teamArr(role)[idx] = { user: "", nom: "" };   // vide la ligne en place (comme IC Manager)
-            RenderTeam(role);
-        }
         function UpdateTeam(role, idx, field, val) {
             var v = NettoyerChaine(val);
             if (field === "user") v = v.toUpperCase();
@@ -1428,8 +1389,15 @@
     // ==========================================================
         var dashHeightCorrection = 0;   // ajustement (px) retiré de chaque ligne lors de la passe d'ajustement
         var dashFitTries = 0;
+        var dashLastH = -1;             // hauteur de #content du dernier calage (cache : évite le 2e rendu si taille inchangée)
         function RenderDashboard(isRetry) {
-            if (!isRetry) { dashHeightCorrection = 0; dashFitTries = 0; }   // repart de zéro à chaque rendu "frais"
+            if (!isRetry) {
+                dashFitTries = 0;
+                // On ne réinitialise la correction que si la fenêtre a changé de taille ; sinon on réutilise
+                // la valeur déjà calée -> le 1er rendu est déjà à la bonne hauteur (pas de 2e rendu d'ajustement).
+                var _ch = document.getElementById('content') ? document.getElementById('content').clientHeight : 0;
+                if (_ch !== dashLastH) { dashHeightCorrection = 0; dashLastH = _ch; }
+            }
             var elig = [];
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible) elig.push(ncList[i]); }
             var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
@@ -1680,21 +1648,6 @@
                 + "</div>";
         }
         // Un badge par semaine : nombre de NC + traitement global + traitement équipe.
-        function buildWeekBadges(pts) {
-            if (!pts.length) return "";
-            var w = (100 / pts.length).toFixed(2);
-            var html = "<div style='font-size:0; margin:0 -4px;'>";
-            for (var k = 0; k < pts.length; k++) {
-                html += "<div style='display:inline-block; vertical-align:top; width:" + w + "%; box-sizing:border-box; padding:0 4px;'>"
-                    + "<div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:7px 10px;'>"
-                    + "<div style='font-weight:700; color:#334155; font-size:13px; margin-bottom:2px;'>Semaine " + pts[k].week + "</div>"
-                    + "<div style='font-size:11px; color:#64748b; margin-bottom:5px;'>" + pts[k].n + " NC clôturées</div>"
-                    + "<div style='font-size:12px; color:#475569; margin-bottom:2px;'><span style='display:inline-block; width:9px; height:9px; background:#0C447C; border-radius:2px; margin-right:5px;'></span>Global : <b style='color:#0C447C;'>" + fmtDHM(pts[k].g) + "</b></div>"
-                    + "<div style='font-size:12px; color:#475569;'><span style='display:inline-block; width:9px; height:9px; background:#166534; border-radius:2px; margin-right:5px;'></span>Équipe : <b style='color:#166534;'>" + fmtDHM(pts[k].t) + "</b></div>"
-                    + "</div></div>";
-            }
-            return html + "</div>";
-        }
         // Rendu du graphique d'évolution : Highcharts si dispo, sinon repli SVG fait-main.
         function renderWeeksLineChart(pts) {
             var cont = document.getElementById('dashWeeks');
@@ -1912,8 +1865,13 @@
         }
         var ofHeightCorrection = 0;   // ajustement (px) lors de la passe d'ajustement (OF)
         var ofFitTries = 0;
+        var ofLastH = -1;             // cache : évite le 2e rendu d'ajustement si la fenêtre n'a pas changé de taille
         function RenderDashboardOF(isRetry) {
-            if (!isRetry) { ofHeightCorrection = 0; ofFitTries = 0; }   // repart de zéro à chaque rendu "frais"
+            if (!isRetry) {
+                ofFitTries = 0;
+                var _ch = document.getElementById('content') ? document.getElementById('content').clientHeight : 0;
+                if (_ch !== ofLastH) { ofHeightCorrection = 0; ofLastH = _ch; }
+            }
             var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
             var rows = getOFTeamRows('cree').concat(getOFTeamRows('clot'));
             if (!rows.length) {
@@ -2464,21 +2422,6 @@
                 document.body.style.cursor = '';
                 if (btn) btn.style.cursor = 'pointer';
             }, 80);
-        }
-
-    // ==========================================================
-    // TEST SAP (conservé)
-    // ==========================================================
-        function TesterSAP() {
-            var out = document.getElementById("sapTestResult");
-            out.innerHTML = "<div class='msg-box msg-info'>Test en cours…</div>";
-            setTimeout(function () {
-                try {
-                    var res = VBS_TestConnexionSAP();
-                    if (res && res.indexOf("ERREUR") === -1) out.innerHTML = "<div class='msg-box msg-ok'>" + escapeHtml(res) + "</div>";
-                    else out.innerHTML = "<div class='msg-box msg-error'>" + escapeHtml(res || "Erreur inconnue") + "</div>";
-                } catch (e) { out.innerHTML = "<div class='msg-box msg-error'>Erreur locale : " + escapeHtml(e.message) + "</div>"; }
-            }, 100);
         }
 
     // ==========================================================
