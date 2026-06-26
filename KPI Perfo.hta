@@ -654,10 +654,7 @@
                 RecomputeAll();
             }
             PrefillExtractDates();
-            ShowPage("pageDashboard");
-            // Au lancement la mise en page n'est pas encore stabilisée : on re-rend le dashboard
-            // une fois posé pour que les graphiques Highcharts se dimensionnent correctement.
-            setTimeout(function () { try { if (document.getElementById('pageDashboard').className.indexOf('active') !== -1) RenderDashboard(); } catch (e) {} }, 300);
+            ShowPage("pageDashboard");   // rendu unique ; la maximisation déclenche un recalcul via window.onresize si besoin.
         }
 
     // ==========================================================
