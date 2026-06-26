@@ -680,7 +680,7 @@
             ScrollContentTop();   // remet le scroll à zéro AVANT le rendu (mesures de hauteur fiables)
             if (skipRender) return;
             if (id === "pageParametres") RenderParametres();
-            if (id === "pageDashboard") RenderDashboard();
+            if (id === "pageDashboard") RenderDashIfNeeded();
             if (id === "pageAnalyse") { RenderListe(); EgaliserHauteursExtraction(); }
             if (id === "pageParcours") RenderParcours();
         }
@@ -881,6 +881,7 @@
                 appData.lastOFImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
                 SaveData();
                 RenderOFTable(type);
+                InvalidateDash();   // données OF modifiées -> dashboard à recalculer
                 if (document.getElementById('dashSubOF') && document.getElementById('dashSubOF').style.display === 'block') RenderDashboardOF();
                 if (!data.length) alert("Extraction terminée, mais aucun OF exploitable détecté (format inattendu ?).");
             } catch (e) { AfficherErreur("Erreur de lecture OF : " + e.message); }
@@ -1098,6 +1099,7 @@
         }
 
         function RecomputeAll() {
+            if (typeof InvalidateDash === 'function') InvalidateDash();   // les données NC ont changé -> dashboard à recalculer
             var rows = appData.rows || [];
             var roleByID = buildRoleByID();
             var clotCode = cfgVal('clot', CLOTURE_CODE).toUpperCase();
@@ -1473,6 +1475,7 @@
                     return;
                 }
             }
+            dashValid.NC = true;   // rendu à jour : pas de re-rendu au retour sur l'onglet tant que rien ne change
         }
         // Hauteur de référence (px) de la 1ère ligne (Évolution), utilisée par renderWeeksLineChart. 280 = repli par défaut.
         var dashRow1Height = 280;
@@ -1857,7 +1860,7 @@
                 for (var j = 0; j < wl.length; j++) { if (wl[j].year === dashFilter.year && wl[j].week === dashFilter.week) { f2 = true; break; } }
                 if (!f2 && wl.length) { dashFilter.year = wl[0].year; dashFilter.week = wl[0].week; }
             }
-            RenderActiveDashboardSub();
+            InvalidateDash(); RenderActiveDashboardSub();   // le filtre est commun aux 2 sous-onglets
         }
         // Sélection d'une période précise dans le menu déroulant contextuel.
         function SetDashPeriod(val) {
@@ -1865,29 +1868,39 @@
             if (dashFilter.gran === 'year') { dashFilter.year = parseInt(val, 10); }
             else if (dashFilter.gran === 'month') { var p = val.split('-'); dashFilter.year = parseInt(p[0], 10); dashFilter.month = parseInt(p[1], 10); }
             else if (dashFilter.gran === 'week') { var p2 = val.split('W'); dashFilter.year = parseInt(p2[0], 10); dashFilter.week = parseInt(p2[1], 10); }
-            RenderActiveDashboardSub();
+            InvalidateDash(); RenderActiveDashboardSub();
         }
 
         // ==========================================================
         // TABLEAU DE BORD - sous-onglet ORDRE DE FABRICATION (filtre commun avec le sous-onglet NC : dashFilter)
         // ==========================================================
+        // Cache de rendu : les graphiques restent dans le DOM quand on quitte l'onglet (juste masqués).
+        // On ne les recrée que si invalidés (données ou filtre modifiés). Évite la latence au retour sur le dashboard.
+        var dashValid = { NC: false, OF: false };
+        function InvalidateDash() { dashValid.NC = false; dashValid.OF = false; }
         function ShowDashSub(s) {
             var nc = document.getElementById('dashSubNC'), of = document.getElementById('dashSubOF');
             var tn = document.getElementById('dashSubtabNC'), to = document.getElementById('dashSubtabOF');
             if (s === 'OF') {
                 nc.style.display = "none"; of.style.display = "block";
                 tn.className = "subtab"; to.className = "subtab active";
-                RenderDashboardOF();
+                if (!dashValid.OF) RenderDashboardOF();
             } else {
                 of.style.display = "none"; nc.style.display = "block";
                 to.className = "subtab"; tn.className = "subtab active";
-                RenderDashboard();
+                if (!dashValid.NC) RenderDashboard();
             }
         }
-        // Re-rend le sous-onglet du dashboard actuellement visible (utilisé par les contrôles du filtre commun).
+        // Re-rend le sous-onglet du dashboard actuellement visible (filtre commun, resize) — force le re-rendu.
         function RenderActiveDashboardSub() {
             var of = document.getElementById('dashSubOF');
             if (of && of.style.display === 'block') RenderDashboardOF(); else RenderDashboard();
+        }
+        // Rend le sous-onglet visible UNIQUEMENT s'il est invalidé (utilisé en arrivant sur l'onglet Tableau de bord).
+        function RenderDashIfNeeded() {
+            var of = document.getElementById('dashSubOF');
+            if (of && of.style.display === 'block') { if (!dashValid.OF) RenderDashboardOF(); }
+            else { if (!dashValid.NC) RenderDashboard(); }
         }
         // "JJ.MM.AAAA" (ou variantes de séparateur) -> objet Date, ou null.
         function parseOFDateObj(s) {
@@ -1934,6 +1947,7 @@
                     return;
                 }
             }
+            dashValid.OF = true;   // rendu à jour : pas de re-rendu au retour sur l'onglet tant que rien ne change
         }
         // Calcule la hauteur (px) d'une ligne de graphiques OF pour que les 2 lignes remplissent l'écran (50%/50%).
         function ComputeOFRowHeight() {
@@ -2491,6 +2505,7 @@
             if (resizeTimer) clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
                 if (dashSuppressLaunchResize) return;   // ignore le resize dû à la maximisation au lancement (rendu déjà planifié)
+                InvalidateDash();   // les graphiques doivent être redimensionnés à la nouvelle taille de fenêtre
                 var pg = document.getElementById('pageAnalyse');
                 if (pg && pg.className.indexOf('active') !== -1) { EgaliserHauteursExtraction(); AjusterHauteurTables(); }
                 var pd = document.getElementById('pageDashboard');
