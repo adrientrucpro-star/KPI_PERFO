@@ -3,7 +3,7 @@
 <head>
     <meta http-equiv="x-ua-compatible" content="IE=10">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>KPI Perfo - Analyse NC (QM13) - SAP PEA</title>
+    <title>KPI Perfo</title>
     <!-- Highcharts v6.2.0 : compatible IE10. Repli sur SVG fait-main si non chargé (hors-ligne). -->
     <script src="https://cdn.jsdelivr.net/npm/highcharts@6.2.0/highcharts.js"></script>
     <hta:application id="oApp" applicationname="KPIPerfo" border="thin" maximizebutton="yes" minimizebutton="yes" scroll="no" windowstate="maximize" />
@@ -420,7 +420,7 @@
     // CONFIGURATION DE L'APPLICATION
     // ==========================================================
         var APP_NAME        = "KPI PERFO";
-        var APP_SOUS_TITRE  = "ANALYSE NC - QM13";
+        var APP_SOUS_TITRE  = "ANALYSE NC ET OF";
         var VERSION_ACTUELLE = "1.0";
         var DOSSIER_DONNEES = "KPI_Perfo";               // %APPDATA%\KPI_Perfo\
         var CLOTURE_CODE = "APQ0";                       // défaut : code SAP de clôture qualité
@@ -447,6 +447,11 @@
             return 0;
         }
         function NettoyerChaine(s) { return (s == null) ? "" : (""+s).replace(/^\s+|\s+$/g, ""); }
+        // "Prénom Nom" -> "Nom" (tout ce qui suit le 1er mot) ; utilisé pour les légendes des graphiques.
+        function nomSeul(full) {
+            var s = NettoyerChaine(full); var sp = s.indexOf(' ');
+            return sp === -1 ? s : s.substring(sp + 1);
+        }
         function escapeHtml(t) {
             if (t == null) return "";
             return (""+t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -668,11 +673,11 @@
             var sfx2 = id.substring(4);
             var pageEl = document.getElementById(id); if (pageEl) pageEl.className = "page active";
             var navEl = document.getElementById("nav" + sfx2); if (navEl) navEl.className = "nav-item active";
+            ScrollContentTop();   // remet le scroll à zéro AVANT le rendu (mesures de hauteur fiables)
             if (id === "pageParametres") RenderParametres();
             if (id === "pageDashboard") RenderDashboard();
-            if (id === "pageAnalyse") { RenderListe(); setTimeout(EgaliserHauteursExtraction, 30); }
+            if (id === "pageAnalyse") { RenderListe(); EgaliserHauteursExtraction(); }
             if (id === "pageParcours") RenderParcours();
-            ScrollContentTop();   // chaque changement d'onglet repart en haut
         }
         function ScrollContentTop() {
             var c = document.getElementById('content');
@@ -815,7 +820,7 @@
                 var lbl = document.getElementById('lastExtractDate'); if (lbl) lbl.innerText = appData.lastImport || "";
                 var edI = document.getElementById('extractDate'); if (edI) edI.value = NettoyerChaine(appData.lastImport).split(' ')[0];
                 RenderListe();
-                setTimeout(EgaliserHauteursExtraction, 30);
+                EgaliserHauteursExtraction();
 
                 // Pas de popup de résultat en cas de succès ; alerte seulement si aucune NC analysée.
                 if (nbElig === 0) alert("Extraction terminée, mais aucune NC analysée.\n\n" + DiagnostiquerNCTexte());
@@ -836,7 +841,7 @@
             } else {
                 of.style.display = "none"; nc.style.display = "block";
                 to.className = "subtab"; tn.className = "subtab active";
-                RenderListe(); setTimeout(EgaliserHauteursExtraction, 30);
+                RenderListe(); EgaliserHauteursExtraction();
             }
         }
         // Parse EXPORT_ST / EXPORT_IQ : colonnes Ordre de Fabrication, User, Date, Heure (tabulé, ANSI).
@@ -871,6 +876,7 @@
                 appData.lastOFImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
                 SaveData();
                 RenderOFTable(type);
+                if (document.getElementById('dashSubOF') && document.getElementById('dashSubOF').style.display === 'block') RenderDashboardOF();
                 if (!data.length) alert("Extraction terminée, mais aucun OF exploitable détecté (format inattendu ?).");
             } catch (e) { AfficherErreur("Erreur de lecture OF : " + e.message); }
         }
@@ -894,16 +900,20 @@
                 if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = label; }
             }, 80);
         }
-        function RenderOFTable(type) {
-            var cont = document.getElementById(type === 'cree' ? 'ofCreeTable' : 'ofClotTable');
-            if (!cont) return;
-            // On ne garde que les OF dont le user appartient à l'équipe : ST pour les créés, IQ pour les clôturés.
+        // OF dont le user appartient à l'équipe : ST pour les créés, IQ pour les clôturés.
+        function getOFTeamRows(type) {
             var teamArr = (type === 'cree') ? (appData.teamST || []) : (appData.teamIQ || []);
             var teamSet = {};
             for (var t = 0; t < teamArr.length; t++) { var tu = NettoyerChaine(teamArr[t].user).toUpperCase(); if (tu) teamSet[tu] = true; }
             var all = (type === 'cree') ? (appData.ofCree || []) : (appData.ofClot || []);
             var data = [];
             for (var d = 0; d < all.length; d++) { if (teamSet[NettoyerChaine(all[d].user).toUpperCase()]) data.push(all[d]); }
+            return data;
+        }
+        function RenderOFTable(type) {
+            var cont = document.getElementById(type === 'cree' ? 'ofCreeTable' : 'ofClotTable');
+            if (!cont) return;
+            var data = getOFTeamRows(type);
             // Filtres OF : plage de dates + recherche (n° d'OF ou user).
             var fE1 = document.getElementById('ofFiltreDateDebut'), fE2 = document.getElementById('ofFiltreDateFin'), fER = document.getElementById('ofFiltreRecherche');
             var nd = fE1 ? dateToNum(fE1.value) : null, nf = fE2 ? dateToNum(fE2.value) : null;
@@ -919,6 +929,14 @@
                 data = keep;
             }
             if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info'>Aucune extraction réalisée.</div>"; return; }
+            var sc = ofSort[type].col, sd = ofSort[type].dir;
+            if (sc) {
+                data.sort(function (a, b) {
+                    var va = (sc === 'date') ? (dateToNum(a.date) || 0) : NettoyerChaine(a[sc]).toUpperCase();
+                    var vb = (sc === 'date') ? (dateToNum(b.date) || 0) : NettoyerChaine(b[sc]).toUpperCase();
+                    return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
+                });
+            }
             var rows = "";
             for (var i = 0; i < data.length; i++) {
                 rows += "<tr><td style='text-align:center; font-weight:700;'>" + escapeHtml(data[i].of) + "</td>"
@@ -926,8 +944,20 @@
                     + "<td style='text-align:center;'>" + escapeHtml(fmtOFDate(data[i].date)) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(data[i].heure) + "</td></tr>";
             }
-            cont.innerHTML = "<div style='max-height:60vh; overflow-y:auto; padding-bottom:14px;'>"
-                + "<table class='data-table'><thead><tr><th width='25%'>Ordre de Fabrication</th><th width='25%'>User</th><th width='25%'>Date</th><th width='25%'>Heure</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+            cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
+                + "<table class='data-table'><thead><tr>" + ofTh(type, 'of', 'Ordre de Fabrication') + ofTh(type, 'user', 'User') + ofTh(type, 'date', 'Date') + ofTh(type, 'heure', 'Heure') + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+            AjusterHauteurTables();
+        }
+        var ofSort = { cree: { col: null, dir: 1 }, clot: { col: null, dir: 1 } };
+        function ofTh(type, col, label) {
+            var s = ofSort[type];
+            var arrow = (s.col === col) ? (s.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
+            return "<th width='25%' style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortOF('" + type + "','" + col + "')\" title='Trier'>" + label + arrow + "</th>";
+        }
+        function SortOF(type, col) {
+            var s = ofSort[type];
+            if (s.col === col) s.dir = -s.dir; else { s.col = col; s.dir = 1; }
+            RenderOFTable(type);
         }
         function RenderOFAll() { RenderOFTable('cree'); RenderOFTable('clot'); }
         function ResetOFFiltres() {
@@ -1389,7 +1419,10 @@
     // ==========================================================
     // PAGE : DASHBOARD
     // ==========================================================
-        function RenderDashboard() {
+        var dashHeightCorrection = 0;   // ajustement (px) retiré de chaque ligne lors de la passe d'ajustement
+        var dashFitTries = 0;
+        function RenderDashboard(isRetry) {
+            if (!isRetry) { dashHeightCorrection = 0; dashFitTries = 0; }   // repart de zéro à chaque rendu "frais"
             var elig = [];
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible) elig.push(ncList[i]); }
             var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
@@ -1402,6 +1435,16 @@
             document.getElementById('dashEmpty').style.display = "none";
             document.getElementById('dashCharts').style.display = "block";
 
+            // Hauteurs des 3 lignes calculées pour remplir exactement l'écran, sans scrollbar (35% / 25% / 35%).
+            var rh = ComputeDashRowHeights();
+            rh.row1 -= dashHeightCorrection; rh.row2 -= dashHeightCorrection; rh.row3 -= dashHeightCorrection;
+            if (rh.row1 < 150) rh.row1 = 150; if (rh.row2 < 120) rh.row2 = 120; if (rh.row3 < 150) rh.row3 = 150;
+            dashRow1Height = rh.row1;
+            var ri = document.getElementById('hcRespInt'), re = document.getElementById('hcRespExt');
+            if (ri) ri.style.height = rh.row2 + "px"; if (re) re.style.height = rh.row2 + "px";
+            var tst = document.getElementById('hcTeamST'), ttl = document.getElementById('hcTeamTL'), tiq = document.getElementById('hcTeamIQ');
+            if (tst) tst.style.height = rh.row3 + "px"; if (ttl) ttl.style.height = rh.row3 + "px"; if (tiq) tiq.style.height = rh.row3 + "px";
+
             // Filtre période (haut de page) appliqué à TOUS les graphiques du tableau de bord.
             var eligF = [];
             for (var f = 0; f < elig.length; f++) { if (inSelectedPeriod(elig[f].end)) eligF.push(elig[f]); }
@@ -1410,16 +1453,116 @@
             RenderWeeksChart(eligF);   // courbes par semaine : filtré
             RenderDashResp(eligF);
             RenderDashTeams(eligF);
-            setTimeout(EgaliserDashboard, 60);
+            EgaliserDashboard();
+
+            // Ajustement par MESURE RÉELLE : on vise un bas de dernière ligne à 20px du bas de #content.
+            // gap > 0 = trop d'espace en bas -> on agrandit ; gap < 0 = débordement -> on réduit.
+            var contentEl = document.getElementById('content');
+            var lastCard = document.getElementById('hcTeamST') ? document.getElementById('hcTeamST').parentNode : null;
+            if (contentEl && lastCard) {
+                var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
+                if (Math.abs(gap) > 4 && dashFitTries < 12) {
+                    dashFitTries++;
+                    dashHeightCorrection -= Math.round(gap / 3);
+                    RenderDashboard(true);
+                    return;
+                }
+            }
         }
-        // Égalise la hauteur de TOUTES les cartes graphiques du dashboard → les 3 lignes ont la même hauteur.
+        // Hauteur de référence (px) de la 1ère ligne (Évolution), utilisée par renderWeeksLineChart. 280 = repli par défaut.
+        var dashRow1Height = 280;
+        // Hauteur visible (px) entre le haut d'un conteneur et le bas de #content (même marge basse : 20px),
+        // PARTAGÉE entre les sous-onglets NC et OF pour garantir une marge basse strictement identique.
+        function ComputeAvailHeight(containerId) {
+            var charts = document.getElementById(containerId), contentEl = document.getElementById('content');
+            if (!charts || !contentEl) return null;
+            var top = charts.getBoundingClientRect().top - contentEl.getBoundingClientRect().top;   // indépendant du scroll
+            var avail = contentEl.clientHeight - top - 20;   // 20px de marge basse
+            if (avail < 300) avail = 300;
+            return avail;
+        }
+        // Calcule la hauteur (px) de chaque ligne de graphiques pour que le contenu remplisse exactement
+        // la zone visible de #content (pas de scrollbar) ; les 3 lignes ont la MÊME hauteur.
+        function ComputeDashRowHeights() {
+            var avail = ComputeAvailHeight('dashCharts');
+            if (avail == null) return { row1: 260, row2: 260, row3: 260 };
+            var overhead = 70 * 3 + 20 * 2;   // 3 cartes (titre + padding) + 2 marges entre lignes
+            var forCharts = avail - overhead;
+            if (forCharts < 450) forCharts = 450;
+            var row = Math.round(forCharts / 3);
+            if (row < 230) row = 230;   // plancher : le widget "3 semaines" a besoin d'au moins ça
+            return { row1: row, row2: row, row3: row };
+        }
+        // Égalise la hauteur des cartes au sein de CHAQUE ligne séparément, PUIS aligne les 3 lignes
+        // entre elles (Évolution / Responsables / Équipe doivent avoir EXACTEMENT la même hauteur).
         function EgaliserDashboard() {
-            var cards = document.querySelectorAll('#dashCharts .dashEqual');
-            if (!cards || !cards.length) return;
-            var max = 0, i;
-            for (i = 0; i < cards.length; i++) cards[i].style.height = "";
-            for (i = 0; i < cards.length; i++) { if (cards[i].offsetHeight > max) max = cards[i].offsetHeight; }
-            if (max > 0) { for (i = 0; i < cards.length; i++) cards[i].style.height = max + "px"; }
+            EgaliserRow1();
+            EgaliserCards(document.querySelectorAll('#dashCharts .dashEqRow2'));
+            EgaliserCards(document.querySelectorAll('#dashCharts .dashEqRow3'));
+            EgaliserLes3Lignes();
+        }
+        // Détermine la ligne la plus haute des 3, puis étire les 2 autres (carte + contenu) pour matcher.
+        function EgaliserLes3Lignes() {
+            var c1 = document.getElementById('cardEvo3w');
+            var ri = document.getElementById('hcRespInt'), tst = document.getElementById('hcTeamST');
+            if (!c1 || !ri || !tst) return;
+            var row1H = c1.offsetHeight, row2H = ri.parentNode.offsetHeight, row3H = tst.parentNode.offsetHeight;
+            var target = Math.max(row1H, row2H, row3H);
+
+            if (target - row1H > 1) {
+                var extra1 = target - row1H, c2 = document.getElementById('cardEvoWeek');
+                c1.style.height = target + "px"; if (c2) c2.style.height = target + "px";
+                var fd = c1.querySelector('#dash3weeks > div');
+                if (fd) fd.style.height = (fd.offsetHeight + extra1) + "px";
+                var hc = document.getElementById('hcWeeks');
+                if (hc) {
+                    var nh = hc.offsetHeight + extra1;
+                    hc.style.height = nh + "px";
+                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); window.hcWeeksChart.reflow(); } } catch (e) {}
+                }
+            }
+            if (target - row2H > 1) {
+                var extra2 = target - row2H, ids2 = ['hcRespInt', 'hcRespExt'];
+                for (var j = 0; j < ids2.length; j++) {
+                    var el2 = document.getElementById(ids2[j]); if (!el2) continue;
+                    el2.parentNode.style.height = target + "px";
+                    var newH2 = el2.offsetHeight + extra2;
+                    el2.style.height = newH2 + "px";
+                    try { if (window.hcRespChartRefs && window.hcRespChartRefs[ids2[j]]) { window.hcRespChartRefs[ids2[j]].setSize(el2.offsetWidth, newH2, false); window.hcRespChartRefs[ids2[j]].reflow(); } } catch (e) {}
+                }
+            }
+            if (target - row3H > 1) {
+                var extra3 = target - row3H, ids3 = ['hcTeamST', 'hcTeamTL', 'hcTeamIQ'];
+                for (var i = 0; i < ids3.length; i++) {
+                    var el = document.getElementById(ids3[i]); if (!el) continue;
+                    el.parentNode.style.height = target + "px";
+                    var newH = el.offsetHeight + extra3;
+                    el.style.height = newH + "px";
+                    try { if (window.hcTeamChartRefs && window.hcTeamChartRefs[ids3[i]]) { window.hcTeamChartRefs[ids3[i]].setSize(el.offsetWidth, newH, false); window.hcTeamChartRefs[ids3[i]].reflow(); } } catch (e) {}
+                }
+            }
+        }
+        // Ligne 1 : si l'égalisation étire une carte au-delà de son contenu naturel, on agrandit le
+        // contenu (widget "3 semaines" ou graphique Highcharts) pour qu'il remplisse la carte sans vide.
+        function EgaliserRow1() {
+            var c1 = document.getElementById('cardEvo3w'), c2 = document.getElementById('cardEvoWeek');
+            if (!c1 || !c2) return;
+            c1.style.height = ""; c2.style.height = "";
+            var h1 = c1.offsetHeight, h2 = c2.offsetHeight, max = Math.max(h1, h2);
+            c1.style.height = max + "px"; c2.style.height = max + "px";
+            var extra1 = max - h1, extra2 = max - h2;
+            if (extra1 > 1) {
+                var fd = c1.querySelector('#dash3weeks > div');
+                if (fd) fd.style.height = (fd.offsetHeight + extra1) + "px";
+            }
+            if (extra2 > 1) {
+                var hc = document.getElementById('hcWeeks');
+                if (hc) {
+                    var nh = hc.offsetHeight + extra2;
+                    hc.style.height = nh + "px";
+                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); window.hcWeeksChart.reflow(); } } catch (e) {}
+                }
+            }
         }
 
         function fmtDDMM(d) { var dd = d.getDate(), mm = d.getMonth() + 1; return (dd < 10 ? '0' + dd : '' + dd) + '/' + (mm < 10 ? '0' + mm : '' + mm); }
@@ -1462,7 +1605,8 @@
         function RenderDash3Weeks(eligAll) {
             var pts = computeWeekPts(eligAll, false);
             if (!pts.length) { document.getElementById('dash3weeks').innerHTML = "<div class='msg-box msg-info'>Aucune donnée.</div>"; return; }
-            document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts.slice(Math.max(0, pts.length - 3)));
+            document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts.slice(Math.max(0, pts.length - 3)), dashRow1Height);
+            EgaliserCards(document.querySelectorAll('#dash3weeks .wkbox'));   // les 3 cases (1 par semaine) à la même hauteur
         }
         // Graphique d'évolution par semaine : sur les NC filtrées par la période choisie.
         function RenderWeeksChart(elig) {
@@ -1472,21 +1616,20 @@
         }
         // Résumé : amélioration (durée en baisse) ou dégradation entre les 2 semaines les plus récentes.
         // Panneau 3 semaines : L1 numéros de semaine, L2 cases (NC/global/équipe), L3 évolutions entre semaines.
-        function build3WeekSummary(wk) {
+        function build3WeekSummary(wk, targetHeight) {
             if (!wk.length) return "<div class='msg-box msg-info'>Aucune donnée.</div>";
             var n = wk.length, cw = 100 / n, colW = cw.toFixed(2);
             // Ligne 1 : numéros de semaine
-            var l1 = "<div style='font-size:0; margin:0 -5px 16px -5px;'>";
+            var l1 = "<div style='font-size:0;'>";
             for (var i = 0; i < n; i++) {
                 l1 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 5px; text-align:center; font-size:14px; font-weight:700; color:#334155;'>Semaine " + wk[i].week + "</div>";
             }
             l1 += "</div>";
             // Ligne 2 : une case par semaine (NC, global, équipe)
-            var l2 = "<div style='font-size:0; margin:0 -5px 18px -5px;'>";
+            var l2 = "<div style='font-size:0;'>";
             for (var j = 0; j < n; j++) {
                 l2 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 5px;'>"
-                    + "<div style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px 9px;'>"
-                    + "<div style='font-size:13px; color:#64748b; margin-bottom:9px;'>" + wk[j].n + " NC clôturées</div>"
+                    + "<div class='wkbox' style='background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px 9px; box-sizing:border-box;'>"
                     + "<div style='font-size:13px; color:#475569; margin-bottom:6px; white-space:nowrap;'><span style='display:inline-block; width:9px; height:9px; background:#0C447C; border-radius:2px; margin-right:5px;'></span>Global : <b style='color:#0C447C;'>" + fmtDHM(wk[j].g) + "</b></div>"
                     + "<div style='font-size:13px; color:#475569; white-space:nowrap;'><span style='display:inline-block; width:9px; height:9px; background:#166534; border-radius:2px; margin-right:5px;'></span>Équipe : <b style='color:#166534;'>" + fmtDHM(wk[j].t) + "</b></div>"
                     + "</div></div>";
@@ -1495,26 +1638,37 @@
             // Ligne 3 : évolution entre semaines consécutives (centrée entre les 2 colonnes concernées)
             var l3 = "";
             if (n >= 2) {
-                l3 = "<div style='font-size:0; margin:0 -5px;'>";
+                l3 = "<div style='font-size:0;'>";
                 var ew = (100 / (n - 1)).toFixed(2);
                 for (var k = 0; k < n - 1; k++) {
-                    l3 += "<div style='display:inline-block; vertical-align:top; width:" + ew + "%; box-sizing:border-box; padding:0 5px;'>" + evoBox(wk[k], wk[k + 1]) + "</div>";
+                    l3 += "<div style='display:inline-block; vertical-align:top; width:" + ew + "%; box-sizing:border-box; padding:0 5px;'>"
+                        + "<div style='font-size:13px; font-weight:600; color:#64748b; text-align:center; margin-bottom:6px;'>S" + wk[k].week + " &rarr; S" + wk[k + 1].week + "</div>"
+                        + evoBox(wk[k], wk[k + 1]) + "</div>";
                 }
                 l3 += "</div>";
             }
-            return l1 + l2 + l3;
+            // Conteneur flex : remplit exactement targetHeight, répartit l'espace EXTRA entre les 3 blocs
+            // (au lieu de marges fixes) → la carte s'adapte à la hauteur calculée pour la ligne 1.
+            // Syntaxe flexbox IE10 (-ms-) ET standard, le HTA forçant le moteur IE10 (x-ua-compatible).
+            var h = targetHeight ? ("height:" + targetHeight + "px; ") : "";
+            return "<div style='" + h + "display:-ms-flexbox; display:flex; -ms-flex-direction:column; flex-direction:column; -ms-flex-pack:justify; justify-content:space-between; box-sizing:border-box;'>" + l1 + l2 + l3 + "</div>";
         }
         function evoBox(a, b) {
-            function line(label, color, fromV, toV) {
+            // Couleur du CADRE entier (basée sur l'évolution du traitement global) :
+            // amélioration (durée en baisse) = vert pâle ; dégradation (durée en hausse) = rouge pâle ; stable = gris.
+            var dGlobal = b.g - a.g, boxAmelio = dGlobal < 0, boxDegr = dGlobal > 0;
+            var boxBg = boxAmelio ? "#dcfce3" : (boxDegr ? "#fee2e2" : "#f8fafc");
+            var boxBorder = boxAmelio ? "#86efac" : (boxDegr ? "#fca5a5" : "#e2e8f0");
+            function line(label, fromV, toV, isLast) {
                 var delta = toV - fromV, amelio = delta < 0, degr = delta > 0;
                 var arrow = amelio ? "&#8600;" : (degr ? "&#8599;" : "&#8211;");
                 var c = amelio ? "#166534" : (degr ? "#b91c1c" : "#64748b");
                 var txt = (delta === 0) ? "Stable" : ((amelio ? "-" : "+") + fmtDHM(Math.abs(delta)));
-                return "<div style='font-size:14px; color:#475569; margin-bottom:6px;'>" + label + " <b style='color:" + c + ";'>" + arrow + " " + txt + "</b></div>";
+                var mb = isLast ? "0" : "6px";
+                return "<div style='font-size:14px; color:#475569; margin-bottom:" + mb + "; text-align:center;'>" + label + " <b style='color:" + c + ";'>" + arrow + " " + txt + "</b></div>";
             }
-            return "<div style='background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:14px 12px;'>"
-                + "<div style='font-size:13px; font-weight:600; color:#64748b; margin-bottom:9px; text-align:center;'>S" + a.week + " &rarr; S" + b.week + "</div>"
-                + line("Global", "#0C447C", a.g, b.g) + line("Équipe", "#166534", a.t, b.t)
+            return "<div style='background:" + boxBg + "; border:1px solid " + boxBorder + "; border-radius:8px; padding:14px 12px; text-align:center; box-sizing:border-box;'>"
+                + line("Global", a.g, b.g, false) + line("Équipe", a.t, b.t, true)
                 + "</div>";
         }
         // Un badge par semaine : nombre de NC + traitement global + traitement équipe.
@@ -1537,7 +1691,7 @@
         function renderWeeksLineChart(pts) {
             var cont = document.getElementById('dashWeeks');
             if (typeof Highcharts === 'undefined') { cont.innerHTML = buildWeeksLine(pts); return; }
-            cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:280px;'></div>";
+            cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:" + dashRow1Height + "px;'></div>";
             var dMs = dayMs(), cats = [], gData = [], tData = [];
             for (var i = 0; i < pts.length; i++) {
                 cats.push(pts[i].label);
@@ -1546,13 +1700,13 @@
             }
             try {
                 window.hcWeeksChart = Highcharts.chart('hcWeeks', {
-                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
+                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null },
                     credits: { enabled: false },
-                    legend: { enabled: true, align: 'right', verticalAlign: 'top', floating: false, padding: 2, margin: 4, itemStyle: { fontSize: '11px' } },
+                    legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemStyle: { fontSize: '12px' }, margin: 4, padding: 4, itemMarginTop: 0, itemMarginBottom: 0 },
                     xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                     yAxis: {
-                        title: { text: 'Durée (jours)' }, min: 0, tickInterval: 5,
+                        title: { text: null }, min: 0, tickInterval: 5,
                         plotLines: [{ value: 2, color: '#dc2626', dashStyle: 'Dash', width: 1.5, zIndex: 5 }]
                     },
                     tooltip: {
@@ -1614,8 +1768,9 @@
         }
 
         // 2) Durée moyenne par responsable du tableau 1.
-        // Filtre durée moyenne : gran = 'all' | 'year' | 'month' | 'week' ; mois/semaine dépendent de l'année.
-        var dashFilter = { gran: 'all', year: null, month: null, week: null };
+        // Filtre commun aux DEUX sous-onglets du dashboard (Non-conformité ET Ordre de Fabrication).
+        // gran = 'all' | 'year' | 'month' | 'week' ; mois/semaine dépendent de l'année ; par défaut = année en cours.
+        var dashFilter = { gran: 'year', year: new Date().getFullYear(), month: null, week: null };
         function inSelectedPeriod(d) {
             if (dashFilter.gran === 'all') return true;
             if (!d) return false;
@@ -1625,23 +1780,31 @@
             if (dashFilter.gran === 'week') return isoWeek(d) === dashFilter.week;
             return true;
         }
+        // Dates de référence pour le filtre : NC clôturées (éligibles) + OF (créés/clôturés, équipes) — union des deux sous-onglets.
+        function dashAllDates() {
+            var out = [];
+            for (var i = 0; i < ncList.length; i++) { var nc = ncList[i]; if (nc.eligible && nc.end) out.push(nc.end); }
+            var ofRows = getOFTeamRows('cree').concat(getOFTeamRows('clot'));
+            for (var j = 0; j < ofRows.length; j++) { var d = parseOFDateObj(ofRows[j].date); if (d) out.push(d); }
+            return out;
+        }
         function dashYearsList() {
-            var ys = {}, out = [];
-            for (var i = 0; i < ncList.length; i++) { var nc = ncList[i]; if (nc.eligible && nc.end) ys[nc.end.getFullYear()] = true; }
+            var ds = dashAllDates(), ys = {}, out = [];
+            for (var i = 0; i < ds.length; i++) ys[ds[i].getFullYear()] = true;
             for (var y in ys) { if (ys.hasOwnProperty(y)) out.push(parseInt(y, 10)); }
             out.sort(function (a, b) { return b - a; });
             if (!out.length) out.push(new Date().getFullYear());
             return out;
         }
         function dashMonthsList(year) {
-            var ms = {}, out = [];
-            for (var i = 0; i < ncList.length; i++) { var nc = ncList[i]; if (nc.eligible && nc.end && nc.end.getFullYear() === year) ms[nc.end.getMonth()] = true; }
+            var ds = dashAllDates(), ms = {}, out = [];
+            for (var i = 0; i < ds.length; i++) { if (ds[i].getFullYear() === year) ms[ds[i].getMonth()] = true; }
             for (var m in ms) { if (ms.hasOwnProperty(m)) out.push(parseInt(m, 10)); }
             out.sort(function (a, b) { return a - b; }); return out;
         }
         function dashWeeksList(year) {
-            var ws = {}, out = [];
-            for (var i = 0; i < ncList.length; i++) { var nc = ncList[i]; if (nc.eligible && nc.end && nc.end.getFullYear() === year) ws[isoWeek(nc.end)] = true; }
+            var ds = dashAllDates(), ws = {}, out = [];
+            for (var i = 0; i < ds.length; i++) { if (ds[i].getFullYear() === year) ws[isoWeek(ds[i])] = true; }
             for (var w in ws) { if (ws.hasOwnProperty(w)) out.push(parseInt(w, 10)); }
             out.sort(function (a, b) { return a - b; }); return out;
         }
@@ -1650,25 +1813,189 @@
             var years = dashYearsList();
             if (dashFilter.year == null || years.indexOf(dashFilter.year) === -1) dashFilter.year = years[0];
             function sel(active) { return "font-size:12px; padding:4px 6px; border-radius:6px; vertical-align:middle; cursor:pointer; border:1px solid " + (active ? "#0C447C" : "#c5d5de") + "; " + (active ? "background:#0C447C; color:#fff;" : "background:#fff; color:#1e293b;"); }
+            function selDisabled() { return "font-size:12px; padding:4px 6px; border-radius:6px; vertical-align:middle; border:1px solid #e2e8f0; background:#f1f5f9; color:#94a3b8; cursor:not-allowed;"; }
             var allOn = dashFilter.gran === 'all';
-            var bar = "<button type='button' onclick=\"SetDashGran('all')\" style='font-size:11px; font-weight:600; padding:5px 11px; border:1px solid " + (allOn ? "#0C447C" : "#c5d5de") + "; border-radius:6px; cursor:pointer; vertical-align:middle; margin-right:16px; " + (allOn ? "background:#0C447C; color:#fff;" : "background:#fff; color:#475569;") + "'>Toutes les NC</button>";
+            var bar = "<button type='button' onclick=\"SetDashGran('all')\" style='font-size:11px; font-weight:600; padding:5px 11px; border:1px solid " + (allOn ? "#0C447C" : "#c5d5de") + "; border-radius:6px; cursor:pointer; vertical-align:middle; margin-right:16px; " + (allOn ? "background:#0C447C; color:#fff;" : "background:#fff; color:#475569;") + "'>Toutes les données</button>";
             var yshow = dashFilter.gran !== 'all';
             var yopt = "<option value=''" + (!yshow ? " selected" : "") + ">Année</option>";
             for (var i = 0; i < years.length; i++) yopt += "<option value='" + years[i] + "'" + (yshow && years[i] === dashFilter.year ? " selected" : "") + ">" + years[i] + "</option>";
             bar += "<select onchange=\"SetDashYear(this.value)\" style='" + sel(dashFilter.gran === 'year') + "'>" + yopt + "</select>";
+            // Mois/Semaine grisés et désactivés tant qu'aucune année n'est sélectionnée.
+            var mwDisabled = allOn;
             var months = dashMonthsList(dashFilter.year);
             var mopt = "<option value=''>Mois</option>"; for (var m = 0; m < months.length; m++) mopt += "<option value='" + months[m] + "'" + (dashFilter.gran === 'month' && months[m] === dashFilter.month ? " selected" : "") + ">" + MOIS_NOMS[months[m]] + "</option>";
-            bar += "<select onchange=\"SetDashMonth(this.value)\" style='" + sel(dashFilter.gran === 'month') + " margin-left:10px;'>" + mopt + "</select>";
+            bar += "<select onchange=\"SetDashMonth(this.value)\"" + (mwDisabled ? " disabled" : "") + " style='" + (mwDisabled ? selDisabled() : sel(dashFilter.gran === 'month')) + " margin-left:10px;'>" + mopt + "</select>";
             var weeks = dashWeeksList(dashFilter.year);
             var wopt = "<option value=''>Semaine</option>"; for (var w = 0; w < weeks.length; w++) wopt += "<option value='" + weeks[w] + "'" + (dashFilter.gran === 'week' && weeks[w] === dashFilter.week ? " selected" : "") + ">S" + weeks[w] + "</option>";
-            bar += "<select onchange=\"SetDashWeek(this.value)\" style='" + sel(dashFilter.gran === 'week') + " margin-left:7px;'>" + wopt + "</select>";
+            bar += "<select onchange=\"SetDashWeek(this.value)\"" + (mwDisabled ? " disabled" : "") + " style='" + (mwDisabled ? selDisabled() : sel(dashFilter.gran === 'week')) + " margin-left:7px;'>" + wopt + "</select>";
             return "<span style='white-space:nowrap;'>" + bar + "</span>";
         }
-        // Le filtre pilote TOUS les graphiques → re-rendu complet (animations désactivées = pas de clignotement).
-        function SetDashGran(g) { dashFilter.gran = g; RenderDashboard(); }
-        function SetDashYear(y) { if (y === '') return; dashFilter.year = parseInt(y, 10); if (dashFilter.gran === 'all') dashFilter.gran = 'year'; RenderDashboard(); }
-        function SetDashMonth(m) { if (m === '') return; dashFilter.month = parseInt(m, 10); dashFilter.gran = 'month'; RenderDashboard(); }
-        function SetDashWeek(w) { if (w === '') return; dashFilter.week = parseInt(w, 10); dashFilter.gran = 'week'; RenderDashboard(); }
+        // Le filtre pilote TOUS les graphiques (NC + OF) → re-rendu du sous-onglet actif (animations désactivées = pas de clignotement).
+        function SetDashGran(g) { dashFilter.gran = g; RenderActiveDashboardSub(); }
+        function SetDashYear(y) { if (y === '') return; dashFilter.year = parseInt(y, 10); if (dashFilter.gran === 'all') dashFilter.gran = 'year'; RenderActiveDashboardSub(); }
+        function SetDashMonth(m) { if (m === '') return; dashFilter.month = parseInt(m, 10); dashFilter.gran = 'month'; RenderActiveDashboardSub(); }
+        function SetDashWeek(w) { if (w === '') return; dashFilter.week = parseInt(w, 10); dashFilter.gran = 'week'; RenderActiveDashboardSub(); }
+
+        // ==========================================================
+        // TABLEAU DE BORD - sous-onglet ORDRE DE FABRICATION (filtre commun avec le sous-onglet NC : dashFilter)
+        // ==========================================================
+        function ShowDashSub(s) {
+            var nc = document.getElementById('dashSubNC'), of = document.getElementById('dashSubOF');
+            var tn = document.getElementById('dashSubtabNC'), to = document.getElementById('dashSubtabOF');
+            if (s === 'OF') {
+                nc.style.display = "none"; of.style.display = "block";
+                tn.className = "subtab"; to.className = "subtab active";
+                RenderDashboardOF();
+            } else {
+                of.style.display = "none"; nc.style.display = "block";
+                to.className = "subtab"; tn.className = "subtab active";
+                RenderDashboard();
+            }
+        }
+        // Re-rend le sous-onglet du dashboard actuellement visible (utilisé par les contrôles du filtre commun).
+        function RenderActiveDashboardSub() {
+            var of = document.getElementById('dashSubOF');
+            if (of && of.style.display === 'block') RenderDashboardOF(); else RenderDashboard();
+        }
+        // "JJ.MM.AAAA" (ou variantes de séparateur) -> objet Date, ou null.
+        function parseOFDateObj(s) {
+            var p = NettoyerChaine(s).split(/[.\/\-]/); if (p.length < 3) return null;
+            var d = parseInt(p[0], 10), m = parseInt(p[1], 10), y = parseInt(p[2], 10);
+            if (isNaN(d) || isNaN(m) || isNaN(y)) return null;
+            if (y < 100) y += 2000;
+            return new Date(y, m - 1, d);
+        }
+        var ofHeightCorrection = 0;   // ajustement (px) lors de la passe d'ajustement (OF)
+        var ofFitTries = 0;
+        function RenderDashboardOF(isRetry) {
+            if (!isRetry) { ofHeightCorrection = 0; ofFitTries = 0; }   // repart de zéro à chaque rendu "frais"
+            var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
+            var rows = getOFTeamRows('cree').concat(getOFTeamRows('clot'));
+            if (!rows.length) {
+                document.getElementById('dashOFEmpty').style.display = "block";
+                document.getElementById('dashOFCharts').style.display = "none";
+                return;
+            }
+            document.getElementById('dashOFEmpty').style.display = "none";
+            document.getElementById('dashOFCharts').style.display = "block";
+
+            // Les 2 lignes (créés / clôturés) se partagent 50% / 50% de la hauteur visible, sans scrollbar.
+            var rowH = ComputeOFRowHeight() - ofHeightCorrection;
+            if (rowH < 150) rowH = 150;
+            var ofIds = ['hcOFCreeUser', 'hcOFCreeTotal', 'hcOFClotUser', 'hcOFClotTotal'];
+            for (var z = 0; z < ofIds.length; z++) { var elz = document.getElementById(ofIds[z]); if (elz) elz.style.height = rowH + "px"; }
+
+            hcOFLineCharts('cree', '#0C447C');
+            hcOFLineCharts('clot', '#16a34a');
+            var c1 = document.querySelectorAll('.dashEqualOF'); EgaliserCards(c1);
+            var c2 = document.querySelectorAll('.dashEqualOF2'); EgaliserCards(c2);
+
+            // Ajustement par MESURE RÉELLE (même logique que NC) : bas de la 2e ligne à 20px du bas de #content.
+            var contentEl = document.getElementById('content');
+            var lastCard = document.getElementById('hcOFClotUser') ? document.getElementById('hcOFClotUser').parentNode : null;
+            if (contentEl && lastCard) {
+                var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
+                if (Math.abs(gap) > 4 && ofFitTries < 12) {
+                    ofFitTries++;
+                    ofHeightCorrection -= Math.round(gap / 2);
+                    RenderDashboardOF(true);
+                    return;
+                }
+            }
+        }
+        // Calcule la hauteur (px) d'une ligne de graphiques OF pour que les 2 lignes remplissent l'écran (50%/50%).
+        function ComputeOFRowHeight() {
+            var avail = ComputeAvailHeight('dashOFCharts');
+            if (avail == null) return 280;
+            var overhead = 70 * 2 + 20;   // 2 cartes (titre + padding) + 1 marge entre les lignes
+            var forCharts = avail - overhead;
+            var row = Math.round(forCharts / 2);
+            if (row < 200) row = 200;
+            return row;
+        }
+        function EgaliserCards(cards) {
+            var max = 0, i;
+            for (i = 0; i < cards.length; i++) cards[i].style.height = "";
+            for (i = 0; i < cards.length; i++) { if (cards[i].offsetHeight > max) max = cards[i].offsetHeight; }
+            if (max > 0) { for (i = 0; i < cards.length; i++) cards[i].style.height = max + "px"; }
+        }
+        // Agrège le nombre d'OF par semaine (ou par jour si filtre semaine), par user ET au total.
+        // Reprend la logique de RenderDashTeams/computeWeekPts pour rester cohérent avec le sous-onglet NC.
+        function ofBuckets(rows) {
+            var byDay = dashFilter.gran === 'week';
+            var bucketSet = {}, perUser = {}, total = {};
+            for (var i = 0; i < rows.length; i++) {
+                var d = parseOFDateObj(rows[i].date);
+                if (!d || !inSelectedPeriod(d)) continue;
+                var ts = byDay ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : getWeekStart(d).getTime();
+                bucketSet[ts] = true;
+                var u = NettoyerChaine(rows[i].user).toUpperCase();
+                if (!perUser[u]) perUser[u] = {};
+                perUser[u][ts] = (perUser[u][ts] || 0) + 1;
+                total[ts] = (total[ts] || 0) + 1;
+            }
+            var buckets;
+            if (byDay) { buckets = selectedWeekDays(); }
+            else { buckets = []; for (var w in bucketSet) { if (bucketSet.hasOwnProperty(w)) buckets.push(parseInt(w, 10)); } buckets.sort(function (a, b) { return a - b; }); }
+            var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(byDay ? fmtDDMM(new Date(buckets[k])) : "S" + isoWeek(new Date(buckets[k])));
+            return { buckets: buckets, cats: cats, perUser: perUser, total: total };
+        }
+        // Construit les deux graphiques (courbe par user + courbe du total) pour un type d'OF (cree/clot).
+        function hcOFLineCharts(type, color) {
+            var teamArr = (type === 'cree') ? (appData.teamST || []) : (appData.teamIQ || []);
+            var nomMap = {}; for (var t = 0; t < teamArr.length; t++) { var tu = NettoyerChaine(teamArr[t].user).toUpperCase(); if (tu) nomMap[tu] = nomSeul(teamArr[t].nom || teamArr[t].user); }
+            var b = ofBuckets(getOFTeamRows(type));
+            var userId = (type === 'cree') ? 'hcOFCreeUser' : 'hcOFClotUser';
+            var totId = (type === 'cree') ? 'hcOFCreeTotal' : 'hcOFClotTotal';
+            // Courbe par user.
+            var contU = document.getElementById(userId);
+            if (contU) {
+                if (!Object.keys(nomMap).length) {
+                    contU.innerHTML = "<div style='height:280px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>";
+                } else if (typeof Highcharts === 'undefined') {
+                    contU.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>";
+                } else {
+                    var series = [];
+                    for (var u in nomMap) {
+                        if (!nomMap.hasOwnProperty(u)) continue;
+                        var data = [];
+                        for (var k = 0; k < b.buckets.length; k++) { var c = b.perUser[u] && b.perUser[u][b.buckets[k]]; data.push(c || null); }
+                        series.push({ name: nomMap[u], data: data });
+                    }
+                    try {
+                        Highcharts.chart(userId, {
+                            chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
+                            title: { text: null }, credits: { enabled: false },
+                            xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
+                            yAxis: { title: { text: null }, min: 0, allowDecimals: false },
+                            tooltip: { formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.x + ' : ' + this.y + ' OF'; } },
+                            plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
+                            series: series
+                        });
+                    } catch (e) { contU.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
+                }
+            }
+            // Courbe du total (toute l'équipe confondue).
+            var contT = document.getElementById(totId);
+            if (contT) {
+                if (typeof Highcharts === 'undefined') {
+                    contT.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>";
+                } else {
+                    var dataT = []; for (var k2 = 0; k2 < b.buckets.length; k2++) dataT.push(b.total[b.buckets[k2]] || 0);
+                    try {
+                        Highcharts.chart(totId, {
+                            chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
+                            title: { text: null }, credits: { enabled: false }, legend: { enabled: false },
+                            xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
+                            yAxis: { title: { text: null }, min: 0, allowDecimals: false },
+                            tooltip: { formatter: function () { return '<b>' + this.x + '</b><br/>' + this.y + ' OF'; } },
+                            plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 }, color: color } },
+                            series: [{ name: 'Total', data: dataT, color: color }]
+                        });
+                    } catch (e) { contT.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
+                }
+            }
+        }
         function RenderDashResp(elig) {
             var intNom = {}, extNom = {}, rd = appData.roleDesig || [];
             for (var i = 0; i < rd.length; i++) {
@@ -1696,9 +2023,10 @@
             var data = [];
             for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) data.push({ name: nomMap[r], y: agg[r].sum / agg[r].n / dayMs(), ms: agg[r].sum / agg[r].n, ntasks: agg[r].n }); }
             data.sort(function (a, b) { return b.y - a.y; });
-            if (!data.length) { cont.innerHTML = "<div style='height:280px; margin:0; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune donnée</span></div>"; return; }
+            if (!data.length) { cont.innerHTML = "<div style='height:200px; margin:0; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune donnée</span></div>"; return; }
             try {
-                Highcharts.chart(id, {
+                window.hcRespChartRefs = window.hcRespChartRefs || {};
+                window.hcRespChartRefs[id] = Highcharts.chart(id, {
                     chart: { type: 'pie', backgroundColor: 'transparent', spacing: [4, 2, 4, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false }, colors: PIE_COLORS,
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.point.name + '</b><br/>Moy. ' + fmtDHM(this.point.ms) + '<br/>' + Highcharts.numberFormat(this.percentage, 0) + '% &middot; ' + this.point.ntasks + ' tâches'; } },
@@ -1715,7 +2043,7 @@
             var teamDefs = [["ST", appData.teamST], ["TL", appData.teamTL], ["IQ", appData.teamIQ]];
             for (var t = 0; t < teamDefs.length; t++) {
                 var arr = teamDefs[t][1] || [];
-                for (var i = 0; i < arr.length; i++) { var u = NettoyerChaine(arr[i].user).toUpperCase(); if (u) umap[u] = { team: teamDefs[t][0], nom: arr[i].nom || u }; }
+                for (var i = 0; i < arr.length; i++) { var u = NettoyerChaine(arr[i].user).toUpperCase(); if (u) umap[u] = { team: teamDefs[t][0], nom: nomSeul(arr[i].nom || u) }; }
             }
             // Agrégation : durée moyenne par user ET par semaine (ou par JOUR si filtre semaine) de clôture.
             var byDay = dashFilter.gran === 'week';
@@ -1760,11 +2088,13 @@
                 series.push({ name: umap[u].nom || u, data: data });
             }
             try {
-                Highcharts.chart(id, {
-                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
+                window.hcTeamChartRefs = window.hcTeamChartRefs || {};
+                window.hcTeamChartRefs[id] = Highcharts.chart(id, {
+                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false },
                     xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: 'Durée moyenne (jours)' }, min: 0 },
+                    yAxis: { title: { text: null }, min: 0 },
+                    legend: { margin: 4, padding: 4, itemMarginTop: 0, itemMarginBottom: 0 },
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.key + ' : ' + fmtDHM(this.point.ms); } },
                     plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
                     series: series
@@ -1829,7 +2159,7 @@
                     + "<td>" + escapeHtml(cmt) + "</td>"
                     + "</tr>";
             }
-            cont.innerHTML = "<table class='data-table'><thead><tr>"
+            cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'><table class='data-table'><thead><tr>"
                 + "<th width='3%'></th>"
                 + listeTh('avis', 'Avis', "width='7%'")
                 + listeTh('desc', 'Descriptif', "")
@@ -1840,9 +2170,10 @@
                 + listeTh('cmt', 'Commentaire', "width='30%'")
                 + "</tr></thead><tbody>"
                 + (rows || "<tr><td colspan='8' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
-                + "</tbody></table>";
+                + "</tbody></table></div>";
+            AjusterHauteurTables();
         }
-        var listeSort = { col: null, dir: 1 };   // tri du tableau Extract NC (col + sens)
+        var listeSort = { col: 'end', dir: -1 };   // tri par défaut : date de clôture décroissante
         function listeTh(col, label, w) {
             var arrow = (listeSort.col === col) ? (listeSort.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
             return "<th " + w + " style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortListe('" + col + "')\" title='Trier'>" + label + arrow + "</th>";
@@ -1875,6 +2206,18 @@
             c1.style.height = ""; c2.style.height = "";
             var h = Math.max(c1.offsetHeight, c2.offsetHeight);
             c1.style.height = h + "px"; c2.style.height = h + "px";
+        }
+        // Les zones scrollables (.tbl-scroll) remplissent jusqu'à ~24px du bas de la fenêtre (même espace bas partout).
+        function AjusterHauteurTables() {
+            var boxes = document.querySelectorAll('.tbl-scroll');
+            for (var i = 0; i < boxes.length; i++) {
+                var r = boxes[i].getBoundingClientRect();
+                if (r.top === 0 && r.height === 0) continue;   // masqué
+                var h = window.innerHeight - r.top - 24;
+                if (h < 150) h = 150;
+                var hpx = h + "px";
+                if (boxes[i].style.maxHeight !== hpx) boxes[i].style.maxHeight = hpx;
+            }
         }
         function ResetFiltres() {
             document.getElementById('filtreDateDebut').value = "";
@@ -2109,9 +2452,17 @@
                 };
             }
         };
+        var resizeTimer = null;
         window.onresize = function () {
-            var pg = document.getElementById('pageAnalyse');
-            if (pg && pg.className.indexOf('active') !== -1) EgaliserHauteursExtraction();
+            // Anti-rebond : un seul recalcul après la fin du redimensionnement, pour éviter la boucle
+            // resize -> recalcul de hauteur -> apparition/disparition de scrollbar -> nouveau resize -> ...
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function () {
+                var pg = document.getElementById('pageAnalyse');
+                if (pg && pg.className.indexOf('active') !== -1) { EgaliserHauteursExtraction(); AjusterHauteurTables(); }
+                var pd = document.getElementById('pageDashboard');
+                if (pd && pd.className.indexOf('active') !== -1) RenderActiveDashboardSub();
+            }, 150);
         };
     </script>
 </head>
@@ -2155,7 +2506,7 @@
                     </div>
                     <p id="loginErrorTitle" class="login-title-ko">Acc&egrave;s refus&eacute;</p>
                     <p id="loginError" class="login-status" style="padding:0 40px;"></p>
-                    <div class="login-contact">Pour toute demande d'acc&egrave;s, contactez<br><span class="lc-name">Adrien Truc</span><br><span class="lc-mail">adrientruc.pro@gmail.com</span></div>
+                    <div class="login-contact">Pour toute demande d'acc&egrave;s, contactez<br><span class="lc-name">Adrien Truc</span><br><span class="lc-mail">adrien.a.truc.external@airbus.com</span></div>
                 </div>
             </div>
         </div></div>
@@ -2182,9 +2533,13 @@
 
             <!-- PAGE TABLEAU DE BORD -->
             <div id="pageDashboard" class="page active">
-                <div style="overflow:hidden; margin-bottom:12px;">
-                    <span id="dashFilterBar" style="float:right; margin-top:6px;"></span>
+                <div style="border-bottom:2px solid #e2e8f0; margin:0 0 18px 0; overflow:hidden;">
+                    <button id="dashSubtabNC" class="subtab active" onclick="ShowDashSub('NC')">Non-conformité</button>
+                    <button id="dashSubtabOF" class="subtab" onclick="ShowDashSub('OF')">Ordre de Fabrication</button>
+                    <span id="dashFilterBar" style="float:right; margin:4px 0;"></span>
                 </div>
+
+                <div id="dashSubNC">
 
                 <div id="dashEmpty" class="card" style="display:none;">
                     <p style="color:#475569; margin:0 0 14px 0;">Aucune NC analysable pour l'instant. Importe un export QM13 puis classe les rôles <b>ST</b> et <b>IQ</b> pour que les NC deviennent analysables.</p>
@@ -2194,13 +2549,13 @@
                 <div id="dashCharts" style="display:none;">
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                         <div style="display:table-cell; width:40%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div id="cardEvo3w" class="card dashEqual" style="margin-bottom:0; box-sizing:border-box;">
+                            <div id="cardEvo3w" class="card dashEqRow1" style="margin-bottom:0; box-sizing:border-box;">
                                 <h3>Évolution sur les 3 dernières semaines</h3>
                                 <div id="dash3weeks"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:60%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div id="cardEvoWeek" class="card dashEqual" style="margin-bottom:0; box-sizing:border-box;">
+                            <div id="cardEvoWeek" class="card dashEqRow1" style="margin-bottom:0; box-sizing:border-box;">
                                 <h3>Évolution du traitement par semaine</h3>
                                 <div id="dashWeeks"></div>
                             </div>
@@ -2208,39 +2563,76 @@
                     </div>
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                         <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqual" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div class="card dashEqRow2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                 <h3 style="margin:0 0 14px 0;">Durée moyenne - Responsables internes</h3>
-                                <div id="hcRespInt" style="width:100%; height:280px;"></div>
+                                <div id="hcRespInt" style="width:100%; height:200px;"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqual" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div class="card dashEqRow2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                 <h3 style="margin:0 0 14px 0;">Durée moyenne - Responsables externes</h3>
-                                <div id="hcRespExt" style="width:100%; height:280px;"></div>
+                                <div id="hcRespExt" style="width:100%; height:200px;"></div>
                             </div>
                         </div>
                     </div>
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                         <div style="display:table-cell; width:33.33%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqual" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div class="card dashEqRow3" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                 <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe ST</h3>
                                 <div id="hcTeamST" style="width:100%; height:280px;"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:33.33%; padding:0 8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqual" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div class="card dashEqRow3" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                 <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe TL</h3>
                                 <div id="hcTeamTL" style="width:100%; height:280px;"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:33.33%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqual" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div class="card dashEqRow3" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                 <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe IQ</h3>
                                 <div id="hcTeamIQ" style="width:100%; height:280px;"></div>
                             </div>
                         </div>
                     </div>
                 </div>
+                </div><!-- /dashSubNC -->
+
+                <div id="dashSubOF" style="display:none;">
+                    <div id="dashOFEmpty" class="card" style="display:none;">
+                        <p style="color:#475569; margin:0;">Aucun OF analysable pour l'instant. Lance une extraction depuis l'onglet Extraction (Ordre de Fabrication).</p>
+                    </div>
+                    <div id="dashOFCharts" style="display:none;">
+                        <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
+                            <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                                <div class="card dashEqualOF" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                    <h3 style="margin:0 0 12px 0;">OF créés - Équipe ST</h3>
+                                    <div id="hcOFCreeUser" style="width:100%; height:280px;"></div>
+                                </div>
+                            </div>
+                            <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                                <div class="card dashEqualOF" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                    <h3 style="margin:0 0 12px 0;">Total du nombre OF créés</h3>
+                                    <div id="hcOFCreeTotal" style="width:100%; height:280px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:table; width:100%; table-layout:fixed;">
+                            <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                                <div class="card dashEqualOF2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                    <h3 style="margin:0 0 12px 0;">OF clôturés - Équipe IQ</h3>
+                                    <div id="hcOFClotUser" style="width:100%; height:280px;"></div>
+                                </div>
+                            </div>
+                            <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                                <div class="card dashEqualOF2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                    <h3 style="margin:0 0 12px 0;">Total du nombre OF clôturés</h3>
+                                    <div id="hcOFClotTotal" style="width:100%; height:280px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- /dashSubOF -->
             </div>
 
             <!-- PAGE ANALYSE NC -->
