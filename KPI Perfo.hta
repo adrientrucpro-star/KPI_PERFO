@@ -1648,11 +1648,32 @@
                 + "</div>";
         }
         // Un badge par semaine : nombre de NC + traitement global + traitement équipe.
+        // Registre des graphiques Highcharts (par id de conteneur). On crée le graphique au 1er rendu,
+        // puis on MET À JOUR les données (chart.update) au lieu de tout recréer -> changement de filtre quasi instantané.
+        window.hcRefs = window.hcRefs || {};
+        function hcDraw(id, config) {
+            var el = document.getElementById(id);
+            if (!el) return null;
+            var ch = window.hcRefs[id];
+            if (ch && ch.renderTo === el && ch.series) {
+                // mise à jour rapide (oneToOne) ; reflow() ne redessine que si le conteneur a changé de taille.
+                try { ch.update(config, true, true); try { ch.reflow(); } catch (e3) {} return ch; }
+                catch (e) { try { ch.destroy(); } catch (e2) {} window.hcRefs[id] = null; }
+            }
+            window.hcRefs[id] = Highcharts.chart(id, config);
+            return window.hcRefs[id];
+        }
+        // Détruit le graphique d'un conteneur (avant d'y mettre un message "Aucune donnée") pour éviter un ref orphelin.
+        function hcDestroy(id) {
+            if (window.hcRefs[id]) { try { window.hcRefs[id].destroy(); } catch (e) {} window.hcRefs[id] = null; }
+        }
         // Rendu du graphique d'évolution : Highcharts si dispo, sinon repli SVG fait-main.
         function renderWeeksLineChart(pts) {
             var cont = document.getElementById('dashWeeks');
             if (typeof Highcharts === 'undefined') { cont.innerHTML = buildWeeksLine(pts); return; }
-            cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:" + dashRow1Height + "px;'></div>";
+            var hc = document.getElementById('hcWeeks');
+            if (!hc) { cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:" + dashRow1Height + "px;'></div>"; }
+            else { hc.style.height = dashRow1Height + "px"; }
             var dMs = dayMs(), cats = [], gData = [], tData = [];
             for (var i = 0; i < pts.length; i++) {
                 cats.push(pts[i].label);
@@ -1660,7 +1681,7 @@
                 tData.push(pts[i].t == null ? null : { y: Math.round(pts[i].t / dMs * 100) / 100, ms: pts[i].t });
             }
             try {
-                window.hcWeeksChart = Highcharts.chart('hcWeeks', {
+                window.hcWeeksChart = hcDraw('hcWeeks', {
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null },
                     credits: { enabled: false },
@@ -1955,6 +1976,7 @@
             var contU = document.getElementById(userId);
             if (contU) {
                 if (!Object.keys(nomMap).length) {
+                    hcDestroy(userId);
                     contU.innerHTML = "<div style='height:280px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>";
                 } else if (typeof Highcharts === 'undefined') {
                     contU.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>";
@@ -1967,7 +1989,7 @@
                         series.push({ name: nomMap[u], data: data });
                     }
                     try {
-                        Highcharts.chart(userId, {
+                        hcDraw(userId, {
                             chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                             title: { text: null }, credits: { enabled: false },
                             xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
@@ -1987,7 +2009,7 @@
                 } else {
                     var dataT = []; for (var k2 = 0; k2 < b.buckets.length; k2++) dataT.push(b.total[b.buckets[k2]] || 0);
                     try {
-                        Highcharts.chart(totId, {
+                        hcDraw(totId, {
                             chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                             title: { text: null }, credits: { enabled: false }, legend: { enabled: false },
                             xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
@@ -2027,10 +2049,10 @@
             var data = [];
             for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) data.push({ name: nomMap[r], y: agg[r].sum / agg[r].n / dayMs(), ms: agg[r].sum / agg[r].n, ntasks: agg[r].n }); }
             data.sort(function (a, b) { return b.y - a.y; });
-            if (!data.length) { cont.innerHTML = "<div style='height:200px; margin:0; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune donnée</span></div>"; return; }
+            if (!data.length) { hcDestroy(id); cont.innerHTML = "<div style='height:200px; margin:0; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune donnée</span></div>"; return; }
             try {
                 window.hcRespChartRefs = window.hcRespChartRefs || {};
-                window.hcRespChartRefs[id] = Highcharts.chart(id, {
+                window.hcRespChartRefs[id] = hcDraw(id, {
                     chart: { type: 'pie', backgroundColor: 'transparent', spacing: [4, 2, 4, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false }, colors: PIE_COLORS,
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.point.name + '</b><br/>Moy. ' + fmtDHM(this.point.ms) + '<br/>' + Highcharts.numberFormat(this.percentage, 0) + '% &middot; ' + this.point.ntasks + ' tâches'; } },
@@ -2080,7 +2102,7 @@
         // Graphique courbes : une courbe par user (durée moyenne), abscisse = semaines.
         function hcTeamChart(id, users, umap, weeks, cats, agg) {
             var cont = document.getElementById(id); if (!cont) return;
-            if (!users.length) { cont.innerHTML = "<div style='height:280px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
+            if (!users.length) { hcDestroy(id); cont.innerHTML = "<div style='height:280px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
             if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
             var dMs = dayMs(), series = [];
             for (var i = 0; i < users.length; i++) {
@@ -2093,7 +2115,7 @@
             }
             try {
                 window.hcTeamChartRefs = window.hcTeamChartRefs || {};
-                window.hcTeamChartRefs[id] = Highcharts.chart(id, {
+                window.hcTeamChartRefs[id] = hcDraw(id, {
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false },
                     xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
