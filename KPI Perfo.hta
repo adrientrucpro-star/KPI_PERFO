@@ -648,20 +648,27 @@
         function EntrerApplication() {
             document.getElementById("loginScreen").style.display = "none";
             document.getElementById("mainApp").style.display = "block";
-            setTimeout(MaximiserFenetre, 40);
             // Recharge le dernier extract s'il existe (la date s'affiche dans le cadre vert).
             if (appData.rows && appData.rows.length) {
                 RecomputeAll();
             }
             PrefillExtractDates();
-            ShowPage("pageDashboard");   // rendu unique ; la maximisation déclenche un recalcul via window.onresize si besoin.
+            // Affiche la page SANS rendre les graphiques, lance la maximisation, puis rend le dashboard
+            // UNE seule fois une fois la fenêtre stabilisée (évite un rendu à la mauvaise taille avant maximisation).
+            dashSuppressLaunchResize = true;
+            ShowPage("pageDashboard", true);
+            setTimeout(MaximiserFenetre, 30);
+            setTimeout(function () { dashSuppressLaunchResize = false; RenderDashboard(); }, 200);
         }
+        var dashSuppressLaunchResize = false;
 
     // ==========================================================
     // NAVIGATION
     // ==========================================================
         var PAGES = ["pageDashboard", "pageAnalyse", "pageParcours", "pageParametres"];
-        function ShowPage(id) {
+        // skipRender=true : affiche la page sans rendre son contenu (utilisé au lancement pour ne rendre
+        // le dashboard qu'UNE fois, après la maximisation de la fenêtre, au lieu d'avant ET après).
+        function ShowPage(id, skipRender) {
             for (var i = 0; i < PAGES.length; i++) {
                 var sfx = PAGES[i].substring(4);
                 var pg = document.getElementById(PAGES[i]); if (pg) pg.className = "page";
@@ -671,6 +678,7 @@
             var pageEl = document.getElementById(id); if (pageEl) pageEl.className = "page active";
             var navEl = document.getElementById("nav" + sfx2); if (navEl) navEl.className = "nav-item active";
             ScrollContentTop();   // remet le scroll à zéro AVANT le rendu (mesures de hauteur fiables)
+            if (skipRender) return;
             if (id === "pageParametres") RenderParametres();
             if (id === "pageDashboard") RenderDashboard();
             if (id === "pageAnalyse") { RenderListe(); EgaliserHauteursExtraction(); }
@@ -2482,6 +2490,7 @@
             // resize -> recalcul de hauteur -> apparition/disparition de scrollbar -> nouveau resize -> ...
             if (resizeTimer) clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
+                if (dashSuppressLaunchResize) return;   // ignore le resize dû à la maximisation au lancement (rendu déjà planifié)
                 var pg = document.getElementById('pageAnalyse');
                 if (pg && pg.className.indexOf('active') !== -1) { EgaliserHauteursExtraction(); AjusterHauteurTables(); }
                 var pd = document.getElementById('pageDashboard');
