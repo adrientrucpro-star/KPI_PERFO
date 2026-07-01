@@ -391,6 +391,11 @@
         Function VBS_ExtractOFClot(strLow, strHigh)   ' OFs clôturés (IQ)
             VBS_ExtractOFClot = VBS_ExtractCOOIS("LAROCHE_IQ", "S_ISTEN", strLow, strHigh, "EXPORT_IQ.txt", True)
         End Function
+        ' PLACEHOLDER : extraction des Interventions Cards. À finaliser avec le script SAP enregistré (transaction,
+        ' variante, champs de dates, export EXPORT_IC.txt). Doit produire %APPDATA%\KPI_Perfo\EXPORT_IC.txt.
+        Function VBS_ExtractIC(strLow, strHigh)
+            VBS_ExtractIC = "ERREUR : extraction IC non encore configurée (fournir le script SAP pour la finaliser)."
+        End Function
     </script>
 
     <script language="javascript">
@@ -470,6 +475,8 @@
             if (!appData.ofCree) appData.ofCree = [];        // OF créés (EXPORT_ST) : [{of,user,date,heure}]
             if (!appData.ofClot) appData.ofClot = [];        // OF clôturés (EXPORT_IQ)
             if (!appData.lastOFImport) appData.lastOFImport = "";   // date/heure de la dernière extraction OF
+            if (!appData.icRows) appData.icRows = [];        // Interventions Cards : [{ic,user,dfa,hfa,dc,hc}]
+            if (!appData.lastICImport) appData.lastICImport = "";
             if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
             if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
             if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
@@ -508,6 +515,8 @@
                     ofCree: appData.ofCree || [],
                     ofClot: appData.ofClot || [],
                     lastOFImport: appData.lastOFImport || "",
+                    icRows: appData.icRows || [],
+                    lastICImport: appData.lastICImport || "",
                     cfg: appData.cfg || {},
                     calc: appData.calc || {},
                     lastImport: appData.lastImport || ""
@@ -725,11 +734,12 @@
             document.getElementById('custom-datepicker').style.display = 'none';
             if (dpInput) validateDatePair(dpInput.id);
             if (dpInput && dpInput.getAttribute('data-filter')) {
-                if (dpInput.getAttribute('data-filter') === 'of') RenderOFAll(); else RenderListe();
+                var df = dpInput.getAttribute('data-filter');
+                if (df === 'of') RenderOFAll(); else if (df === 'ic') RenderICTable(); else RenderListe();
             }
         }
         // Paires de dates (du, au) : la date "à partir du" ne doit pas dépasser "jusqu'au".
-        var DATE_PAIRS = [['extractDate', 'extractDateFin'], ['filtreDateDebut', 'filtreDateFin'], ['ofDateDebut', 'ofDateFin'], ['ofFiltreDateDebut', 'ofFiltreDateFin']];
+        var DATE_PAIRS = [['extractDate', 'extractDateFin'], ['filtreDateDebut', 'filtreDateFin'], ['ofDateDebut', 'ofDateFin'], ['ofFiltreDateDebut', 'ofFiltreDateFin'], ['icDateDebut', 'icDateFin'], ['icFiltreDateDebut', 'icFiltreDateFin']];
         function validateDatePair(id) {
             for (var i = 0; i < DATE_PAIRS.length; i++) {
                 if (DATE_PAIRS[i][0] === id || DATE_PAIRS[i][1] === id) {
@@ -829,17 +839,16 @@
         // ======================= ORDRES DE FABRICATION (OF) =======================
         // Bascule entre les sous-onglets "Non-conformité" et "Ordre de Fabrication".
         function ShowExtractSub(s) {
-            var nc = document.getElementById('extractSubNC'), of = document.getElementById('extractSubOF');
-            var tn = document.getElementById('subtabNC'), to = document.getElementById('subtabOF');
-            if (s === 'OF') {
-                nc.style.display = "none"; of.style.display = "block";
-                tn.className = "subtab"; to.className = "subtab active";
-                RenderOFTable('cree'); RenderOFTable('clot');
-            } else {
-                of.style.display = "none"; nc.style.display = "block";
-                to.className = "subtab"; tn.className = "subtab active";
-                RenderListe(); EgaliserHauteursExtraction();
+            var subs = { NC: 'extractSubNC', OF: 'extractSubOF', IC: 'extractSubIC' };
+            var tabs = { NC: 'subtabNC', OF: 'subtabOF', IC: 'subtabIC' };
+            for (var kk in subs) {
+                if (!subs.hasOwnProperty(kk)) continue;
+                var pane = document.getElementById(subs[kk]); if (pane) pane.style.display = (kk === s) ? "block" : "none";
+                var tab = document.getElementById(tabs[kk]); if (tab) tab.className = (kk === s) ? "subtab active" : "subtab";
             }
+            if (s === 'OF') { RenderOFTable('cree'); RenderOFTable('clot'); }
+            else if (s === 'IC') { RenderICTable(); }
+            else { RenderListe(); EgaliserHauteursExtraction(); }
         }
         // Parse EXPORT_ST / EXPORT_IQ : colonnes Ordre de Fabrication, User, Date, Heure (tabulé, ANSI).
         function ParseOF(content) {
@@ -962,6 +971,119 @@
             var ids = ['ofFiltreDateDebut', 'ofFiltreDateFin', 'ofFiltreRecherche'];
             for (var i = 0; i < ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ""; }
             RenderOFAll();
+        }
+
+        // ======================= INTERVENTIONS CARDS (IC) =======================
+        // Une IC est "en retard" si sa clôture (date+heure) est postérieure à sa fin autorisée (date+heure).
+        function isICLate(r) {
+            var fin = parseDT(r.dfa, r.hfa), clo = parseDT(r.dc, r.hc);
+            return (fin && clo) ? (clo > fin) : false;
+        }
+        // Parse EXPORT_IC : IC, User, Date fin autorisée, Heure fin autorisée, Date clôture, Heure clôture (tabulé, ANSI).
+        function ParseIC(content) {
+            var lines = content.split(/\r?\n/), out = [];
+            for (var i = 0; i < lines.length; i++) {
+                var raw = lines[i];
+                if (raw.indexOf("\t") === -1) continue;
+                var parts = raw.split("\t");
+                while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
+                if (parts.length < 6) continue;
+                var ic = NettoyerChaine(parts[0]);
+                if (!/^\d{4,}$/.test(ic)) continue;   // 1re colonne = n° d'IC
+                out.push({ ic: ic, user: NettoyerChaine(parts[1]), dfa: NettoyerChaine(parts[2]), hfa: NettoyerChaine(parts[3]), dc: NettoyerChaine(parts[4]), hc: NettoyerChaine(parts[5]) });
+            }
+            return out;
+        }
+        function LireIC(path) {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) { AfficherErreur("Fichier introuvable :\n" + path); return; }
+                var ts = fso.OpenTextFile(path, 1, false, 0); var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
+                var data = ParseIC(content);
+                var cur = appData.icRows || [], seen = {};
+                for (var i = 0; i < cur.length; i++) seen[cur[i].ic] = true;
+                for (var j = 0; j < data.length; j++) { if (!seen[data[j].ic]) { cur.push(data[j]); seen[data[j].ic] = true; } }
+                appData.icRows = cur;
+                appData.lastICImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
+                SaveData();
+                RenderICTable();
+                InvalidateDash();
+                if (document.getElementById('dashSubIC') && document.getElementById('dashSubIC').style.display === 'block') RenderDashboardIC();
+                if (!data.length) alert("Extraction terminée, mais aucune IC exploitable détectée (format inattendu ?).");
+            } catch (e) { AfficherErreur("Erreur de lecture IC : " + e.message); }
+        }
+        function LancerExtractIC() {
+            var d1 = NettoyerChaine(document.getElementById('icDateDebut').value).replace(/\//g, '.');
+            var d2 = NettoyerChaine(document.getElementById('icDateFin').value).replace(/\//g, '.');
+            if (!d1 || !d2) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
+            var btn = document.getElementById('btnICExtract');
+            if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
+            setTimeout(function () {
+                try {
+                    var res = VBS_ExtractIC(d1, d2);
+                    if (res && res.indexOf("ERREUR") === -1) {
+                        var sh = new ActiveXObject("WScript.Shell");
+                        LireIC(sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_IC.txt");
+                    } else { AfficherErreur(res || "Erreur inconnue lors de l'extraction IC."); }
+                } catch (e) { AfficherErreur("Erreur : " + e.message); }
+                if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Extract IC"; }
+            }, 80);
+        }
+        var icSort = { col: null, dir: 1 };
+        function icTh(col, label, w) {
+            var arrow = (icSort.col === col) ? (icSort.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
+            return "<th width='" + w + "' style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortIC('" + col + "')\" title='Trier'>" + label + arrow + "</th>";
+        }
+        function SortIC(col) { if (icSort.col === col) icSort.dir = -icSort.dir; else { icSort.col = col; icSort.dir = 1; } RenderICTable(); }
+        function ResetICFiltres() {
+            var ids = ['icFiltreDateDebut', 'icFiltreDateFin', 'icFiltreRecherche'];
+            for (var i = 0; i < ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ""; }
+            RenderICTable();
+        }
+        function RenderICTable() {
+            var cont = document.getElementById('icTable'); if (!cont) return;
+            var data = (appData.icRows || []).slice(0);
+            // Filtres : plage de dates sur la date de CLÔTURE + recherche (n° IC ou user).
+            var fE1 = document.getElementById('icFiltreDateDebut'), fE2 = document.getElementById('icFiltreDateFin'), fER = document.getElementById('icFiltreRecherche');
+            var nd = fE1 ? dateToNum(fE1.value) : null, nf = fE2 ? dateToNum(fE2.value) : null;
+            var fr = fER ? NettoyerChaine(fER.value).toUpperCase() : "";
+            if (nd || nf || fr) {
+                var keep = [];
+                for (var k = 0; k < data.length; k++) {
+                    var row = data[k];
+                    if (nd || nf) { var rn = dateToNum(row.dc); if (rn != null) { if (nd && rn < nd) continue; if (nf && rn > nf) continue; } }
+                    if (fr && (NettoyerChaine(row.ic) + " " + NettoyerChaine(row.user)).toUpperCase().indexOf(fr) === -1) continue;
+                    keep.push(row);
+                }
+                data = keep;
+            }
+            if (!data.length) { cont.innerHTML = "<div class='msg-box msg-info'>Aucune extraction réalisée.</div>"; return; }
+            var sc = icSort.col, sd = icSort.dir;
+            if (sc) {
+                data.sort(function (a, b) {
+                    var va = (sc === 'dfa' || sc === 'dc') ? (dateToNum(a[sc]) || 0) : NettoyerChaine(a[sc]).toUpperCase();
+                    var vb = (sc === 'dfa' || sc === 'dc') ? (dateToNum(b[sc]) || 0) : NettoyerChaine(b[sc]).toUpperCase();
+                    return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
+                });
+            }
+            var rows = "";
+            for (var i = 0; i < data.length; i++) {
+                var r = data[i], late = isICLate(r), lateSt = late ? " color:#b91c1c; font-weight:700;" : "";
+                rows += "<tr" + (late ? " style='background:#fef2f2;'" : "") + ">"
+                    + "<td style='text-align:center; font-weight:700;'>" + escapeHtml(r.ic) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(r.user) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(fmtOFDate(r.dfa)) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(r.hfa) + "</td>"
+                    + "<td style='text-align:center;" + lateSt + "'>" + escapeHtml(fmtOFDate(r.dc)) + "</td>"
+                    + "<td style='text-align:center;" + lateSt + "'>" + escapeHtml(r.hc) + "</td></tr>";
+            }
+            cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
+                + "<table class='data-table'><thead><tr>"
+                + icTh('ic', 'Numéro IC', '15%') + icTh('user', 'User', '15%')
+                + icTh('dfa', 'Date fin autorisée', '18%') + icTh('hfa', 'Heure fin autorisée', '16%')
+                + icTh('dc', 'Date clôture', '18%') + icTh('hc', 'Heure clôture', '18%')
+                + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+            AjusterHauteurTables();
         }
         // "JJ.MM.AAAA" ou "JJ/MM/AAAA" -> entier AAAAMMJJ (comparable), ou null.
         // Normalise une date d'export OF (JJ.MM.AAAA, JJ-MM-AAAA…) au format JJ/MM/AAAA.
@@ -1782,6 +1904,8 @@
             for (var i = 0; i < ncList.length; i++) { var nc = ncList[i]; if (nc.eligible && nc.end) out.push(nc.end); }
             var ofRows = getOFTeamRows('cree').concat(getOFTeamRows('clot'));
             for (var j = 0; j < ofRows.length; j++) { var d = parseOFDateObj(ofRows[j].date); if (d) out.push(d); }
+            var ic = appData.icRows || [];
+            for (var k = 0; k < ic.length; k++) { var dic = parseDT(ic[k].dc, ic[k].hc); if (dic) out.push(dic); }   // dates de clôture IC
             return out;
         }
         function dashYearsList() {
@@ -1892,32 +2016,32 @@
         // ==========================================================
         // Cache de rendu : les graphiques restent dans le DOM quand on quitte l'onglet (juste masqués).
         // On ne les recrée que si invalidés (données ou filtre modifiés). Évite la latence au retour sur le dashboard.
-        var dashValid = { NC: false, OF: false };
-        function InvalidateDash() { dashValid.NC = false; dashValid.OF = false; }
+        var dashValid = { NC: false, OF: false, IC: false };
+        function InvalidateDash() { dashValid.NC = false; dashValid.OF = false; dashValid.IC = false; }
+        function activeDashSub() {
+            if (document.getElementById('dashSubOF') && document.getElementById('dashSubOF').style.display === 'block') return 'OF';
+            if (document.getElementById('dashSubIC') && document.getElementById('dashSubIC').style.display === 'block') return 'IC';
+            return 'NC';
+        }
+        function RenderDashSub(sub) {
+            if (sub === 'OF') RenderDashboardOF();
+            else if (sub === 'IC') RenderDashboardIC();
+            else RenderDashboard();
+        }
         function ShowDashSub(s) {
-            var nc = document.getElementById('dashSubNC'), of = document.getElementById('dashSubOF');
-            var tn = document.getElementById('dashSubtabNC'), to = document.getElementById('dashSubtabOF');
-            if (s === 'OF') {
-                nc.style.display = "none"; of.style.display = "block";
-                tn.className = "subtab"; to.className = "subtab active";
-                if (!dashValid.OF) RenderDashboardOF();
-            } else {
-                of.style.display = "none"; nc.style.display = "block";
-                to.className = "subtab"; tn.className = "subtab active";
-                if (!dashValid.NC) RenderDashboard();
+            var subs = { NC: 'dashSubNC', OF: 'dashSubOF', IC: 'dashSubIC' };
+            var tabs = { NC: 'dashSubtabNC', OF: 'dashSubtabOF', IC: 'dashSubtabIC' };
+            for (var kk in subs) {
+                if (!subs.hasOwnProperty(kk)) continue;
+                var pane = document.getElementById(subs[kk]); if (pane) pane.style.display = (kk === s) ? "block" : "none";
+                var tab = document.getElementById(tabs[kk]); if (tab) tab.className = (kk === s) ? "subtab active" : "subtab";
             }
+            if (!dashValid[s]) RenderDashSub(s);
         }
         // Re-rend le sous-onglet du dashboard actuellement visible (filtre commun, resize) — force le re-rendu.
-        function RenderActiveDashboardSub() {
-            var of = document.getElementById('dashSubOF');
-            if (of && of.style.display === 'block') RenderDashboardOF(); else RenderDashboard();
-        }
+        function RenderActiveDashboardSub() { RenderDashSub(activeDashSub()); }
         // Rend le sous-onglet visible UNIQUEMENT s'il est invalidé (utilisé en arrivant sur l'onglet Tableau de bord).
-        function RenderDashIfNeeded() {
-            var of = document.getElementById('dashSubOF');
-            if (of && of.style.display === 'block') { if (!dashValid.OF) RenderDashboardOF(); }
-            else { if (!dashValid.NC) RenderDashboard(); }
-        }
+        function RenderDashIfNeeded() { var s = activeDashSub(); if (!dashValid[s]) RenderDashSub(s); }
         // "JJ.MM.AAAA" (ou variantes de séparateur) -> objet Date, ou null.
         function parseOFDateObj(s) {
             var p = NettoyerChaine(s).split(/[.\/\-]/); if (p.length < 3) return null;
@@ -2064,6 +2188,124 @@
                 }
             }
         }
+
+        // ================= TABLEAU DE BORD - sous-onglet INTERVENTIONS CARDS =================
+        var icHeightCorrection = 0, icFitTries = 0, icLastH = -1;
+        function RenderDashboardIC(isRetry) {
+            if (!isRetry) {
+                icFitTries = 0;
+                var _ch = document.getElementById('content') ? document.getElementById('content').clientHeight : 0;
+                if (_ch !== icLastH) { icHeightCorrection = 0; icLastH = _ch; }
+            }
+            var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
+            if (!(appData.icRows && appData.icRows.length)) {
+                document.getElementById('dashICEmpty').style.display = "block";
+                document.getElementById('dashICCharts').style.display = "none";
+                dashValid.IC = true; return;
+            }
+            document.getElementById('dashICEmpty').style.display = "none";
+            document.getElementById('dashICCharts').style.display = "block";
+            var rowH = ComputeICRowHeight() - icHeightCorrection;
+            if (rowH < 150) rowH = 150;
+            var ids = ['hcICTotal', 'hcICST', 'hcICTL', 'hcICIQ'];
+            for (var z = 0; z < ids.length; z++) { var e = document.getElementById(ids[z]); if (e) e.style.height = rowH + "px"; }
+            hcICTotalChart('hcICTotal', getICLateAll(), '#dc2626');
+            hcICUserChart('hcICST', getICLateTeamRows('ST'), teamNomMap('ST'));
+            hcICUserChart('hcICTL', getICLateTeamRows('TL'), teamNomMap('TL'));
+            hcICUserChart('hcICIQ', getICLateTeamRows('IQ'), teamNomMap('IQ'));
+            EgaliserCards(document.querySelectorAll('.dashEqualIC'));
+            var contentEl = document.getElementById('content');
+            var lastCard = document.getElementById('hcICST') ? document.getElementById('hcICST').parentNode : null;
+            if (contentEl && lastCard) {
+                var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
+                if (Math.abs(gap) > 4 && icFitTries < 12) { icFitTries++; icHeightCorrection -= Math.round(gap / 2); RenderDashboardIC(true); return; }
+            }
+            dashValid.IC = true;
+        }
+        function ComputeICRowHeight() {
+            var avail = ComputeAvailHeight('dashICCharts');
+            if (avail == null) return 280;
+            var forCharts = avail - (70 * 2 + 20);   // 2 lignes (Total puis ST/TL/IQ)
+            var row = Math.round(forCharts / 2);
+            if (row < 200) row = 200;
+            return row;
+        }
+        function teamNomMap(team) {
+            var arr = (team === 'ST') ? (appData.teamST || []) : (team === 'TL') ? (appData.teamTL || []) : (appData.teamIQ || []);
+            var m = {};
+            for (var t = 0; t < arr.length; t++) { var tu = NettoyerChaine(arr[t].user).toUpperCase(); if (tu) m[tu] = nomSeul(arr[t].nom || arr[t].user); }
+            return m;
+        }
+        function getICLateTeamRows(team) {
+            var m = teamNomMap(team), out = [], all = appData.icRows || [];
+            for (var i = 0; i < all.length; i++) { if (isICLate(all[i]) && m[NettoyerChaine(all[i].user).toUpperCase()]) out.push(all[i]); }
+            return out;
+        }
+        function getICLateAll() {
+            var out = [], all = appData.icRows || [];
+            for (var i = 0; i < all.length; i++) { if (isICLate(all[i])) out.push(all[i]); }
+            return out;
+        }
+        // Nb d'IC en retard par semaine (ou jour si filtre semaine) de CLÔTURE, par user + total, sur la période choisie.
+        function icLateBuckets(rows) {
+            var byDay = dashFilter.gran === 'week';
+            var bucketSet = {}, perUser = {}, total = {};
+            for (var i = 0; i < rows.length; i++) {
+                var d = parseDT(rows[i].dc, rows[i].hc);
+                if (!d || !inSelectedPeriod(d)) continue;
+                var ts = byDay ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : getWeekStart(d).getTime();
+                bucketSet[ts] = true;
+                var u = NettoyerChaine(rows[i].user).toUpperCase();
+                if (!perUser[u]) perUser[u] = {};
+                perUser[u][ts] = (perUser[u][ts] || 0) + 1;
+                total[ts] = (total[ts] || 0) + 1;
+            }
+            var buckets;
+            if (byDay) { buckets = selectedWeekDays(); }
+            else { buckets = []; for (var w in bucketSet) { if (bucketSet.hasOwnProperty(w)) buckets.push(parseInt(w, 10)); } buckets.sort(function (a, b) { return a - b; }); }
+            var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(byDay ? fmtDDMM(new Date(buckets[k])) : "S" + isoWeek(new Date(buckets[k])));
+            return { buckets: buckets, cats: cats, perUser: perUser, total: total };
+        }
+        function hcICUserChart(id, lateRows, nomMap) {
+            var cont = document.getElementById(id); if (!cont) return;
+            if (!Object.keys(nomMap).length) { hcDestroy(id); cont.innerHTML = "<div style='height:280px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
+            if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
+            var b = icLateBuckets(lateRows), series = [];
+            for (var u in nomMap) {
+                if (!nomMap.hasOwnProperty(u)) continue;
+                var data = [];
+                for (var k = 0; k < b.buckets.length; k++) { var c = b.perUser[u] && b.perUser[u][b.buckets[k]]; data.push(c || null); }
+                series.push({ name: nomMap[u], data: data });
+            }
+            try {
+                hcDraw(id, {
+                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
+                    title: { text: null }, credits: { enabled: false },
+                    xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
+                    yAxis: { title: { text: null }, min: 0, allowDecimals: false },
+                    tooltip: { formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.x + ' : ' + this.y + ' IC en retard'; } },
+                    plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
+                    series: series
+                });
+            } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
+        }
+        function hcICTotalChart(id, lateRows, color) {
+            var cont = document.getElementById(id); if (!cont) return;
+            if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
+            var b = icLateBuckets(lateRows), dataT = [];
+            for (var k = 0; k < b.buckets.length; k++) dataT.push(b.total[b.buckets[k]] || 0);
+            try {
+                hcDraw(id, {
+                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
+                    title: { text: null }, credits: { enabled: false }, legend: { enabled: false },
+                    xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
+                    yAxis: { title: { text: null }, min: 0, allowDecimals: false },
+                    tooltip: { formatter: function () { return '<b>' + this.x + '</b><br/>' + this.y + ' IC en retard'; } },
+                    plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 }, color: color } },
+                    series: [{ name: 'IC en retard', data: dataT, color: color }]
+                });
+            } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
+        }
         function RenderDashResp(elig) {
             var intNom = {}, extNom = {}, rd = appData.roleDesig || [];
             for (var i = 0; i < rd.length; i++) {
@@ -2180,10 +2422,13 @@
             var today = FormatDateString(new Date());
             var lastNC = appData.lastImport ? NettoyerChaine(appData.lastImport).split(' ')[0] : firstOfMonthStr();
             var lastOF = appData.lastOFImport ? NettoyerChaine(appData.lastOFImport).split(' ')[0] : firstOfMonthStr();
+            var lastIC = appData.lastICImport ? NettoyerChaine(appData.lastICImport).split(' ')[0] : firstOfMonthStr();
             setDateIfEmpty('extractDate', lastNC);
             setDateIfEmpty('extractDateFin', today);
             setDateIfEmpty('ofDateDebut', lastOF);
             setDateIfEmpty('ofDateFin', today);
+            setDateIfEmpty('icDateDebut', lastIC);
+            setDateIfEmpty('icDateFin', today);
         }
         function RenderListe() {
             var lbl = document.getElementById('lastExtractDate');
@@ -2599,6 +2844,7 @@
                 <div style="border-bottom:2px solid #e2e8f0; margin:0 0 18px 0; overflow:hidden;">
                     <button id="dashSubtabNC" class="subtab active" onclick="ShowDashSub('NC')">Non-conformité</button>
                     <button id="dashSubtabOF" class="subtab" onclick="ShowDashSub('OF')">Ordre de Fabrication</button>
+                    <button id="dashSubtabIC" class="subtab" onclick="ShowDashSub('IC')">Interventions Cards</button>
                     <span id="dashFilterBar" style="float:right; margin:4px 0;"></span>
                 </div>
 
@@ -2696,6 +2942,42 @@
                         </div>
                     </div>
                 </div><!-- /dashSubOF -->
+
+                <div id="dashSubIC" style="display:none;">
+                    <div id="dashICEmpty" class="card" style="display:none;">
+                        <p style="color:#475569; margin:0;">Aucune IC analysable pour l'instant. Lance une extraction depuis l'onglet Extraction (Interventions Cards).</p>
+                    </div>
+                    <div id="dashICCharts" style="display:none;">
+                        <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
+                            <div style="display:table-cell; width:100%; box-sizing:border-box; vertical-align:top;">
+                                <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                    <h3 style="margin:0 0 12px 0;">IC clôturées en retard - Total</h3>
+                                    <div id="hcICTotal" style="width:100%; height:280px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:table; width:100%; table-layout:fixed;">
+                            <div style="display:table-cell; width:33.33%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                                <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                    <h3 style="margin:0 0 12px 0;">IC en retard - Équipe ST</h3>
+                                    <div id="hcICST" style="width:100%; height:280px;"></div>
+                                </div>
+                            </div>
+                            <div style="display:table-cell; width:33.33%; padding:0 8px; box-sizing:border-box; vertical-align:top;">
+                                <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                    <h3 style="margin:0 0 12px 0;">IC en retard - Équipe TL</h3>
+                                    <div id="hcICTL" style="width:100%; height:280px;"></div>
+                                </div>
+                            </div>
+                            <div style="display:table-cell; width:33.33%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                                <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                    <h3 style="margin:0 0 12px 0;">IC en retard - Équipe IQ</h3>
+                                    <div id="hcICIQ" style="width:100%; height:280px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- /dashSubIC -->
             </div>
 
             <!-- PAGE ANALYSE NC -->
@@ -2703,6 +2985,7 @@
                 <div style="border-bottom:2px solid #e2e8f0; margin:0 0 18px 0;">
                     <button id="subtabNC" class="subtab active" onclick="ShowExtractSub('NC')">Non-conformité</button>
                     <button id="subtabOF" class="subtab" onclick="ShowExtractSub('OF')">Ordre de Fabrication</button>
+                    <button id="subtabIC" class="subtab" onclick="ShowExtractSub('IC')">Interventions Cards</button>
                 </div>
 
                 <div id="extractSubNC">
@@ -2806,6 +3089,50 @@
                         </div>
                     </div>
                 </div><!-- /extractSubOF -->
+
+                <div id="extractSubIC" style="display:none;">
+                    <div style="display:table; width:100%; margin:0 0 20px 0;">
+                        <div style="display:table-cell; width:40%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <table style="border:none;"><tr>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire à partir du</label>
+                                        <span class="date-wrap"><input type="text" id="icDateDebut" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icDateDebut', event)" title="Effacer">&times;</button></span>
+                                    </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire jusqu'au</label>
+                                        <span class="date-wrap"><input type="text" id="icDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icDateFin', event)" title="Effacer">&times;</button></span>
+                                    </td>
+                                    <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
+                                        <button id="btnICExtract" class="btn-toolbar" style="padding:0 10px; min-width:130px;" onclick="LancerExtractIC()">Extract IC</button>
+                                    </td>
+                                </tr></table>
+                            </div>
+                        </div>
+                        <div style="display:table-cell; width:60%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <table style="border:none; width:100%;"><tr>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
+                                        <span class="date-wrap"><input type="text" id="icFiltreDateDebut" data-filter="ic" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateDebut', event)" title="Effacer">&times;</button></span>
+                                    </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
+                                        <span class="date-wrap"><input type="text" id="icFiltreDateFin" data-filter="ic" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateFin', event)" title="Effacer">&times;</button></span>
+                                    </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
+                                        <input type="text" id="icFiltreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="RenderICTable()" placeholder="Tape pour filtrer">
+                                    </td>
+                                    <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
+                                        <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetICFiltres()">Réinitialiser</button>
+                                    </td>
+                                </tr></table>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="icTable"><div class="msg-box msg-info">Aucune extraction réalisée.</div></div>
+                </div><!-- /extractSubIC -->
             </div>
 
             <!-- PAGE PARCOURS / GOULOTS -->
