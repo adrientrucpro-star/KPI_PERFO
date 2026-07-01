@@ -2851,6 +2851,9 @@
     // INITIALISATION
     // ==========================================================
         window.onload = function () {
+            // Plein écran dès le démarrage pour que l'écran de connexion/chargement soit déjà maximisé.
+            try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
+            setTimeout(MaximiserFenetre, 0);
             document.getElementById("sidebar-footer").innerText = "v" + VERSION_ACTUELLE + " - © Adrien Truc";
             document.getElementById("appLogo").innerText = APP_NAME;
             document.getElementById("appSub").innerText = APP_SOUS_TITRE;
