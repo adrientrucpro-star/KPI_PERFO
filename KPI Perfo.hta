@@ -2308,8 +2308,9 @@
             hcICUserChart('hcICTL', getICLateTeamRows('TL'), teamNomMap('TL'));
             hcICUserChart('hcICIQ', getICLateTeamRows('IQ'), teamNomMap('IQ'));
             EgaliserCards(document.querySelectorAll('.dashEqualIC'));
+            EgaliserCards(document.querySelectorAll('.dashEqualIC2'));
             var contentEl = document.getElementById('content');
-            var lastCard = document.getElementById('hcICST') ? document.getElementById('hcICST').parentNode : null;
+            var lastCard = document.getElementById('hcICTL') ? document.getElementById('hcICTL').parentNode : null;   // bas de la 2e ligne
             if (contentEl && lastCard) {
                 var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
                 if (Math.abs(gap) > 4 && icFitTries < 12) { icFitTries++; icHeightCorrection -= Math.round(gap / 2); RenderDashboardIC(true); return; }
@@ -3075,28 +3076,28 @@
                     </div>
                     <div id="dashICCharts" style="display:none;">
                         <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
-                            <div style="display:table-cell; width:100%; box-sizing:border-box; vertical-align:top;">
-                                <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                    <h3 style="margin:0 0 12px 0;">IC clôturées en retard - Total</h3>
+                            <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                                <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                    <h3 style="margin:0 0 12px 0;">IC en retard - Total</h3>
                                     <div id="hcICTotal" style="width:100%; height:280px;"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div style="display:table; width:100%; table-layout:fixed;">
-                            <div style="display:table-cell; width:33.33%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                            <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
                                 <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                     <h3 style="margin:0 0 12px 0;">IC en retard - Équipe ST</h3>
                                     <div id="hcICST" style="width:100%; height:280px;"></div>
                                 </div>
                             </div>
-                            <div style="display:table-cell; width:33.33%; padding:0 8px; box-sizing:border-box; vertical-align:top;">
-                                <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                        </div>
+                        <div style="display:table; width:100%; table-layout:fixed;">
+                            <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                                <div class="card dashEqualIC2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                     <h3 style="margin:0 0 12px 0;">IC en retard - Équipe TL</h3>
                                     <div id="hcICTL" style="width:100%; height:280px;"></div>
                                 </div>
                             </div>
-                            <div style="display:table-cell; width:33.33%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                                <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                            <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                                <div class="card dashEqualIC2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
                                     <h3 style="margin:0 0 12px 0;">IC en retard - Équipe IQ</h3>
                                     <div id="hcICIQ" style="width:100%; height:280px;"></div>
                                 </div>
