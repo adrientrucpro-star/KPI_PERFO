@@ -711,9 +711,8 @@
             setTimeout(RevelerDashboard, 60);
         }
         function RevelerDashboard() {
-            // La fenêtre est déjà maximisée (depuis window.onload) : aucun redimensionnement ici -> aucun bug d'affichage.
-            // On masque l'écran de connexion et on rend le tableau de bord à la taille déjà finale.
-            document.getElementById("loginScreen").style.display = "none";
+            // La fenêtre est déjà maximisée (depuis window.onload) : on rend les graphiques DERRIÈRE l'écran de connexion,
+            // puis on masque celui-ci une fois les graphiques affichés -> le tableau de bord apparaît déjà complet.
             LancerRenduDashboard(0, -1);
         }
         function LancerRenduDashboard(tries, lastH) {
@@ -721,7 +720,9 @@
             var h = el ? el.clientHeight : 0;
             if ((h > 200 && h === lastH) || tries >= 16) {   // 2 mesures identiques = taille finale atteinte ; garde-fou ~400 ms
                 dashSuppressLaunchResize = false;
-                RenderDashboard();   // rendu UNIQUE, à la taille finale
+                RenderDashboard();   // rendu UNIQUE, à la taille finale (l'écran de connexion couvre encore)
+                // Graphiques affichés -> on masque l'écran de connexion pour révéler le tableau de bord déjà complet.
+                setTimeout(function () { document.getElementById("loginScreen").style.display = "none"; }, 30);
                 return;
             }
             setTimeout(function () { LancerRenduDashboard(tries + 1, h); }, 25);
