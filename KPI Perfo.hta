@@ -711,12 +711,9 @@
             setTimeout(RevelerDashboard, 60);
         }
         function RevelerDashboard() {
-            // On masque l'écran de connexion et on agrandit la fenêtre EN MÊME TEMPS -> l'agrandissement = l'affichage du dashboard.
+            // La fenêtre est déjà maximisée (depuis window.onload) : aucun redimensionnement ici -> aucun bug d'affichage.
+            // On masque l'écran de connexion et on rend le tableau de bord à la taille déjà finale.
             document.getElementById("loginScreen").style.display = "none";
-            try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
-            setTimeout(MaximiserFenetre, 0);
-            // IMPORTANT : sous IE10/HTA la taille ne se stabilise pas immédiatement après le redimensionnement.
-            // On attend une hauteur STABLE avant de rendre les graphiques (sinon ils se dessinent à la mauvaise taille -> bugs d'affichage).
             LancerRenduDashboard(0, -1);
         }
         function LancerRenduDashboard(tries, lastH) {
@@ -2856,6 +2853,10 @@
     // INITIALISATION
     // ==========================================================
         window.onload = function () {
+            // Maximisation dès le démarrage : l'écran de connexion s'affiche déjà en plein écran,
+            // ainsi les graphiques se chargent directement à la taille finale de la fenêtre (aucun redimensionnement à l'entrée).
+            try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
+            setTimeout(MaximiserFenetre, 0);
             document.getElementById("sidebar-footer").innerText = "v" + VERSION_ACTUELLE + " - © Adrien Truc";
             document.getElementById("appLogo").innerText = APP_NAME;
             document.getElementById("appSub").innerText = APP_SOUS_TITRE;
