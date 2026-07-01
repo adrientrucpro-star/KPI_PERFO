@@ -2267,8 +2267,10 @@
             }
             var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
             if (!(appData.icRows && appData.icRows.length)) {
-                document.getElementById('dashICEmpty').style.display = "block";
+                var emp = document.getElementById('dashICEmpty');
+                emp.style.display = "block";
                 document.getElementById('dashICCharts').style.display = "none";
+                var av = ComputeAvailHeight('dashICEmpty'); if (av != null) emp.style.height = av + "px";   // remplit l'espace visible
                 dashValid.IC = true; return;
             }
             document.getElementById('dashICEmpty').style.display = "none";
@@ -3012,8 +3014,19 @@
                 </div><!-- /dashSubOF -->
 
                 <div id="dashSubIC" style="display:none;">
-                    <div id="dashICEmpty" class="card" style="display:none;">
-                        <p style="color:#475569; margin:0;">Aucune IC analysable pour l'instant. Lance une extraction depuis l'onglet Extraction (Interventions Cards).</p>
+                    <div id="dashICEmpty" class="card" style="display:none; margin-bottom:0; box-sizing:border-box;">
+                        <div style="display:table; width:100%; height:100%;">
+                            <div style="display:table-cell; vertical-align:middle; text-align:center; padding:20px;">
+                                <div style="width:64px; height:64px; margin:0 auto 18px auto; border-radius:50%; background:#eef2f5; display:table;">
+                                    <span style="display:table-cell; vertical-align:middle; text-align:center;">
+                                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg>
+                                    </span>
+                                </div>
+                                <div style="font-size:17px; font-weight:700; color:#334155; margin-bottom:8px;">Aucune Intervention Card à analyser</div>
+                                <div style="font-size:14px; color:#64748b; margin-bottom:22px;">Lance une extraction des Interventions Cards pour afficher le nombre d'IC clôturées en retard.</div>
+                                <button class="btn-toolbar" onclick="ShowPage('pageAnalyse'); ShowExtractSub('IC');">Aller à l'extraction</button>
+                            </div>
+                        </div>
                     </div>
                     <div id="dashICCharts" style="display:none;">
                         <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
