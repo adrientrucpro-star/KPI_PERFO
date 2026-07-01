@@ -681,18 +681,6 @@
                 var o = btn.innerHTML; btn.innerHTML = "✔"; setTimeout(function(){ btn.innerHTML = o; }, 1500); }
         }
 
-        function MaximiserFenetre() {
-            try {
-                window.focus();
-                var sh = new ActiveXObject("WScript.Shell");
-                sh.SendKeys("% ");
-                var lang = (navigator.systemLanguage || navigator.userLanguage || navigator.language || "fr").toLowerCase();
-                sh.SendKeys(lang.indexOf("fr") === 0 ? "n" : "x");
-            } catch (e) {
-                try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e2) {}
-            }
-        }
-
         function EntrerApplication() {
             // Le bouton passe en mode chargement ; l'écran de connexion RESTE affiché (il couvre l'app pendant le rendu).
             var btn = document.getElementById("btnEntrer");
@@ -706,8 +694,8 @@
             PrefillExtractDates();
             dashSuppressLaunchResize = true;
             ShowPage("pageDashboard", true);   // affiche la page SANS rendre les graphiques
-            // Pendant le chargement : AUCUN redimensionnement, la fenêtre garde sa taille (écran de connexion).
-            // On agrandit la fenêtre uniquement au moment de révéler le tableau de bord (setTimeout laisse le spinner s'afficher).
+            // La fenêtre est déjà maximisée (windowstate natif) : le setTimeout laisse le spinner "Chargement…" s'afficher,
+            // puis on rend les graphiques derrière l'écran de connexion avant de le masquer.
             setTimeout(RevelerDashboard, 60);
         }
         function RevelerDashboard() {
@@ -2854,10 +2842,8 @@
     // INITIALISATION
     // ==========================================================
         window.onload = function () {
-            // Maximisation dès le démarrage : l'écran de connexion s'affiche déjà en plein écran,
-            // ainsi les graphiques se chargent directement à la taille finale de la fenêtre (aucun redimensionnement à l'entrée).
-            try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
-            setTimeout(MaximiserFenetre, 0);
+            // La fenêtre s'ouvre déjà maximisée nativement via <hta:application windowstate="maximize"> :
+            // l'écran de connexion s'affiche donc en plein écran, et les graphiques se rendront à la taille finale.
             document.getElementById("sidebar-footer").innerText = "v" + VERSION_ACTUELLE + " - © Adrien Truc";
             document.getElementById("appLogo").innerText = APP_NAME;
             document.getElementById("appSub").innerText = APP_SOUS_TITRE;
