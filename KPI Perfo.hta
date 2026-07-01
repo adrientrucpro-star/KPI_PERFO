@@ -1156,6 +1156,7 @@
             for (var i = 0; i < data.length; i++) {
                 var r = data[i], late = isICLate(r), lateSt = late ? " color:#b91c1c; font-weight:700;" : "";
                 rows += "<tr" + (late ? " style='background:#fef2f2;'" : "") + ">"
+                    + "<td style='text-align:center;'><button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(r.ic) + "', this)\" title=\"Afficher l'IC dans SAP (QM03)\" style='padding:5px 8px; border-radius:5px; background:#0C447C; border:none; cursor:pointer; vertical-align:middle;'><svg width='14' height='14' viewBox='0 0 24 24' style='display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg></button></td>"
                     + "<td style='text-align:center; font-weight:700;'>" + escapeHtml(r.ic) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(r.user) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(fmtOFDate(r.dfa)) + "</td>"
@@ -1164,9 +1165,9 @@
                     + "<td style='text-align:center;" + lateSt + "'>" + escapeHtml(r.hc) + "</td></tr>";
             }
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
-                + "<table class='data-table'><thead><tr>"
-                + icTh('ic', 'Numéro IC', '15%') + icTh('user', 'User', '15%')
-                + icTh('dfa', 'Date fin autorisée', '18%') + icTh('hfa', 'Heure fin autorisée', '16%')
+                + "<table class='data-table'><thead><tr><th width='4%'></th>"
+                + icTh('ic', 'Numéro IC', '14%') + icTh('user', 'User', '13%')
+                + icTh('dfa', 'Date fin autorisée', '17%') + icTh('hfa', 'Heure fin autorisée', '16%')
                 + icTh('dc', 'Date clôture', '18%') + icTh('hc', 'Heure clôture', '18%')
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
@@ -2303,7 +2304,7 @@
             if (rowH < 150) rowH = 150;
             var ids = ['hcICTotal', 'hcICST', 'hcICTL', 'hcICIQ'];
             for (var z = 0; z < ids.length; z++) { var e = document.getElementById(ids[z]); if (e) e.style.height = rowH + "px"; }
-            hcICTotalChart('hcICTotal', getICLateAll(), '#dc2626');
+            hcICTotalChart('hcICTotal');
             hcICUserChart('hcICST', getICLateTeamRows('ST'), teamNomMap('ST'));
             hcICUserChart('hcICTL', getICLateTeamRows('TL'), teamNomMap('TL'));
             hcICUserChart('hcICIQ', getICLateTeamRows('IQ'), teamNomMap('IQ'));
@@ -2334,11 +2335,6 @@
         function getICLateTeamRows(team) {
             var m = teamNomMap(team), out = [], all = appData.icRows || [];
             for (var i = 0; i < all.length; i++) { if (isICLate(all[i]) && m[NettoyerChaine(all[i].user).toUpperCase()]) out.push(all[i]); }
-            return out;
-        }
-        function getICLateAll() {
-            var out = [], all = appData.icRows || [];
-            for (var i = 0; i < all.length; i++) { if (isICLate(all[i])) out.push(all[i]); }
             return out;
         }
         // Nb d'IC en retard par semaine (ou jour si filtre semaine) de CLÔTURE, par user + total, sur la période choisie.
@@ -2384,20 +2380,41 @@
                 });
             } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
-        function hcICTotalChart(id, lateRows, color) {
+        // Agrège TOUTES les IC clôturées par semaine (ou jour) : nb en retard ET nb dans les temps, axe commun.
+        function icTotalBuckets() {
+            var byDay = dashFilter.gran === 'week';
+            var all = appData.icRows || [], bucketSet = {}, lateB = {}, onTimeB = {};
+            for (var i = 0; i < all.length; i++) {
+                var r = all[i], d = parseDT(r.dc, r.hc);
+                if (!d || !inSelectedPeriod(d)) continue;
+                var ts = byDay ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : getWeekStart(d).getTime();
+                bucketSet[ts] = true;
+                if (isICLate(r)) lateB[ts] = (lateB[ts] || 0) + 1; else onTimeB[ts] = (onTimeB[ts] || 0) + 1;
+            }
+            var buckets;
+            if (byDay) { buckets = selectedWeekDays(); }
+            else { buckets = []; for (var w in bucketSet) { if (bucketSet.hasOwnProperty(w)) buckets.push(parseInt(w, 10)); } buckets.sort(function (a, b) { return a - b; }); }
+            var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(byDay ? fmtDDMM(new Date(buckets[k])) : "S" + isoWeek(new Date(buckets[k])));
+            return { buckets: buckets, cats: cats, late: lateB, onTime: onTimeB };
+        }
+        function hcICTotalChart(id) {
             var cont = document.getElementById(id); if (!cont) return;
             if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
-            var b = icLateBuckets(lateRows), dataT = [];
-            for (var k = 0; k < b.buckets.length; k++) dataT.push(b.total[b.buckets[k]] || 0);
+            var b = icTotalBuckets(), dataLate = [], dataOnTime = [];
+            for (var k = 0; k < b.buckets.length; k++) { dataLate.push(b.late[b.buckets[k]] || 0); dataOnTime.push(b.onTime[b.buckets[k]] || 0); }
             try {
                 hcDraw(id, {
-                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
-                    title: { text: null }, credits: { enabled: false }, legend: { enabled: false },
+                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
+                    title: { text: null }, credits: { enabled: false },
+                    legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemStyle: { fontSize: '12px' }, margin: 4, padding: 4, itemMarginTop: 0, itemMarginBottom: 0 },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                     yAxis: { title: { text: null }, min: 0, allowDecimals: false },
-                    tooltip: { formatter: function () { return '<b>' + this.x + '</b><br/>' + this.y + ' IC en retard'; } },
-                    plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 }, color: color } },
-                    series: [{ name: 'IC en retard', data: dataT, color: color }]
+                    tooltip: { formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.x + ' : ' + this.y + ' IC'; } },
+                    plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 } } },
+                    series: [
+                        { name: 'En retard', data: dataLate, color: '#dc2626' },
+                        { name: 'Dans les temps', data: dataOnTime, color: '#16a34a' }
+                    ]
                 });
             } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
@@ -3078,7 +3095,7 @@
                         <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                             <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                                 <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                    <h3 style="margin:0 0 12px 0;">IC en retard - Total</h3>
+                                    <h3 style="margin:0 0 12px 0;">IC clôturées - Total (retard / dans les temps)</h3>
                                     <div id="hcICTotal" style="width:100%; height:280px;"></div>
                                 </div>
                             </div>
