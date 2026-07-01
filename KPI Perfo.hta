@@ -1040,8 +1040,10 @@
             var fin = parseDT(r.dfa, r.hfa), clo = parseDT(r.dc, r.hc);
             return (fin && clo) ? (clo > fin) : false;
         }
-        // Parse EXPORT_IC (QM11, tabulé ANSI). Colonnes : MSN, Avis(=IC), Date, Auteur(=user), Da.deb au(=date fin
-        // autorisée), Hr fin au(=heure fin autorisée), DateRéfér.(=date clôture), HRéf(=heure clôture).
+        // Parse EXPORT_IC (QM11, tabulé ANSI). Deux formats gérés selon la variante :
+        //  - 7 colonnes : Avis(=IC), Auteur(=user), Date début(=dfa), H fin au(=hfa), Date réf(=dc), HRéf(=hc), Statut de l'avis
+        //  - 8 colonnes : MSN, Avis, Date, Auteur, Da.deb au, Hr fin au, DateRéfér., HRéf
+        // On repère la colonne Avis (n° d'IC = 6+ chiffres) pour s'adapter automatiquement.
         function ParseIC(content) {
             var lines = content.split(/\r?\n/), out = [];
             for (var i = 0; i < lines.length; i++) {
@@ -1049,10 +1051,13 @@
                 if (raw.indexOf("\t") === -1) continue;
                 var parts = raw.split("\t");
                 while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
-                if (parts.length < 8) continue;
-                var ic = NettoyerChaine(parts[1]);   // colonne "Avis" = n° d'IC
-                if (!/^\d{6,}$/.test(ic)) continue;
-                out.push({ ic: ic, user: NettoyerChaine(parts[3]), dfa: NettoyerChaine(parts[4]), hfa: NettoyerChaine(parts[5]), dc: NettoyerChaine(parts[6]), hc: NettoyerChaine(parts[7]) });
+                if (/^\d{6,}$/.test(NettoyerChaine(parts[0]))) {          // format 7 col : Avis en 1re position
+                    if (parts.length < 6) continue;
+                    out.push({ ic: NettoyerChaine(parts[0]), user: NettoyerChaine(parts[1]), dfa: NettoyerChaine(parts[2]), hfa: NettoyerChaine(parts[3]), dc: NettoyerChaine(parts[4]), hc: NettoyerChaine(parts[5]), statut: NettoyerChaine(parts[6] || "") });
+                } else if (parts.length > 1 && /^\d{6,}$/.test(NettoyerChaine(parts[1]))) {   // format 8 col : MSN puis Avis
+                    if (parts.length < 8) continue;
+                    out.push({ ic: NettoyerChaine(parts[1]), user: NettoyerChaine(parts[3]), dfa: NettoyerChaine(parts[4]), hfa: NettoyerChaine(parts[5]), dc: NettoyerChaine(parts[6]), hc: NettoyerChaine(parts[7]), statut: "" });
+                }
             }
             return out;
         }
