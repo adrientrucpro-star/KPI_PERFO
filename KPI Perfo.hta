@@ -391,10 +391,71 @@
         Function VBS_ExtractOFClot(strLow, strHigh)   ' OFs clôturés (IQ)
             VBS_ExtractOFClot = VBS_ExtractCOOIS("LAROCHE_IQ", "S_ISTEN", strLow, strHigh, "EXPORT_IQ.txt", True)
         End Function
-        ' PLACEHOLDER : extraction des Interventions Cards. À finaliser avec le script SAP enregistré (transaction,
-        ' variante, champs de dates, export EXPORT_IC.txt). Doit produire %APPDATA%\KPI_Perfo\EXPORT_IC.txt.
-        Function VBS_ExtractIC(strLow, strHigh)
-            VBS_ExtractIC = "ERREUR : extraction IC non encore configurée (fournir le script SAP pour la finaliser)."
+        ' Extraction des Interventions Cards via QM11 (variante LAROCHE_IC2, plage QMDAT) -> EXPORT_IC.txt.
+        Function VBS_ExtractIC(strDateLow, strDateHigh)
+            On Error Resume Next
+            Dim wsh, fso, folderPath, exportPath, popupCheck, maxRetries, currentRetry, fileReady
+            Set wsh = CreateObject("WScript.Shell")
+            folderPath = wsh.ExpandEnvironmentStrings("%APPDATA%") & "\KPI_Perfo"
+            Set fso = CreateObject("Scripting.FileSystemObject")
+            If Not fso.FolderExists(folderPath) Then fso.CreateFolder(folderPath)
+            exportPath = folderPath & "\EXPORT_IC.txt"
+            If fso.FileExists(exportPath) Then fso.DeleteFile exportPath, True
+
+            Set oSession = GetSAPSession()
+            If oSession Is Nothing Then
+                VBS_ExtractIC = "ERREUR : SAP inaccessible. Ouvre SAP Logon et connecte-toi."
+                Exit Function
+            End If
+            oSession.FindById("wnd[0]").Maximize
+            oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "/nqm11"
+            oSession.FindById("wnd[0]").SendVKey 0
+            If Not AttendreElementSAP("wnd[0]/tbar[1]/btn[17]", 8) Then
+                VBS_ExtractIC = "ERREUR : QM11 n'a pas démarré."
+                Exit Function
+            End If
+            ' Variante d'affichage LAROCHE_IC2 (+ effacement du filtre auteur ENAME)
+            oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
+            If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
+                oSession.FindById("wnd[1]/usr/txtV-LOW").Text = "LAROCHE_IC2"
+                If Not (oSession.FindById("wnd[1]/usr/txtENAME-LOW", False) Is Nothing) Then oSession.FindById("wnd[1]/usr/txtENAME-LOW").Text = ""
+                oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
+            End If
+            ' Plage de dates + exécution
+            If Not AttendreElementSAP("wnd[0]/usr/ctxtQMDAT-LOW", 5) Then
+                VBS_ExtractIC = "ERREUR : champ date introuvable."
+                Exit Function
+            End If
+            oSession.FindById("wnd[0]/usr/ctxtQMDAT-LOW").Text = strDateLow
+            If strDateHigh <> "" Then oSession.FindById("wnd[0]/usr/ctxtQMDAT-HIGH").Text = strDateHigh
+            oSession.FindById("wnd[0]/tbar[1]/btn[8]").Press
+            ' Export de la liste -> fichier local
+            oSession.FindById("wnd[0]/mbar/menu[0]/menu[3]/menu[2]").Select
+            Set popupCheck = oSession.FindById("wnd[1]", False)
+            If popupCheck Is Nothing Then
+                VBS_ExtractIC = "ERREUR : aucune IC à exporter pour cette période."
+                Exit Function
+            End If
+            oSession.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[1,0]").Select
+            oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
+            oSession.FindById("wnd[1]/usr/ctxtDY_PATH").Text = folderPath
+            oSession.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = "EXPORT_IC.txt"
+            oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
+            ' Attente de la génération du fichier
+            maxRetries = 40 : currentRetry = 0 : fileReady = False
+            Do While Not fileReady And currentRetry < maxRetries
+                If fso.FileExists(exportPath) Then
+                    If fso.GetFile(exportPath).Size > 0 Then fileReady = True
+                End If
+                If Not fileReady Then Call PauseVBS(1) : currentRetry = currentRetry + 1
+            Loop
+            oSession.EndTransaction
+            If Not fileReady Then
+                VBS_ExtractIC = "ERREUR : délai dépassé, fichier non généré."
+                Exit Function
+            End If
+            VBS_ExtractIC = "OK"
+            On Error GoTo 0
         End Function
     </script>
 
@@ -979,7 +1040,8 @@
             var fin = parseDT(r.dfa, r.hfa), clo = parseDT(r.dc, r.hc);
             return (fin && clo) ? (clo > fin) : false;
         }
-        // Parse EXPORT_IC : IC, User, Date fin autorisée, Heure fin autorisée, Date clôture, Heure clôture (tabulé, ANSI).
+        // Parse EXPORT_IC (QM11, tabulé ANSI). Colonnes : MSN, Avis(=IC), Date, Auteur(=user), Da.deb au(=date fin
+        // autorisée), Hr fin au(=heure fin autorisée), DateRéfér.(=date clôture), HRéf(=heure clôture).
         function ParseIC(content) {
             var lines = content.split(/\r?\n/), out = [];
             for (var i = 0; i < lines.length; i++) {
@@ -987,10 +1049,10 @@
                 if (raw.indexOf("\t") === -1) continue;
                 var parts = raw.split("\t");
                 while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
-                if (parts.length < 6) continue;
-                var ic = NettoyerChaine(parts[0]);
-                if (!/^\d{4,}$/.test(ic)) continue;   // 1re colonne = n° d'IC
-                out.push({ ic: ic, user: NettoyerChaine(parts[1]), dfa: NettoyerChaine(parts[2]), hfa: NettoyerChaine(parts[3]), dc: NettoyerChaine(parts[4]), hc: NettoyerChaine(parts[5]) });
+                if (parts.length < 8) continue;
+                var ic = NettoyerChaine(parts[1]);   // colonne "Avis" = n° d'IC
+                if (!/^\d{6,}$/.test(ic)) continue;
+                out.push({ ic: ic, user: NettoyerChaine(parts[3]), dfa: NettoyerChaine(parts[4]), hfa: NettoyerChaine(parts[5]), dc: NettoyerChaine(parts[6]), hc: NettoyerChaine(parts[7]) });
             }
             return out;
         }
