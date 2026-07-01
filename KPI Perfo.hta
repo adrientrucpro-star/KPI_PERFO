@@ -681,6 +681,20 @@
                 var o = btn.innerHTML; btn.innerHTML = "✔"; setTimeout(function(){ btn.innerHTML = o; }, 1500); }
         }
 
+        function MaximiserFenetre() {
+            // Vraie maximisation Windows (état "maximisé" : bords au ras de l'écran, coins droits),
+            // impossible via resizeTo (qui ne donne qu'une fenêtre "restaurée" à la taille de l'écran, coins arrondis).
+            try {
+                window.focus();
+                var sh = new ActiveXObject("WScript.Shell");
+                sh.SendKeys("% ");   // ouvre le menu système de la fenêtre
+                var lang = (navigator.systemLanguage || navigator.userLanguage || navigator.language || "fr").toLowerCase();
+                sh.SendKeys(lang.indexOf("fr") === 0 ? "n" : "x");   // "Agrandir" (fr) / "Maximize" (en)
+            } catch (e) {
+                try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e2) {}
+            }
+        }
+
         function EntrerApplication() {
             // Le bouton passe en mode chargement ; l'écran de connexion RESTE affiché (il couvre l'app pendant le rendu).
             var btn = document.getElementById("btnEntrer");
@@ -2843,9 +2857,9 @@
     // ==========================================================
         window.onload = function () {
             // windowstate="maximize" n'est PAS honoré sur ce poste (la fenêtre s'ouvre en fenêtré) :
-            // on force le plein écran en JS dès le démarrage, pour que l'écran de validation soit déjà maximisé.
-            // resizeTo est la seule méthode fiable ici ; on évite SendKeys (menu système visible = à-coups).
-            try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
+            // on force la VRAIE maximisation Windows dès le démarrage, pour que l'écran de validation soit déjà maximisé
+            // (état "maximisé" bords au ras de l'écran, et non une simple fenêtre redimensionnée à coins arrondis).
+            setTimeout(MaximiserFenetre, 0);
             document.getElementById("sidebar-footer").innerText = "v" + VERSION_ACTUELLE + " - © Adrien Truc";
             document.getElementById("appLogo").innerText = APP_NAME;
             document.getElementById("appSub").innerText = APP_SOUS_TITRE;
