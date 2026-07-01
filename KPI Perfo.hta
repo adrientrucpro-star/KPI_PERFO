@@ -711,14 +711,23 @@
             setTimeout(RevelerDashboard, 60);
         }
         function RevelerDashboard() {
-            // 1) On masque l'écran de connexion et on agrandit la fenêtre EN MÊME TEMPS -> l'agrandissement = l'affichage du dashboard.
+            // On masque l'écran de connexion et on agrandit la fenêtre EN MÊME TEMPS -> l'agrandissement = l'affichage du dashboard.
             document.getElementById("loginScreen").style.display = "none";
             try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
-            // 2) resizeTo est synchrone : la hauteur visible est déjà à la bonne taille -> rendu unique et correct.
-            dashSuppressLaunchResize = false;
-            RenderDashboard();
-            // 3) Maximisation "propre" (barre des tâches/bords) ; si la taille bouge encore, onresize réajuste les graphiques.
             setTimeout(MaximiserFenetre, 0);
+            // IMPORTANT : sous IE10/HTA la taille ne se stabilise pas immédiatement après le redimensionnement.
+            // On attend une hauteur STABLE avant de rendre les graphiques (sinon ils se dessinent à la mauvaise taille -> bugs d'affichage).
+            LancerRenduDashboard(0, -1);
+        }
+        function LancerRenduDashboard(tries, lastH) {
+            var el = document.getElementById('content');
+            var h = el ? el.clientHeight : 0;
+            if ((h > 200 && h === lastH) || tries >= 16) {   // 2 mesures identiques = taille finale atteinte ; garde-fou ~400 ms
+                dashSuppressLaunchResize = false;
+                RenderDashboard();   // rendu UNIQUE, à la taille finale
+                return;
+            }
+            setTimeout(function () { LancerRenduDashboard(tries + 1, h); }, 25);
         }
         var dashSuppressLaunchResize = false;
 
