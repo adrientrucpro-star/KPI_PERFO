@@ -706,23 +706,19 @@
             PrefillExtractDates();
             dashSuppressLaunchResize = true;
             ShowPage("pageDashboard", true);   // affiche la page SANS rendre les graphiques
-            // Plein écran IMMÉDIAT et synchrone (resizeTo), puis maximisation "propre" en arrière-plan.
-            try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
-            setTimeout(MaximiserFenetre, 20);
-            // Rend le dashboard dès que la hauteur visible est stable, PUIS révèle l'app.
-            LancerRenduDashboard(0, -1);
+            // Pendant le chargement : AUCUN redimensionnement, la fenêtre garde sa taille (écran de connexion).
+            // On agrandit la fenêtre uniquement au moment de révéler le tableau de bord (setTimeout laisse le spinner s'afficher).
+            setTimeout(RevelerDashboard, 60);
         }
-        function LancerRenduDashboard(tries, lastH) {
-            var el = document.getElementById('content');
-            var h = el ? el.clientHeight : 0;
-            if ((h > 200 && h === lastH) || tries >= 12) {   // 2 mesures identiques = stable ; garde-fou ~300 ms
-                dashSuppressLaunchResize = false;
-                RenderDashboard();
-                // App entièrement chargée -> on masque l'écran de connexion pour révéler l'application.
-                setTimeout(function () { document.getElementById("loginScreen").style.display = "none"; }, 60);
-                return;
-            }
-            setTimeout(function () { LancerRenduDashboard(tries + 1, h); }, 25);
+        function RevelerDashboard() {
+            // 1) On masque l'écran de connexion et on agrandit la fenêtre EN MÊME TEMPS -> l'agrandissement = l'affichage du dashboard.
+            document.getElementById("loginScreen").style.display = "none";
+            try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
+            // 2) resizeTo est synchrone : la hauteur visible est déjà à la bonne taille -> rendu unique et correct.
+            dashSuppressLaunchResize = false;
+            RenderDashboard();
+            // 3) Maximisation "propre" (barre des tâches/bords) ; si la taille bouge encore, onresize réajuste les graphiques.
+            setTimeout(MaximiserFenetre, 0);
         }
         var dashSuppressLaunchResize = false;
 
@@ -2851,9 +2847,6 @@
     // INITIALISATION
     // ==========================================================
         window.onload = function () {
-            // Plein écran dès le démarrage pour que l'écran de connexion/chargement soit déjà maximisé.
-            try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
-            setTimeout(MaximiserFenetre, 0);
             document.getElementById("sidebar-footer").innerText = "v" + VERSION_ACTUELLE + " - © Adrien Truc";
             document.getElementById("appLogo").innerText = APP_NAME;
             document.getElementById("appSub").innerText = APP_SOUS_TITRE;
