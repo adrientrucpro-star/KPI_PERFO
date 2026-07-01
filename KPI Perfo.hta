@@ -694,9 +694,11 @@
         }
 
         function EntrerApplication() {
-            document.getElementById("loginScreen").style.display = "none";
+            // Le bouton passe en mode chargement ; l'écran de connexion RESTE affiché (il couvre l'app pendant le rendu).
+            var btn = document.getElementById("btnEntrer");
+            if (btn) { btn.disabled = true; btn.style.opacity = "0.85"; btn.style.cursor = "default"; btn.innerHTML = "<span class='spinner'></span> Chargement&hellip;"; }
+            // mainApp affiché DERRIÈRE l'écran de connexion (opaque, z-index 9999) pour permettre les mesures/rendu.
             document.getElementById("mainApp").style.display = "block";
-            document.getElementById("appLoading").style.display = "block";   // overlay de chargement pendant le 1er rendu
             // Recharge le dernier extract s'il existe (la date s'affiche dans le cadre vert).
             if (appData.rows && appData.rows.length) {
                 RecomputeAll();
@@ -704,11 +706,10 @@
             PrefillExtractDates();
             dashSuppressLaunchResize = true;
             ShowPage("pageDashboard", true);   // affiche la page SANS rendre les graphiques
-            // Plein écran IMMÉDIAT et synchrone (resizeTo) -> la fenêtre est déjà à la bonne taille tout de suite,
-            // puis maximisation "propre" (état maximisé) en arrière-plan.
+            // Plein écran IMMÉDIAT et synchrone (resizeTo), puis maximisation "propre" en arrière-plan.
             try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
             setTimeout(MaximiserFenetre, 20);
-            // Rend le dashboard dès que la hauteur visible est stable (au lieu d'un délai fixe de 200 ms).
+            // Rend le dashboard dès que la hauteur visible est stable, PUIS révèle l'app.
             LancerRenduDashboard(0, -1);
         }
         function LancerRenduDashboard(tries, lastH) {
@@ -717,7 +718,8 @@
             if ((h > 200 && h === lastH) || tries >= 12) {   // 2 mesures identiques = stable ; garde-fou ~300 ms
                 dashSuppressLaunchResize = false;
                 RenderDashboard();
-                setTimeout(function () { document.getElementById("appLoading").style.display = "none"; }, 60);
+                // App entièrement chargée -> on masque l'écran de connexion pour révéler l'application.
+                setTimeout(function () { document.getElementById("loginScreen").style.display = "none"; }, 60);
                 return;
             }
             setTimeout(function () { LancerRenduDashboard(tries + 1, h); }, 25);
@@ -2928,14 +2930,6 @@
 
     <!-- ====================== APPLICATION ====================== -->
     <div id="mainApp" style="display:none;">
-        <div id="appLoading" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#f0f4f7; z-index:99999;">
-            <div style="display:table; width:100%; height:100%;">
-                <div style="display:table-cell; vertical-align:middle; text-align:center;">
-                    <div class="spinner-lg" style="width:48px; height:48px; border-width:5px; margin:0 auto;"></div>
-                    <div style="margin-top:16px; font-size:15px; font-weight:600; color:#334155;">Chargement du tableau de bord…</div>
-                </div>
-            </div>
-        </div>
         <button id="btnScrollTop" onclick="ScrollContentTop()" title="Remonter en haut">&#8593;</button>
         <div id="sidebar">
             <div id="sidebar-header">
