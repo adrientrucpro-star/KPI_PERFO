@@ -2056,14 +2056,14 @@
         }
         // Barre de filtre : granularité segmentée (Tout/Année/Mois/Semaine) + groupe [◀ menu déroulant ▶].
         function dashRespFilterBar() {
-            var grans = [['all', 'Tout'], ['year', 'Année'], ['month', 'Mois'], ['week', 'Semaine']];
+            if (dashFilter.gran === 'all') dashFilter.gran = 'year';   // "Tout" supprimé -> repli sur Année
+            var grans = [['year', 'Année'], ['month', 'Mois'], ['week', 'Semaine']];
             var seg = "";
             for (var i = 0; i < grans.length; i++) {
                 var g = grans[i][0], on = dashFilter.gran === g;
                 var rad = (i === 0) ? "border-radius:6px 0 0 6px;" : ((i === grans.length - 1) ? "border-radius:0 6px 6px 0;" : "border-radius:0;");
                 seg += "<button type='button' onclick=\"SetDashGran('" + g + "')\" style='font-size:13px; font-weight:600; padding:7px 15px; border:1px solid " + (on ? "#0C447C" : "#c5d5de") + "; " + (i > 0 ? "border-left:none; " : "") + rad + " cursor:pointer; vertical-align:middle; " + (on ? "background:#0C447C; color:#fff;" : "background:#fff; color:#475569;") + "'>" + grans[i][1] + "</button>";
             }
-            if (dashFilter.gran === 'all') return "<span style='white-space:nowrap;'>" + seg + "</span>";
 
             // Groupe période : ◀  [menu déroulant]  ▶ (bordures connectées).
             var s = dashPeriodState();
@@ -3095,7 +3095,7 @@
                         <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                             <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                                 <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                    <h3 style="margin:0 0 12px 0;">IC clôturées - Total (retard / dans les temps)</h3>
+                                    <h3 style="margin:0 0 12px 0;">Total IC clôturées</h3>
                                     <div id="hcICTotal" style="width:100%; height:280px;"></div>
                                 </div>
                             </div>
