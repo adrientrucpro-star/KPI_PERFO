@@ -1806,34 +1806,62 @@
             return out;
         }
         var MOIS_NOMS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-        // Barre de filtre : 1) sélecteur de granularité segmenté (Tout / Année / Mois / Semaine),
-        // 2) UN seul menu déroulant listant les périodes complètes correspondantes. Pas de menus interdépendants.
+        // État de la période courante selon la granularité : liste triée (récent -> ancien), index sélectionné,
+        // et fonctions valeur/libellé/affectation. Centralise le menu déroulant ET les flèches ◀ ▶.
+        function dashPeriodState() {
+            var g = dashFilter.gran;
+            if (g === 'year') {
+                var ys = dashYearsList();
+                return { items: ys, idx: ys.indexOf(dashFilter.year),
+                    val: function (x) { return "" + x; }, label: function (x) { return "" + x; },
+                    set: function (x) { dashFilter.year = x; } };
+            }
+            if (g === 'month') {
+                var ml = dashMonthList(), im = -1;
+                for (var i = 0; i < ml.length; i++) { if (ml[i].year === dashFilter.year && ml[i].month === dashFilter.month) { im = i; break; } }
+                return { items: ml, idx: im,
+                    val: function (x) { return x.year + "-" + x.month; }, label: function (x) { return MOIS_NOMS[x.month] + " " + x.year; },
+                    set: function (x) { dashFilter.year = x.year; dashFilter.month = x.month; } };
+            }
+            if (g === 'week') {
+                var wl = dashWeekList(), iw = -1;
+                for (var j = 0; j < wl.length; j++) { if (wl[j].year === dashFilter.year && wl[j].week === dashFilter.week) { iw = j; break; } }
+                return { items: wl, idx: iw,
+                    val: function (x) { return x.year + "W" + x.week; }, label: function (x) { return "S" + x.week + " · " + x.year; },
+                    set: function (x) { dashFilter.year = x.year; dashFilter.week = x.week; } };
+            }
+            return null;
+        }
+        // ◀ / ▶ : période plus ancienne (dir=-1) ou plus récente (dir=+1). Liste triée récent->ancien (idx 0 = plus récent).
+        function StepDashPeriod(dir) {
+            var s = dashPeriodState(); if (!s || s.idx < 0) return;
+            var ni = s.idx - dir;
+            if (ni < 0 || ni >= s.items.length) return;
+            s.set(s.items[ni]);
+            InvalidateDash(); RenderActiveDashboardSub();
+        }
+        // Barre de filtre : granularité segmentée (Tout/Année/Mois/Semaine) + groupe [◀ menu déroulant ▶].
         function dashRespFilterBar() {
             var grans = [['all', 'Tout'], ['year', 'Année'], ['month', 'Mois'], ['week', 'Semaine']];
             var seg = "";
             for (var i = 0; i < grans.length; i++) {
                 var g = grans[i][0], on = dashFilter.gran === g;
                 var rad = (i === 0) ? "border-radius:6px 0 0 6px;" : ((i === grans.length - 1) ? "border-radius:0 6px 6px 0;" : "border-radius:0;");
-                seg += "<button type='button' onclick=\"SetDashGran('" + g + "')\" style='font-size:12px; font-weight:600; padding:6px 13px; border:1px solid " + (on ? "#0C447C" : "#c5d5de") + "; " + (i > 0 ? "border-left:none; " : "") + rad + " cursor:pointer; vertical-align:middle; " + (on ? "background:#0C447C; color:#fff;" : "background:#fff; color:#475569;") + "'>" + grans[i][1] + "</button>";
+                seg += "<button type='button' onclick=\"SetDashGran('" + g + "')\" style='font-size:13px; font-weight:600; padding:7px 15px; border:1px solid " + (on ? "#0C447C" : "#c5d5de") + "; " + (i > 0 ? "border-left:none; " : "") + rad + " cursor:pointer; vertical-align:middle; " + (on ? "background:#0C447C; color:#fff;" : "background:#fff; color:#475569;") + "'>" + grans[i][1] + "</button>";
             }
-            // Menu déroulant contextuel (rien en mode "Tout").
-            var ddStyle = "font-size:12px; padding:5px 8px; border-radius:6px; vertical-align:middle; cursor:pointer; border:1px solid #0C447C; background:#fff; color:#1e293b; margin-left:12px; max-width:170px;";
-            var dd = "", opt = "";
-            if (dashFilter.gran === 'year') {
-                var years = dashYearsList();
-                if (years.indexOf(dashFilter.year) === -1) dashFilter.year = years[0];
-                for (var y = 0; y < years.length; y++) opt += "<option value='" + years[y] + "'" + (years[y] === dashFilter.year ? " selected" : "") + ">" + years[y] + "</option>";
-                dd = "<select onchange='SetDashPeriod(this.value)' style='" + ddStyle + "'>" + opt + "</select>";
-            } else if (dashFilter.gran === 'month') {
-                var ml = dashMonthList();
-                for (var m = 0; m < ml.length; m++) { var sm = (ml[m].year === dashFilter.year && ml[m].month === dashFilter.month); opt += "<option value='" + ml[m].year + "-" + ml[m].month + "'" + (sm ? " selected" : "") + ">" + MOIS_NOMS[ml[m].month] + " " + ml[m].year + "</option>"; }
-                dd = "<select onchange='SetDashPeriod(this.value)' style='" + ddStyle + "'>" + opt + "</select>";
-            } else if (dashFilter.gran === 'week') {
-                var wl = dashWeekList();
-                for (var w = 0; w < wl.length; w++) { var sw = (wl[w].year === dashFilter.year && wl[w].week === dashFilter.week); opt += "<option value='" + wl[w].year + "W" + wl[w].week + "'" + (sw ? " selected" : "") + ">S" + wl[w].week + " &middot; " + wl[w].year + "</option>"; }
-                dd = "<select onchange='SetDashPeriod(this.value)' style='" + ddStyle + "'>" + opt + "</select>";
-            }
-            return "<span style='white-space:nowrap;'>" + seg + dd + "</span>";
+            if (dashFilter.gran === 'all') return "<span style='white-space:nowrap;'>" + seg + "</span>";
+
+            // Groupe période : ◀  [menu déroulant]  ▶ (bordures connectées).
+            var s = dashPeriodState();
+            if (s.idx < 0 && s.items.length) { s.set(s.items[0]); s.idx = 0; }
+            var opt = "";
+            for (var k = 0; k < s.items.length; k++) { opt += "<option value='" + s.val(s.items[k]) + "'" + (k === s.idx ? " selected" : "") + ">" + s.label(s.items[k]) + "</option>"; }
+            var atNewest = (s.idx <= 0), atOldest = (s.idx >= s.items.length - 1);
+            function arw(dis) { return "font-size:12px; font-weight:700; padding:7px 12px; border:1px solid #c5d5de; background:" + (dis ? "#f1f5f9" : "#fff") + "; color:" + (dis ? "#cbd5e1" : "#0C447C") + "; cursor:" + (dis ? "default" : "pointer") + "; vertical-align:middle; height:34px; box-sizing:border-box;"; }
+            var prev = "<button type='button'" + (atOldest ? " disabled" : "") + " onclick=\"StepDashPeriod(-1)\" title='Période précédente' style='" + arw(atOldest) + " border-radius:6px 0 0 6px;'>&#9664;</button>";
+            var next = "<button type='button'" + (atNewest ? " disabled" : "") + " onclick=\"StepDashPeriod(1)\" title='Période suivante' style='" + arw(atNewest) + " border-left:none; border-radius:0 6px 6px 0;'>&#9654;</button>";
+            var dd = "<select onchange='SetDashPeriod(this.value)' style='font-size:13px; font-weight:700; padding:6px 8px; height:34px; box-sizing:border-box; border:1px solid #c5d5de; border-left:none; border-radius:0; background:#fff; color:#0C447C; cursor:pointer; vertical-align:middle; text-align:center; min-width:130px;'>" + opt + "</select>";
+            return "<span style='white-space:nowrap;'>" + seg + "<span style='margin-left:16px; vertical-align:middle;'>" + prev + dd + next + "</span></span>";
         }
         // Changement de granularité : on sélectionne automatiquement la période la plus récente disponible.
         function SetDashGran(g) {
