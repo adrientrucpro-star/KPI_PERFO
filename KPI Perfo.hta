@@ -735,6 +735,24 @@
     // NAVIGATION
     // ==========================================================
         var PAGES = ["pageDashboard", "pageAnalyse", "pageParcours", "pageParametres"];
+        // Cache de rendu (comme dashValid) : les pages masquées gardent leur DOM, donc on ne re-rend
+        // Analyse NC / Paramètres et les sous-onglets d'extraction que si leurs données ont changé.
+        var pageValid = { parcours: false, parametres: false };
+        var extractValid = { NC: false, OF: false, IC: false };
+        function InvalidatePages() { pageValid.parcours = false; pageValid.parametres = false; }
+        function InvalidateExtract() { extractValid.NC = false; extractValid.OF = false; extractValid.IC = false; }
+        function activeExtractSub() {
+            if (document.getElementById('extractSubOF') && document.getElementById('extractSubOF').style.display === 'block') return 'OF';
+            if (document.getElementById('extractSubIC') && document.getElementById('extractSubIC').style.display === 'block') return 'IC';
+            return 'NC';
+        }
+        function RenderExtractSub(s) {
+            if (s === 'OF') { RenderOFTable('cree'); RenderOFTable('clot'); }
+            else if (s === 'IC') { RenderICTable(); }
+            else { RenderListe(); }
+        }
+        // Rend le sous-onglet d'extraction visible UNIQUEMENT s'il a été invalidé.
+        function RenderActiveExtractSub() { var s = activeExtractSub(); if (!extractValid[s]) RenderExtractSub(s); }
         // skipRender=true : affiche la page sans rendre son contenu (utilisé au lancement pour ne rendre
         // le dashboard qu'UNE fois, après la maximisation de la fenêtre, au lieu d'avant ET après).
         function ShowPage(id, skipRender) {
@@ -748,10 +766,10 @@
             var navEl = document.getElementById("nav" + sfx2); if (navEl) navEl.className = "nav-item active";
             ScrollContentTop();   // remet le scroll à zéro AVANT le rendu (mesures de hauteur fiables)
             if (skipRender) return;
-            if (id === "pageParametres") RenderParametres();
+            if (id === "pageParametres") { if (!pageValid.parametres) RenderParametres(); }
             if (id === "pageDashboard") RenderDashIfNeeded();
-            if (id === "pageAnalyse") { RenderListe(); EgaliserHauteursExtraction(); }
-            if (id === "pageParcours") RenderParcours();
+            if (id === "pageAnalyse") { RenderActiveExtractSub(); EgaliserHauteursExtraction(); AjusterHauteurTables(); }
+            if (id === "pageParcours") { if (!pageValid.parcours) RenderParcours(); }
         }
         function ScrollContentTop() {
             var c = document.getElementById('content');
@@ -914,9 +932,9 @@
                 var pane = document.getElementById(subs[kk]); if (pane) pane.style.display = (kk === s) ? "block" : "none";
                 var tab = document.getElementById(tabs[kk]); if (tab) tab.className = (kk === s) ? "subtab active" : "subtab";
             }
-            if (s === 'OF') { RenderOFTable('cree'); RenderOFTable('clot'); }
-            else if (s === 'IC') { RenderICTable(); }
-            else { RenderListe(); EgaliserHauteursExtraction(); }
+            if (!extractValid[s]) RenderExtractSub(s);
+            if (s === 'NC') EgaliserHauteursExtraction();
+            AjusterHauteurTables();
         }
         // Parse EXPORT_ST / EXPORT_IQ : colonnes Ordre de Fabrication, User, Date, Heure (tabulé, ANSI).
         function ParseOF(content) {
@@ -1004,6 +1022,7 @@
             return data;
         }
         function RenderOFTable(type) {
+            extractValid.OF = true;   // rendu à jour (cache)
             var cont = document.getElementById(type === 'cree' ? 'ofCreeTable' : 'ofClotTable');
             if (!cont) return;
             var data = getOFTeamRows(type);
@@ -1133,6 +1152,7 @@
             RenderICTable();
         }
         function RenderICTable() {
+            extractValid.IC = true;   // rendu à jour (cache)
             var lbl = document.getElementById('lastICExtractDate'); if (lbl) lbl.innerText = appData.lastICImport ? appData.lastICImport : "Jamais";
             var cont = document.getElementById('icTable'); if (!cont) return;
             var data = (appData.icRows || []).slice(0);
@@ -1308,6 +1328,7 @@
 
         function RecomputeAll() {
             if (typeof InvalidateDash === 'function') InvalidateDash();   // les données NC ont changé -> dashboard à recalculer
+            extractValid.NC = false; pageValid.parcours = false; pageValid.parametres = false;   // idem : caches à invalider
             var rows = appData.rows || [];
             var roleByID = buildRoleByID();
             var clotCode = cfgVal('clot', CLOTURE_CODE).toUpperCase();
@@ -1444,6 +1465,7 @@
         function padTeam(role) { var a = teamArr(role); while (a.length < PARAM_EDIT_ROWS) a.push({ user: "", nom: "" }); }
 
         function RenderParametres() {
+            pageValid.parametres = true;   // rendu à jour (cache)
             UpdateParamsButtons();
             RenderCalcMode();
             RenderRolesTable();
@@ -2550,6 +2572,7 @@
             setDateIfEmpty('icDateFin', today);
         }
         function RenderListe() {
+            extractValid.NC = true;   // rendu à jour (cache)
             var lbl = document.getElementById('lastExtractDate');
             if (lbl) lbl.innerText = appData.lastImport ? appData.lastImport : "Jamais";
             PrefillExtractDates();
@@ -2675,6 +2698,7 @@
         function weekLabel(mon) { var sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6); return "Semaine " + isoWeek(mon) + " - " + FormatDateString(mon) + " au " + FormatDateString(sun); }
         function SetParcoursWeek(v) { parcoursWeek = v ? parseInt(v, 10) : null; RenderParcours(); }
         function RenderParcours() {
+            pageValid.parcours = true;   // rendu à jour (cache)
             var cont = document.getElementById('parcoursContainer');
             if (!cont) return;
             var sel = document.getElementById('weekSelect');
@@ -2763,6 +2787,7 @@
         function SetNCComment(avis, val) {
             if (!appData.comments) appData.comments = {};
             appData.comments[avis] = NettoyerChaine(val);
+            extractValid.NC = false;   // la colonne Commentaire du tableau NC doit refléter la modif
             SaveData();
         }
         // Exclure / réintégrer une NC de l'analyse (impacte Extract NC et le dashboard ; reste visible ici).
@@ -2881,6 +2906,7 @@
             resizeTimer = setTimeout(function () {
                 if (dashSuppressLaunchResize) return;   // ignore le resize dû à la maximisation au lancement (rendu déjà planifié)
                 InvalidateDash();   // les graphiques doivent être redimensionnés à la nouvelle taille de fenêtre
+                InvalidatePages();  // Analyse NC / Paramètres non visibles : à re-fitter à la prochaine ouverture
                 var pg = document.getElementById('pageAnalyse');
                 if (pg && pg.className.indexOf('active') !== -1) { EgaliserHauteursExtraction(); AjusterHauteurTables(); }
                 var pd = document.getElementById('pageDashboard');
