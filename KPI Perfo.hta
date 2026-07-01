@@ -632,17 +632,25 @@
                 RecomputeAll();
             }
             PrefillExtractDates();
-            // Affiche la page SANS rendre les graphiques, lance la maximisation, puis rend le dashboard
-            // UNE seule fois une fois la fenêtre stabilisée (évite un rendu à la mauvaise taille avant maximisation).
             dashSuppressLaunchResize = true;
-            ShowPage("pageDashboard", true);
-            setTimeout(MaximiserFenetre, 30);
-            setTimeout(function () {
+            ShowPage("pageDashboard", true);   // affiche la page SANS rendre les graphiques
+            // Plein écran IMMÉDIAT et synchrone (resizeTo) -> la fenêtre est déjà à la bonne taille tout de suite,
+            // puis maximisation "propre" (état maximisé) en arrière-plan.
+            try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
+            setTimeout(MaximiserFenetre, 20);
+            // Rend le dashboard dès que la hauteur visible est stable (au lieu d'un délai fixe de 200 ms).
+            LancerRenduDashboard(0, -1);
+        }
+        function LancerRenduDashboard(tries, lastH) {
+            var el = document.getElementById('content');
+            var h = el ? el.clientHeight : 0;
+            if ((h > 200 && h === lastH) || tries >= 12) {   // 2 mesures identiques = stable ; garde-fou ~300 ms
                 dashSuppressLaunchResize = false;
                 RenderDashboard();
-                // Masque l'overlay une fois les graphiques rendus (petit délai pour laisser le navigateur peindre).
-                setTimeout(function () { document.getElementById("appLoading").style.display = "none"; }, 80);
-            }, 200);
+                setTimeout(function () { document.getElementById("appLoading").style.display = "none"; }, 60);
+                return;
+            }
+            setTimeout(function () { LancerRenduDashboard(tries + 1, h); }, 25);
         }
         var dashSuppressLaunchResize = false;
 
