@@ -2842,8 +2842,10 @@
     // INITIALISATION
     // ==========================================================
         window.onload = function () {
-            // La fenêtre s'ouvre déjà maximisée nativement via <hta:application windowstate="maximize"> :
-            // l'écran de connexion s'affiche donc en plein écran, et les graphiques se rendront à la taille finale.
+            // windowstate="maximize" n'est PAS honoré sur ce poste (la fenêtre s'ouvre en fenêtré) :
+            // on force le plein écran en JS dès le démarrage, pour que l'écran de validation soit déjà maximisé.
+            // resizeTo est la seule méthode fiable ici ; on évite SendKeys (menu système visible = à-coups).
+            try { window.moveTo(0, 0); window.resizeTo(screen.availWidth, screen.availHeight); } catch (e) {}
             document.getElementById("sidebar-footer").innerText = "v" + VERSION_ACTUELLE + " - © Adrien Truc";
             document.getElementById("appLogo").innerText = APP_NAME;
             document.getElementById("appSub").innerText = APP_SOUS_TITRE;
