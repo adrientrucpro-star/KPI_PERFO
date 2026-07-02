@@ -66,6 +66,7 @@
         .nc-switch .knob { position: absolute; top: 2px; left: 24px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.3); transition: left .2s; }
         .nc-switch.off { background: #dc2626; }
         .nc-switch.off .knob { left: 2px; }
+        .dashPeriodSelect::-ms-expand { display: none; }   /* IE10 : retire la flèche du menu déroulant des filtres */
         .btn-green { background-color: #10b981; } .btn-green:hover { background-color: #059669; }
         .btn-grey { background-color: #64748b; } .btn-grey:hover { background-color: #475569; }
         .btn-disabled { background-color: #94a3b8 !important; cursor: wait !important; color: #f1f5f9 !important; }
@@ -2013,9 +2014,41 @@
             for (var i = 0; i < nb; i++) { var d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i); out.push(d.getTime()); }
             return out;
         }
+        // === MODE MSN : buckets = valeurs de MSN (au lieu de semaines/jours) ===
+        function msnBucketKey(v) { var s = NettoyerChaine(v); return s ? s : '—'; }   // '—' = sans MSN
+        function msnSortKeys(keys) {
+            keys.sort(function (a, b) {
+                var na = parseInt(a, 10), nb = parseInt(b, 10);
+                if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                return a < b ? -1 : (a > b ? 1 : 0);
+            });
+            return keys;
+        }
+        // Agrégation NC par MSN -> points { week/label = MSN, n, g, t }.
+        function computeMSNPts(elig) {
+            var agg = {};
+            for (var i = 0; i < elig.length; i++) {
+                var nc = elig[i]; if (!nc.end) continue;
+                var key = msnBucketKey(nc.msn);
+                if (!agg[key]) agg[key] = { n: 0, sg: 0, ng: 0, st: 0, nt: 0 };
+                agg[key].n++;
+                if (nc.durMs != null) { agg[key].sg += nc.durMs; agg[key].ng++; }
+                if (nc.chezMs != null) { agg[key].st += nc.chezMs; agg[key].nt++; }
+            }
+            var keys = []; for (var k in agg) { if (agg.hasOwnProperty(k)) keys.push(k); }
+            msnSortKeys(keys);
+            var pts = [];
+            for (var m = 0; m < keys.length; m++) { var a = agg[keys[m]]; pts.push({ week: keys[m], label: keys[m], n: a.n, g: a.ng ? a.sg / a.ng : null, t: a.nt ? a.st / a.nt : null }); }
+            return pts;
+        }
+        // Dispatcher : par MSN (mode MSN) ou par semaine/jour (modes Mois/Semaine).
+        function computeWeekPts(elig, byDay) {
+            if (dashFilter.gran === 'msn') return computeMSNPts(elig);
+            return computeTimePts(elig, byDay);
+        }
         // Agrégation par semaine (ou par JOUR si byDay) de clôture -> points { week, label, n, g, t }, triés.
         // En mode jour, on affiche TOUS les jours de la semaine sélectionnée (g/t = null si pas de données).
-        function computeWeekPts(elig, byDay) {
+        function computeTimePts(elig, byDay) {
             var agg = {};
             for (var i = 0; i < elig.length; i++) {
                 var nc = elig[i]; if (!nc.end) continue;
@@ -2037,13 +2070,15 @@
         }
         // Résumé "3 dernières semaines" : TOUJOURS sur les NC non filtrées (3 dernières semaines réelles).
         function RenderDash3Weeks(eligAll) {
-            var pts = computeWeekPts(eligAll, false);
+            var pts = computeTimePts(eligAll, false);   // TOUJOURS par semaine (indépendant du mode MSN)
             if (!pts.length) { document.getElementById('dash3weeks').innerHTML = "<div class='msg-box msg-info'>Aucune donnée.</div>"; return; }
             document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts.slice(Math.max(0, pts.length - 3)), dashRow1Height);
             EgaliserCards(document.querySelectorAll('#dash3weeks .wkbox'));   // les 3 cases (1 par semaine) à la même hauteur
         }
         // Graphique d'évolution par semaine : sur les NC filtrées par la période choisie.
         function RenderWeeksChart(elig) {
+            var wt = document.getElementById('dashWeeksTitle');
+            if (wt) wt.innerHTML = (dashFilter.gran === 'msn') ? "Évolution du traitement par MSN" : "Évolution du traitement par semaine";
             var pts = computeWeekPts(elig, dashFilter.gran === 'week');
             if (!pts.length) { document.getElementById('dashWeeks').innerHTML = "<div class='msg-box msg-info'>Aucune donnée.</div>"; return; }
             renderWeeksLineChart(pts);
@@ -2209,16 +2244,15 @@
 
         // 2) Durée moyenne par responsable du tableau 1.
         // Filtre commun aux DEUX sous-onglets du dashboard (Non-conformité ET Ordre de Fabrication).
-        // gran = 'all' | 'year' | 'month' | 'week' ; mois/semaine dépendent de l'année ; par défaut = année en cours.
-        var dashFilter = { gran: 'year', year: new Date().getFullYear(), month: null, week: null };
+        // gran = 'month' | 'week' | 'msn' ; mois/semaine dépendent de l'année ; MSN filtre par mois. Par défaut = mois en cours.
+        var dashFilter = { gran: 'month', year: new Date().getFullYear(), month: new Date().getMonth(), week: null };
         function inSelectedPeriod(d) {
             if (dashFilter.gran === 'all') return true;
             if (!d) return false;
             if (d.getFullYear() !== dashFilter.year) return false;
             if (dashFilter.gran === 'year') return true;
-            if (dashFilter.gran === 'month') return d.getMonth() === dashFilter.month;
             if (dashFilter.gran === 'week') return isoWeek(d) === dashFilter.week;
-            return true;
+            return d.getMonth() === dashFilter.month;   // 'month' ET 'msn' : filtre par mois
         }
         // Dates de référence pour le filtre : NC clôturées (éligibles) + OF (créés/clôturés, équipes) — union des deux sous-onglets.
         function dashAllDates() {
@@ -2262,7 +2296,7 @@
                     val: function (x) { return "" + x; }, label: function (x) { return "" + x; },
                     set: function (x) { dashFilter.year = x; } };
             }
-            if (g === 'month') {
+            if (g === 'month' || g === 'msn') {   // MSN : on garde le sélecteur de mois pour filtrer la période
                 var ml = dashMonthList(), im = -1;
                 for (var i = 0; i < ml.length; i++) { if (ml[i].year === dashFilter.year && ml[i].month === dashFilter.month) { im = i; break; } }
                 return { items: ml, idx: im,
@@ -2288,8 +2322,12 @@
         }
         // Barre de filtre : granularité segmentée (Tout/Année/Mois/Semaine) + groupe [◀ menu déroulant ▶].
         function dashRespFilterBar() {
-            if (dashFilter.gran === 'all') dashFilter.gran = 'year';   // "Tout" supprimé -> repli sur Année
-            var grans = [['year', 'Année'], ['month', 'Mois'], ['week', 'Semaine']];
+            // "Tout" et "Année" supprimés -> repli sur Mois (avec un mois valide).
+            if (dashFilter.gran === 'all' || dashFilter.gran === 'year') {
+                dashFilter.gran = 'month';
+                if (dashFilter.month == null) dashFilter.month = new Date().getMonth();
+            }
+            var grans = [['month', 'Mois'], ['week', 'Semaine'], ['msn', 'MSN']];
             var seg = "";
             for (var i = 0; i < grans.length; i++) {
                 var g = grans[i][0], on = dashFilter.gran === g;
@@ -2306,14 +2344,13 @@
             function arw(dis) { return "font-size:12px; font-weight:700; padding:7px 12px; border:1px solid #c5d5de; background:" + (dis ? "#f1f5f9" : "#fff") + "; color:" + (dis ? "#cbd5e1" : "#0C447C") + "; cursor:" + (dis ? "default" : "pointer") + "; vertical-align:middle; height:34px; box-sizing:border-box;"; }
             var prev = "<button type='button'" + (atOldest ? " disabled" : "") + " onclick=\"StepDashPeriod(-1)\" title='Période précédente' style='" + arw(atOldest) + " border-radius:6px 0 0 6px;'>&#9664;</button>";
             var next = "<button type='button'" + (atNewest ? " disabled" : "") + " onclick=\"StepDashPeriod(1)\" title='Période suivante' style='" + arw(atNewest) + " border-left:none; border-radius:0 6px 6px 0;'>&#9654;</button>";
-            var dd = "<select onchange='SetDashPeriod(this.value)' style='font-size:13px; font-weight:700; padding:6px 8px; height:34px; box-sizing:border-box; border:1px solid #c5d5de; border-left:none; border-radius:0; background:#fff; color:#0C447C; cursor:pointer; vertical-align:middle; text-align:center; min-width:130px;'>" + opt + "</select>";
+            var dd = "<select class='dashPeriodSelect' onchange='SetDashPeriod(this.value)' style='font-size:13px; font-weight:700; padding:6px 8px; height:34px; box-sizing:border-box; border:1px solid #c5d5de; border-left:none; border-radius:0; background:#fff; color:#0C447C; cursor:pointer; vertical-align:middle; text-align:center; min-width:130px;'>" + opt + "</select>";
             return "<span style='white-space:nowrap;'>" + seg + "<span style='margin-left:16px; vertical-align:middle;'>" + prev + dd + next + "</span></span>";
         }
         // Changement de granularité : on sélectionne automatiquement la période la plus récente disponible.
         function SetDashGran(g) {
             dashFilter.gran = g;
-            if (g === 'year') { var ys = dashYearsList(); if (ys.indexOf(dashFilter.year) === -1) dashFilter.year = ys[0]; }
-            else if (g === 'month') {
+            if (g === 'month' || g === 'msn') {   // MSN : période = mois (menu déroulant conservé)
                 var ml = dashMonthList(), found = false;
                 for (var i = 0; i < ml.length; i++) { if (ml[i].year === dashFilter.year && ml[i].month === dashFilter.month) { found = true; break; } }
                 if (!found && ml.length) { dashFilter.year = ml[0].year; dashFilter.month = ml[0].month; }
@@ -2327,9 +2364,8 @@
         // Sélection d'une période précise dans le menu déroulant contextuel.
         function SetDashPeriod(val) {
             if (val === '') return;
-            if (dashFilter.gran === 'year') { dashFilter.year = parseInt(val, 10); }
-            else if (dashFilter.gran === 'month') { var p = val.split('-'); dashFilter.year = parseInt(p[0], 10); dashFilter.month = parseInt(p[1], 10); }
-            else if (dashFilter.gran === 'week') { var p2 = val.split('W'); dashFilter.year = parseInt(p2[0], 10); dashFilter.week = parseInt(p2[1], 10); }
+            if (dashFilter.gran === 'week') { var p2 = val.split('W'); dashFilter.year = parseInt(p2[0], 10); dashFilter.week = parseInt(p2[1], 10); }
+            else { var p = val.split('-'); dashFilter.year = parseInt(p[0], 10); dashFilter.month = parseInt(p[1], 10); }   // 'month' ET 'msn'
             InvalidateDash(); RenderActiveDashboardSub();
         }
 
@@ -2438,6 +2474,7 @@
         // Agrège le nombre d'OF par semaine (ou par jour si filtre semaine), par user ET au total.
         // Reprend la logique de RenderDashTeams/computeWeekPts pour rester cohérent avec le sous-onglet NC.
         function ofBuckets(rows) {
+            if (dashFilter.gran === 'msn') return ofMSNBuckets(rows);
             var byDay = dashFilter.gran === 'week';
             var bucketSet = {}, perUser = {}, total = {};
             for (var i = 0; i < rows.length; i++) {
@@ -2455,6 +2492,23 @@
             else { buckets = []; for (var w in bucketSet) { if (bucketSet.hasOwnProperty(w)) buckets.push(parseInt(w, 10)); } buckets.sort(function (a, b) { return a - b; }); }
             var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(byDay ? fmtDDMM(new Date(buckets[k])) : "S" + isoWeek(new Date(buckets[k])));
             return { buckets: buckets, cats: cats, perUser: perUser, total: total };
+        }
+        // Mode MSN : nb d'OF par MSN (les OF n'ayant pas de MSN, tout tombe sous "—").
+        function ofMSNBuckets(rows) {
+            var keySet = {}, perUser = {}, total = {};
+            for (var i = 0; i < rows.length; i++) {
+                var d = parseOFDateObj(rows[i].date);
+                if (!d || !inSelectedPeriod(d)) continue;
+                var key = msnBucketKey(rows[i].msn);
+                keySet[key] = true;
+                var u = NettoyerChaine(rows[i].user).toUpperCase();
+                if (!perUser[u]) perUser[u] = {};
+                perUser[u][key] = (perUser[u][key] || 0) + 1;
+                total[key] = (total[key] || 0) + 1;
+            }
+            var buckets = []; for (var w in keySet) { if (keySet.hasOwnProperty(w)) buckets.push(w); }
+            msnSortKeys(buckets);
+            return { buckets: buckets, cats: buckets.slice(0), perUser: perUser, total: total };
         }
         // Construit les deux graphiques (courbe par user + courbe du total) pour un type d'OF (cree/clot).
         function hcOFLineCharts(type, color) {
@@ -2571,6 +2625,7 @@
         }
         // Nb d'IC en retard par semaine (ou jour si filtre semaine) de CLÔTURE, par user + total, sur la période choisie.
         function icLateBuckets(rows) {
+            if (dashFilter.gran === 'msn') return icLateMSNBuckets(rows);
             var byDay = dashFilter.gran === 'week';
             var bucketSet = {}, perUser = {}, total = {};
             for (var i = 0; i < rows.length; i++) {
@@ -2588,6 +2643,23 @@
             else { buckets = []; for (var w in bucketSet) { if (bucketSet.hasOwnProperty(w)) buckets.push(parseInt(w, 10)); } buckets.sort(function (a, b) { return a - b; }); }
             var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(byDay ? fmtDDMM(new Date(buckets[k])) : "S" + isoWeek(new Date(buckets[k])));
             return { buckets: buckets, cats: cats, perUser: perUser, total: total };
+        }
+        // Mode MSN : nb d'IC en retard par MSN, par user + total (période filtrée par le menu).
+        function icLateMSNBuckets(rows) {
+            var keySet = {}, perUser = {}, total = {};
+            for (var i = 0; i < rows.length; i++) {
+                var d = parseDT(rows[i].dc, rows[i].hc);
+                if (!d || !inSelectedPeriod(d)) continue;
+                var key = msnBucketKey(rows[i].msn);
+                keySet[key] = true;
+                var u = NettoyerChaine(rows[i].user).toUpperCase();
+                if (!perUser[u]) perUser[u] = {};
+                perUser[u][key] = (perUser[u][key] || 0) + 1;
+                total[key] = (total[key] || 0) + 1;
+            }
+            var buckets = []; for (var w in keySet) { if (keySet.hasOwnProperty(w)) buckets.push(w); }
+            msnSortKeys(buckets);
+            return { buckets: buckets, cats: buckets.slice(0), perUser: perUser, total: total };
         }
         function hcICUserChart(id, lateRows, nomMap) {
             var cont = document.getElementById(id); if (!cont) return;
@@ -2614,6 +2686,7 @@
         }
         // Agrège TOUTES les IC clôturées par semaine (ou jour) : nb en retard ET nb dans les temps, axe commun.
         function icTotalBuckets() {
+            if (dashFilter.gran === 'msn') return icTotalMSNBuckets();
             var byDay = dashFilter.gran === 'week';
             var all = appData.icRows || [], bucketSet = {}, lateB = {}, onTimeB = {};
             for (var i = 0; i < all.length; i++) {
@@ -2628,6 +2701,20 @@
             else { buckets = []; for (var w in bucketSet) { if (bucketSet.hasOwnProperty(w)) buckets.push(parseInt(w, 10)); } buckets.sort(function (a, b) { return a - b; }); }
             var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(byDay ? fmtDDMM(new Date(buckets[k])) : "S" + isoWeek(new Date(buckets[k])));
             return { buckets: buckets, cats: cats, late: lateB, onTime: onTimeB };
+        }
+        // Mode MSN : nb d'IC en retard / dans les temps par MSN (période filtrée par le menu).
+        function icTotalMSNBuckets() {
+            var all = appData.icRows || [], keySet = {}, lateB = {}, onTimeB = {};
+            for (var i = 0; i < all.length; i++) {
+                var r = all[i], d = parseDT(r.dc, r.hc);
+                if (!d || !inSelectedPeriod(d)) continue;
+                var key = msnBucketKey(r.msn);
+                keySet[key] = true;
+                if (isICLate(r)) lateB[key] = (lateB[key] || 0) + 1; else onTimeB[key] = (onTimeB[key] || 0) + 1;
+            }
+            var buckets = []; for (var w in keySet) { if (keySet.hasOwnProperty(w)) buckets.push(w); }
+            msnSortKeys(buckets);
+            return { buckets: buckets, cats: buckets.slice(0), late: lateB, onTime: onTimeB };
         }
         function hcICTotalChart(id) {
             var cont = document.getElementById(id); if (!cont) return;
@@ -2699,12 +2786,13 @@
                 var arr = teamDefs[t][1] || [];
                 for (var i = 0; i < arr.length; i++) { var u = NettoyerChaine(arr[i].user).toUpperCase(); if (u) umap[u] = { team: teamDefs[t][0], nom: nomSeul(arr[i].nom || u) }; }
             }
-            // Agrégation : durée moyenne par user ET par semaine (ou par JOUR si filtre semaine) de clôture.
+            // Agrégation : durée moyenne par user ET par semaine (jour si filtre semaine, ou MSN en mode MSN) de clôture.
+            var byMSN = dashFilter.gran === 'msn';
             var byDay = dashFilter.gran === 'week';
-            var weekSet = {}, agg = {};   // agg[user][bucketTs] = { sum, n }
+            var weekSet = {}, agg = {};   // agg[user][bucket] = { sum, n } ; bucket = ts (temps) ou MSN
             for (var e = 0; e < elig.length; e++) {
                 var nc = elig[e]; if (!nc.end) continue;
-                var wts = byDay ? new Date(nc.end.getFullYear(), nc.end.getMonth(), nc.end.getDate()).getTime() : getWeekStart(nc.end).getTime();
+                var wts = byMSN ? msnBucketKey(nc.msn) : (byDay ? new Date(nc.end.getFullYear(), nc.end.getMonth(), nc.end.getDate()).getTime() : getWeekStart(nc.end).getTime());
                 weekSet[wts] = true;
                 var gaps = stepGaps(nc.lines);
                 for (var j = 0; j < gaps.length; j++) {
@@ -2716,10 +2804,13 @@
                     agg[uu][wts].sum += gaps[j].gap; agg[uu][wts].n++;
                 }
             }
-            var weeks;
-            if (byDay) { weeks = selectedWeekDays(); }
-            else { weeks = []; for (var w in weekSet) { if (weekSet.hasOwnProperty(w)) weeks.push(parseInt(w, 10)); } weeks.sort(function (a, b) { return a - b; }); }
-            var cats = []; for (var z = 0; z < weeks.length; z++) cats.push(byDay ? fmtDDMM(new Date(weeks[z])) : "S" + isoWeek(new Date(weeks[z])));
+            var weeks, cats = [];
+            if (byMSN) { weeks = []; for (var wM in weekSet) { if (weekSet.hasOwnProperty(wM)) weeks.push(wM); } msnSortKeys(weeks); cats = weeks.slice(0); }
+            else {
+                if (byDay) { weeks = selectedWeekDays(); }
+                else { weeks = []; for (var w in weekSet) { if (weekSet.hasOwnProperty(w)) weeks.push(parseInt(w, 10)); } weeks.sort(function (a, b) { return a - b; }); }
+                for (var z = 0; z < weeks.length; z++) cats.push(byDay ? fmtDDMM(new Date(weeks[z])) : "S" + isoWeek(new Date(weeks[z])));
+            }
             var order = ["ST", "TL", "IQ"];
             for (var o = 0; o < order.length; o++) {
                 var team = order[o], us = [];
@@ -3227,7 +3318,7 @@
                         </div>
                         <div style="display:table-cell; width:60%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
                             <div id="cardEvoWeek" class="card dashEqRow1" style="margin-bottom:0; box-sizing:border-box;">
-                                <h3>Évolution du traitement par semaine</h3>
+                                <h3 id="dashWeeksTitle">Évolution du traitement par semaine</h3>
                                 <div id="dashWeeks"></div>
                             </div>
                         </div>
