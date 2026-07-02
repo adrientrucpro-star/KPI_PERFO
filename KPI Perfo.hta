@@ -234,6 +234,40 @@
         End Function
 
         ' ----------------------------------------------------------
+        ' Ouvre un ordre de fabrication dans SAP via CO03 (affichage). strOF = n° d'ordre.
+        ' Renvoie "OK" ou "ERREUR : ...".
+        ' ----------------------------------------------------------
+        Function VBS_OuvrirCO03(strOF)
+            On Error Resume Next
+            Set oSession = GetSAPSession()
+            If oSession Is Nothing Then
+                VBS_OuvrirCO03 = "ERREUR : SAP inaccessible. Ouvre SAP Logon et connecte-toi."
+                Exit Function
+            End If
+            oSession.FindById("wnd[0]").Maximize
+            ' /n = bascule sur CO03 depuis n'importe quel écran.
+            oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "/nco03"
+            oSession.FindById("wnd[0]").SendVKey 0
+            If Not AttendreElementSAP("wnd[0]/usr/ctxtCAUFVD-AUFNR", 8) Then
+                VBS_OuvrirCO03 = "ERREUR : l'écran CO03 n'a pas démarré."
+                Exit Function
+            End If
+            oSession.FindById("wnd[0]/usr/ctxtCAUFVD-AUFNR").Text = strOF
+            oSession.FindById("wnd[0]").SendVKey 0
+            If Err.Number <> 0 Then
+                VBS_OuvrirCO03 = "ERREUR : impossible d'ouvrir l'ordre " & strOF & "."
+                Exit Function
+            End If
+            ' Amène la fenêtre SAP au premier plan.
+            oSession.FindById("wnd[0]").Maximize
+            Dim wshActOF
+            Set wshActOF = CreateObject("WScript.Shell")
+            wshActOF.AppActivate oSession.FindById("wnd[0]").Text
+            VBS_OuvrirCO03 = "OK"
+            On Error GoTo 0
+        End Function
+
+        ' ----------------------------------------------------------
         ' Extraction QM13 -> EXPORT_NC.txt (variante d'affichage LAROCHE_NC).
         ' strDateLow = date de début au format JJ.MM.AAAA. Renvoie "OK" ou "ERREUR : ...".
         ' ----------------------------------------------------------
@@ -1134,6 +1168,7 @@
         }
         function RenderOFCombined() {
             extractValid.OF = true;   // rendu à jour (cache)
+            var lbl = document.getElementById('lastOFExtractDate'); if (lbl) lbl.innerText = appData.lastOFImport ? appData.lastOFImport : "Jamais";
             var cont = document.getElementById('ofTable'); if (!cont) return;
             var data = ofCombinedRows();
             // Filtres OF : plage de dates + recherche (n° d'OF, user, MSN ou type).
@@ -1167,7 +1202,8 @@
                 var badge = (r.type === 'cree')
                     ? "<span style='display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; font-weight:700; background:#E6F1FB; color:#0C447C;'>Création</span>"
                     : "<span style='display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; font-weight:700; background:#dcfce3; color:#166534;'>Clôture</span>";
-                rows += "<tr><td style='text-align:center; font-weight:700;'>" + escapeHtml(r.of) + "</td>"
+                rows += "<tr><td style='text-align:center;'><button type='button' onclick=\"OuvrirOFSap('" + escapeHtml(r.of) + "', this)\" title=\"Afficher l'ordre dans SAP (CO03)\" style='padding:5px 8px; border-radius:5px; background:#0C447C; border:none; cursor:pointer; vertical-align:middle;'><svg width='14' height='14' viewBox='0 0 24 24' style='display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg></button></td>"
+                    + "<td style='text-align:center; font-weight:700;'>" + escapeHtml(r.of) + "</td>"
                     + "<td style='text-align:center;'>" + (r.msn ? escapeHtml(r.msn) : "-") + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(r.user) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(fmtOFDate(r.date)) + "</td>"
@@ -1175,9 +1211,9 @@
                     + "<td style='text-align:center;'>" + badge + "</td></tr>";
             }
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
-                + "<table class='data-table'><thead><tr>"
-                + ofTh('of', 'Ordre de Fabrication', '20%') + ofTh('msn', 'MSN', '10%') + ofTh('user', 'User', '16%')
-                + ofTh('date', 'Date', '16%') + ofTh('heure', 'Heure', '16%') + ofTh('type', 'Type', '14%')
+                + "<table class='data-table'><thead><tr><th width='4%'></th>"
+                + ofTh('of', 'Ordre de Fabrication', '18%') + ofTh('msn', 'MSN', '9%') + ofTh('user', 'User', '16%')
+                + ofTh('date', 'Date', '15%') + ofTh('heure', 'Heure', '14%') + ofTh('type', 'Type', '12%')
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
@@ -3215,6 +3251,19 @@
                 if (btn) btn.style.cursor = 'pointer';
             }, 80);
         }
+        // Ouvre un ordre de fabrication dans SAP via CO03.
+        function OuvrirOFSap(of, btn) {
+            if (btn) btn.style.cursor = 'wait';
+            document.body.style.cursor = 'wait';
+            setTimeout(function () {
+                try {
+                    var res = VBS_OuvrirCO03(of);
+                    if (!res || res.indexOf("ERREUR") !== -1) AfficherErreur(res || "Erreur inconnue lors de l'ouverture SAP.");
+                } catch (e) { AfficherErreur("Erreur : " + e.message); }
+                document.body.style.cursor = '';
+                if (btn) btn.style.cursor = 'pointer';
+            }, 80);
+        }
 
     // ==========================================================
     // INITIALISATION
@@ -3557,7 +3606,7 @@
                     <div style="display:table; width:100%; margin:0 0 20px 0;">
                         <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                             <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <table style="border:none;"><tr>
+                                <table style="border:none; width:100%;"><tr>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Extraire à partir du</label>
                                         <span class="date-wrap"><input type="text" id="ofDateDebut" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofDateDebut', event)" title="Effacer">&times;</button></span>
@@ -3568,6 +3617,9 @@
                                     </td>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                         <button id="btnOF" class="btn-toolbar" style="padding:0 10px; min-width:150px;" onclick="LancerExtractOFTout()">Extract OF</button>
+                                    </td>
+                                    <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
+                                        <span style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Dernière extraction : <b id="lastOFExtractDate">-</b></span>
                                     </td>
                                 </tr></table>
                             </div>
