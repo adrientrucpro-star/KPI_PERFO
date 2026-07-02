@@ -1195,6 +1195,7 @@
             var lbl = document.getElementById('lastOFExtractDate'); if (lbl) lbl.innerText = appData.lastOFImport ? appData.lastOFImport : "Jamais";
             var cont = document.getElementById('ofTable'); if (!cont) return;
             var data = ofCombinedRows();
+            var totalOF = data.length;   // nb d'OF AVANT filtres (pour distinguer "aucune extraction" de "aucun résultat filtré")
             // Filtres OF : plage de dates + recherche (n° d'OF, user, MSN ou type).
             var fE1 = document.getElementById('ofFiltreDateDebut'), fE2 = document.getElementById('ofFiltreDateFin'), fER = document.getElementById('ofFiltreRecherche');
             var nd = fE1 ? dateToNum(fE1.value) : null, nf = fE2 ? dateToNum(fE2.value) : null;
@@ -1210,7 +1211,11 @@
                 }
                 data = keep;
             }
-            if (!data.length) { showEmptyExtract('ofTable', "Aucune extraction réalisée", "Lance une extraction des ordres de fabrication ci-dessus."); return; }
+            if (!data.length) {
+                if (totalOF) showEmptyExtract('ofTable', "Aucun OF ne correspond aux filtres.", "Modifie ou réinitialise les filtres.");
+                else showEmptyExtract('ofTable', "Aucune extraction réalisée", "Lance une extraction des ordres de fabrication ci-dessus.");
+                return;
+            }
             var sc = ofSort.col, sd = ofSort.dir;
             if (sc) {
                 data.sort(function (a, b) {
@@ -1422,6 +1427,7 @@
             var lbl = document.getElementById('lastICExtractDate'); if (lbl) lbl.innerText = appData.lastICImport ? appData.lastICImport : "Jamais";
             var cont = document.getElementById('icTable'); if (!cont) return;
             var data = (appData.icRows || []).slice(0);
+            var totalIC = data.length;   // nb d'IC AVANT filtres
             // Filtres : plage de dates sur la date de CLÔTURE + recherche (n° IC ou user).
             var fE1 = document.getElementById('icFiltreDateDebut'), fE2 = document.getElementById('icFiltreDateFin'), fER = document.getElementById('icFiltreRecherche');
             var nd = fE1 ? dateToNum(fE1.value) : null, nf = fE2 ? dateToNum(fE2.value) : null;
@@ -1436,7 +1442,11 @@
                 }
                 data = keep;
             }
-            if (!data.length) { showEmptyExtract('icTable', "Aucune extraction réalisée", "Lance une extraction des Interventions Cards ci-dessus."); return; }
+            if (!data.length) {
+                if (totalIC) showEmptyExtract('icTable', "Aucune IC ne correspond aux filtres.", "Modifie ou réinitialise les filtres.");
+                else showEmptyExtract('icTable', "Aucune extraction réalisée", "Lance une extraction des Interventions Cards ci-dessus.");
+                return;
+            }
             var sc = icSort.col, sd = icSort.dir;
             if (sc) {
                 data.sort(function (a, b) {
@@ -2995,6 +3005,7 @@
                 }
                 filtered.push(ncf);
             }
+            if (!filtered.length) { showEmptyExtract('listeContainer', "Aucune NC ne correspond aux filtres.", "Modifie ou réinitialise les filtres."); return; }
             if (listeSort.col) {
                 var sc = listeSort.col, sd = listeSort.dir;
                 filtered.sort(function (a, b) { var va = listeSortVal(a, sc), vb = listeSortVal(b, sc); return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd; });
@@ -3025,7 +3036,7 @@
                 + listeTh('chez', 'Traitement équipe', "width='10%'")
                 + listeTh('cmt', 'Commentaire', "")
                 + "</tr></thead><tbody>"
-                + (rows || "<tr><td colspan='9' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
+                + rows
                 + "</tbody></table></div>";
             AjusterHauteurTables();
         }
@@ -3406,7 +3417,7 @@
                 <div style="border-bottom:2px solid #e2e8f0; margin:0 0 18px 0; overflow:hidden;">
                     <button id="dashSubtabNC" class="subtab active" onclick="ShowDashSub('NC')">Non-conformité</button>
                     <button id="dashSubtabOF" class="subtab" onclick="ShowDashSub('OF')">Ordre de Fabrication</button>
-                    <button id="dashSubtabIC" class="subtab" onclick="ShowDashSub('IC')">Interventions Cards</button>
+                    <button id="dashSubtabIC" class="subtab" onclick="ShowDashSub('IC')">Intervention Card</button>
                     <span id="dashFilterBar" style="float:right; margin:4px 0;"></span>
                 </div>
 
@@ -3579,7 +3590,7 @@
                 <div style="border-bottom:2px solid #e2e8f0; margin:0 0 18px 0;">
                     <button id="subtabNC" class="subtab active" onclick="ShowExtractSub('NC')">Non-conformité</button>
                     <button id="subtabOF" class="subtab" onclick="ShowExtractSub('OF')">Ordre de Fabrication</button>
-                    <button id="subtabIC" class="subtab" onclick="ShowExtractSub('IC')">Interventions Cards</button>
+                    <button id="subtabIC" class="subtab" onclick="ShowExtractSub('IC')">Intervention Card</button>
                 </div>
 
                 <div id="extractSubNC">
