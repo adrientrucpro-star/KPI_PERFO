@@ -1213,14 +1213,15 @@
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
                 + "<table class='data-table'><thead><tr><th style='width:50px;'></th>"
                 + ofTh('of', 'Ordre de Fabrication', '18%') + ofTh('msn', 'MSN', '9%') + ofTh('user', 'User', '16%')
-                + ofTh('date', 'Date', '15%') + ofTh('heure', 'Heure', '14%') + ofTh('type', 'Type', '12%')
+                + ofTh('date', 'Date', '15%') + ofTh('heure', 'Heure', '14%') + ofTh('type', 'Type', '')
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
         var ofSort = { col: 'date', dir: -1 };   // tri par défaut : date décroissante
         function ofTh(col, label, w) {
             var arrow = (ofSort.col === col) ? (ofSort.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
-            return "<th width='" + w + "' style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortOF('" + col + "')\" title='Trier'>" + label + arrow + "</th>";
+            var wAttr = w ? (" width='" + w + "'") : "";   // w vide = colonne élastique (absorbe l'espace restant)
+            return "<th" + wAttr + " style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortOF('" + col + "')\" title='Trier'>" + label + arrow + "</th>";
         }
         function SortOF(col) {
             if (ofSort.col === col) ofSort.dir = -ofSort.dir; else { ofSort.col = col; ofSort.dir = 1; }
@@ -1383,7 +1384,8 @@
         var icSort = { col: null, dir: 1 };
         function icTh(col, label, w) {
             var arrow = (icSort.col === col) ? (icSort.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
-            return "<th width='" + w + "' style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortIC('" + col + "')\" title='Trier'>" + label + arrow + "</th>";
+            var wAttr = w ? (" width='" + w + "'") : "";   // w vide = colonne élastique (absorbe l'espace restant)
+            return "<th" + wAttr + " style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortIC('" + col + "')\" title='Trier'>" + label + arrow + "</th>";
         }
         function SortIC(col) { if (icSort.col === col) icSort.dir = -icSort.dir; else { icSort.col = col; icSort.dir = 1; } RenderICTable(); }
         function ResetICFiltres() {
@@ -1436,7 +1438,7 @@
                 + "<table class='data-table'><thead><tr><th style='width:50px;'></th>"
                 + icTh('ic', 'Numéro IC', '12%') + icTh('msn', 'MSN', '8%') + icTh('user', 'User', '12%')
                 + icTh('dfa', 'Date fin autorisée', '16%') + icTh('hfa', 'Heure fin autorisée', '16%')
-                + icTh('dc', 'Date clôture', '16%') + icTh('hc', 'Heure clôture', '16%')
+                + icTh('dc', 'Date clôture', '16%') + icTh('hc', 'Heure clôture', '')
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
@@ -2996,7 +2998,7 @@
                 + listeTh('end', 'Date clôture', "width='10%'")
                 + listeTh('dur', 'Traitement global', "width='10%'")
                 + listeTh('chez', 'Traitement équipe', "width='10%'")
-                + listeTh('cmt', 'Commentaire', "width='24%'")
+                + listeTh('cmt', 'Commentaire', "")
                 + "</tr></thead><tbody>"
                 + (rows || "<tr><td colspan='9' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
                 + "</tbody></table></div>";
