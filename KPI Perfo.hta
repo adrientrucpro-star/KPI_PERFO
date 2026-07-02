@@ -864,6 +864,15 @@
         }
         // Rend le sous-onglet d'extraction visible UNIQUEMENT s'il a été invalidé.
         function RenderActiveExtractSub() { var s = activeExtractSub(); if (!extractValid[s]) RenderExtractSub(s); }
+        // Pré-rend en arrière-plan les sous-onglets d'extraction non encore rendus (construit le HTML dans les conteneurs
+        // masqués), pour que le changement d'onglet soit instantané (le coût du rendu est déplacé hors du clic).
+        function PrerenderExtractSubs() {
+            setTimeout(function () {
+                if (!extractValid.NC) RenderListe();
+                if (!extractValid.OF) RenderOFCombined();
+                if (!extractValid.IC) RenderICTable();
+            }, 60);
+        }
         // skipRender=true : affiche la page sans rendre son contenu (utilisé au lancement pour ne rendre
         // le dashboard qu'UNE fois, après la maximisation de la fenêtre, au lieu d'avant ET après).
         function ShowPage(id, skipRender) {
@@ -879,7 +888,7 @@
             if (skipRender) return;
             if (id === "pageParametres") { if (!pageValid.parametres) RenderParametres(); }
             if (id === "pageDashboard") RenderDashIfNeeded();
-            if (id === "pageAnalyse") { RenderActiveExtractSub(); EgaliserHauteursExtraction(); AjusterHauteurTables(); ResetTblScroll(); }
+            if (id === "pageAnalyse") { RenderActiveExtractSub(); EgaliserHauteursExtraction(); AjusterHauteurTables(); ResetTblScroll(); PrerenderExtractSubs(); }
             if (id === "pageParcours") { if (!pageValid.parcours) RenderParcours(); }
         }
         function ScrollContentTop() {
