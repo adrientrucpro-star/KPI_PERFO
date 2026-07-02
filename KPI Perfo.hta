@@ -457,6 +457,76 @@
             VBS_ExtractIC = "OK"
             On Error GoTo 0
         End Function
+
+        ' ----------------------------------------------------------
+        ' 2e extract NC via QM11 (variante LAROCHE_NC2) -> EXPORT_NC2.txt : MSN | Avis.
+        ' Permet de rattacher le n° de MSN à chaque NC. Renvoie "OK" ou "ERREUR : ...".
+        ' ----------------------------------------------------------
+        Function VBS_ExtractNCMSN(strDateLow, strDateHigh)
+            On Error Resume Next
+            Dim wsh, fso, folderPath, exportPath, popupCheck, maxRetries, currentRetry, fileReady
+            Set wsh = CreateObject("WScript.Shell")
+            folderPath = wsh.ExpandEnvironmentStrings("%APPDATA%") & "\KPI_Perfo"
+            Set fso = CreateObject("Scripting.FileSystemObject")
+            If Not fso.FolderExists(folderPath) Then fso.CreateFolder(folderPath)
+            exportPath = folderPath & "\EXPORT_NC2.txt"
+            If fso.FileExists(exportPath) Then fso.DeleteFile exportPath, True
+
+            Set oSession = GetSAPSession()
+            If oSession Is Nothing Then
+                VBS_ExtractNCMSN = "ERREUR : SAP inaccessible. Ouvre SAP Logon et connecte-toi."
+                Exit Function
+            End If
+            oSession.FindById("wnd[0]").Maximize
+            oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "/nqm11"
+            oSession.FindById("wnd[0]").SendVKey 0
+            If Not AttendreElementSAP("wnd[0]/tbar[1]/btn[17]", 8) Then
+                VBS_ExtractNCMSN = "ERREUR : QM11 n'a pas démarré."
+                Exit Function
+            End If
+            ' Variante d'affichage LAROCHE_NC2 (MSN + Avis) (+ effacement du filtre auteur ENAME)
+            oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
+            If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
+                oSession.FindById("wnd[1]/usr/txtV-LOW").Text = "LAROCHE_NC2"
+                If Not (oSession.FindById("wnd[1]/usr/txtENAME-LOW", False) Is Nothing) Then oSession.FindById("wnd[1]/usr/txtENAME-LOW").Text = ""
+                oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
+            End If
+            ' Plage de dates + exécution
+            If Not AttendreElementSAP("wnd[0]/usr/ctxtQMDAT-LOW", 5) Then
+                VBS_ExtractNCMSN = "ERREUR : champ date introuvable."
+                Exit Function
+            End If
+            oSession.FindById("wnd[0]/usr/ctxtQMDAT-LOW").Text = strDateLow
+            If strDateHigh <> "" Then oSession.FindById("wnd[0]/usr/ctxtQMDAT-HIGH").Text = strDateHigh
+            oSession.FindById("wnd[0]/tbar[1]/btn[8]").Press
+            ' Export de la liste -> fichier local
+            oSession.FindById("wnd[0]/mbar/menu[0]/menu[3]/menu[2]").Select
+            Set popupCheck = oSession.FindById("wnd[1]", False)
+            If popupCheck Is Nothing Then
+                VBS_ExtractNCMSN = "ERREUR : aucune donnée MSN à exporter pour cette période."
+                Exit Function
+            End If
+            oSession.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[1,0]").Select
+            oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
+            oSession.FindById("wnd[1]/usr/ctxtDY_PATH").Text = folderPath
+            oSession.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = "EXPORT_NC2.txt"
+            oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
+            ' Attente de la génération du fichier
+            maxRetries = 40 : currentRetry = 0 : fileReady = False
+            Do While Not fileReady And currentRetry < maxRetries
+                If fso.FileExists(exportPath) Then
+                    If fso.GetFile(exportPath).Size > 0 Then fileReady = True
+                End If
+                If Not fileReady Then Call PauseVBS(1) : currentRetry = currentRetry + 1
+            Loop
+            oSession.EndTransaction
+            If Not fileReady Then
+                VBS_ExtractNCMSN = "ERREUR : délai dépassé, fichier non généré."
+                Exit Function
+            End If
+            VBS_ExtractNCMSN = "OK"
+            On Error GoTo 0
+        End Function
     </script>
 
     <script language="javascript">
@@ -873,6 +943,7 @@
                     var res = VBS_ExtractQM13(dateSAP, dateSAPFin);
                     if (res && res.indexOf("ERREUR") === -1) {
                         var sh = new ActiveXObject("WScript.Shell");
+                        ChargerMSN(dateSAP, dateSAPFin, sh);   // 2e extract QM11 (LAROCHE_NC2) : mappe le MSN à chaque NC (best-effort)
                         var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_NC.txt";
                         LireEtAnalyser(path);   // parse + sauvegarde + recalcul + rendu liste + MsgBox résultat
                     } else {
@@ -883,6 +954,21 @@
                 }
                 if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Extract NC"; }
             }, 80);
+        }
+        // 2e extract QM11 (variante LAROCHE_NC2) -> EXPORT_NC2.txt : met à jour appData.msnByAvis (map avis -> MSN).
+        // Best-effort : un échec (SAP, aucune donnée...) n'interrompt PAS l'import NC ; on conserve les MSN déjà connus.
+        function ChargerMSN(dateSAP, dateSAPFin, sh) {
+            try {
+                var res = VBS_ExtractNCMSN(dateSAP, dateSAPFin);
+                if (!res || res.indexOf("ERREUR") !== -1) return;
+                var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_NC2.txt";
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) return;
+                var ts = fso.OpenTextFile(path, 1, false, 0); var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
+                var map = ParseNCMSN(content);
+                if (!appData.msnByAvis) appData.msnByAvis = {};
+                for (var av in map) { if (map.hasOwnProperty(av)) appData.msnByAvis[av] = map[av]; }
+            } catch (e) { /* best-effort : on n'interrompt pas l'import NC */ }
         }
         function LireEtAnalyser(path) {
             try {
@@ -1250,6 +1336,22 @@
             }
             return out;
         }
+        // EXPORT_NC2.txt (QM11, variante LAROCHE_NC2) : colonnes MSN | Avis (tabulé).
+        // Renvoie une map { avis : msn } pour rattacher le MSN à chaque NC du 1er extract.
+        function ParseNCMSN(content) {
+            var lines = content.split(/\r?\n/), map = {};
+            for (var i = 0; i < lines.length; i++) {
+                var raw = lines[i];
+                if (raw.indexOf("\t") === -1) continue;
+                var parts = raw.split("\t");
+                while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
+                if (parts.length < 2) continue;
+                var msn = NettoyerChaine(parts[0]), avis = NettoyerChaine(parts[1]);
+                if (!/^\d{8,}$/.test(avis)) continue;   // 2e colonne = n° d'avis (8+ chiffres) ; ligne d'en-tête ignorée
+                if (msn) map[avis] = msn;
+            }
+            return map;
+        }
 
     // ==========================================================
     // AGRÉGATION PAR NC + CALCUL DES DURÉES
@@ -1380,6 +1482,7 @@
                     if (g.gap != null && t1int[rU] && inTeam) chezMs += g.gap;
                 }
                 nc.start = start; nc.end = clot;
+                nc.msn = (appData.msnByAvis && appData.msnByAvis[key]) ? appData.msnByAvis[key] : "";   // MSN issu du 2e extract (QM11)
                 nc.hasST = !!roles.ST; nc.hasIQ = !!roles.IQ; nc.hasTL = !!roles.TL;
                 nc.hasCT = hasCT; nc.hasClot = hasClot;
                 // Traitement global = création -> dernière fin (1re à dernière date/heure).
@@ -2591,7 +2694,7 @@
                 if (d1 && ncf.end && ncf.end < d1) continue;   // filtre sur la date de clôture
                 if (d2 && ncf.end && ncf.end > d2) continue;
                 if (q) {
-                    var hay = (ncf.avis + " " + ncf.desc + " " + ncf.statut).toLowerCase();
+                    var hay = (ncf.avis + " " + ncf.desc + " " + ncf.statut + " " + (ncf.msn || "")).toLowerCase();
                     if (hay.indexOf(q) === -1) continue;
                 }
                 filtered.push(ncf);
@@ -2606,6 +2709,7 @@
                 var cmt = (appData.comments && appData.comments[nc.avis]) ? appData.comments[nc.avis] : "";
                 rows += "<tr><td style='text-align:center;'><button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(nc.avis) + "', this)\" title='Afficher la NC' style='padding:5px 8px; border-radius:5px; background:#0C447C; border:none; cursor:pointer; vertical-align:middle;'><svg width='14' height='14' viewBox='0 0 24 24' style='display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg></button></td>"
                     + "<td style='font-weight:700; text-align:center;'>" + escapeHtml(nc.avis) + "</td>"
+                    + "<td style='text-align:center;'>" + (nc.msn ? escapeHtml(nc.msn) : "-") + "</td>"
                     + "<td>" + escapeHtml(nc.desc) + "</td>"
                     + "<td style='text-align:center;'>" + (nc.start ? FormatDateString(nc.start) : "-") + "</td>"
                     + "<td style='text-align:center;'>" + (nc.end ? FormatDateString(nc.end) : "-") + "</td>"
@@ -2617,14 +2721,15 @@
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'><table class='data-table'><thead><tr>"
                 + "<th width='3%'></th>"
                 + listeTh('avis', 'Avis', "width='7%'")
+                + listeTh('msn', 'MSN', "width='6%'")
                 + listeTh('desc', 'Descriptif', "")
                 + listeTh('start', 'Date création', "width='10%'")
                 + listeTh('end', 'Date clôture', "width='10%'")
                 + listeTh('dur', 'Traitement global', "width='10%'")
                 + listeTh('chez', 'Traitement équipe', "width='10%'")
-                + listeTh('cmt', 'Commentaire', "width='30%'")
+                + listeTh('cmt', 'Commentaire', "width='24%'")
                 + "</tr></thead><tbody>"
-                + (rows || "<tr><td colspan='8' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
+                + (rows || "<tr><td colspan='9' style='text-align:center; color:#94a3b8; font-style:italic;'>Aucune NC ne correspond aux filtres.</td></tr>")
                 + "</tbody></table></div>";
             AjusterHauteurTables();
         }
@@ -2639,6 +2744,7 @@
         }
         function listeSortVal(nc, col) {
             if (col === 'avis') return parseInt(nc.avis, 10) || 0;
+            if (col === 'msn') return parseInt(nc.msn, 10) || 0;
             if (col === 'desc') return (nc.desc || "").toLowerCase();
             if (col === 'start') return nc.start ? nc.start.getTime() : 0;
             if (col === 'end') return nc.end ? nc.end.getTime() : 0;
@@ -2768,7 +2874,7 @@
             var exclBtn = "<span class='nc-switch" + (nc.excluded ? " off" : "") + "' onclick=\"ToggleExcludeNC('" + escapeHtml(nc.avis) + "')\"><span class='knob'></span></span>";
             return "<div class='card' style='padding:16px 25px;" + (nc.excluded ? " opacity:0.55; border-left:4px solid #dc2626;" : "") + "'>"
                 + "<div style='overflow:hidden; margin-bottom:16px;'>"
-                + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span> <span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
+                + "<div style='float:left;'><span style='font-weight:700; font-size:16px; color:#1e293b;'>NC " + escapeHtml(nc.avis) + "</span>" + (nc.msn ? " <span style='color:#0C447C; font-size:13px; font-weight:700;'>· MSN " + escapeHtml(nc.msn) + "</span>" : "") + " <span style='color:#1e293b; font-size:13px;'>· " + escapeHtml(nc.desc) + "</span></div>"
                 + "<div style='float:right;'>"
                 + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#E6F1FB; color:#0C447C;'>Traitement global : <span id='gbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(nc.durMs) + "</span></span>"
                 + "<span style='display:inline-block; vertical-align:middle; font-size:12px; font-weight:700; padding:5px 12px; border-radius:6px; background:#dcfce3; color:#166534; margin-left:8px;'>Traitement équipe : <span id='tbadge_" + escapeHtml(nc.avis) + "'>" + fmtDHM(nc.chezMs) + "</span></span>"
