@@ -879,7 +879,7 @@
             if (skipRender) return;
             if (id === "pageParametres") { if (!pageValid.parametres) RenderParametres(); }
             if (id === "pageDashboard") RenderDashIfNeeded();
-            if (id === "pageAnalyse") { RenderActiveExtractSub(); EgaliserHauteursExtraction(); AjusterHauteurTables(); }
+            if (id === "pageAnalyse") { RenderActiveExtractSub(); EgaliserHauteursExtraction(); AjusterHauteurTables(); ResetTblScroll(); }
             if (id === "pageParcours") { if (!pageValid.parcours) RenderParcours(); }
         }
         function ScrollContentTop() {
@@ -887,6 +887,29 @@
             if (c) c.scrollTop = 0;
             var b = document.getElementById('btnScrollTop');
             if (b) b.style.display = 'none';
+        }
+        // Défilement À L'INTÉRIEUR des tableaux (.tbl-scroll) : affiche le bouton "remonter" quand on défile.
+        function tblScrollHandler() {
+            var b = document.getElementById('btnScrollTop');
+            if (b) b.style.display = (this.scrollTop > 200) ? 'block' : 'none';
+        }
+        // Le conteneur de tableau actuellement visible (les autres sous-onglets sont masqués).
+        function visibleTblScroll() {
+            var boxes = document.querySelectorAll('.tbl-scroll');
+            for (var i = 0; i < boxes.length; i++) { if (boxes[i].offsetHeight > 0 && boxes[i].offsetParent) return boxes[i]; }
+            return null;
+        }
+        // Clic sur le bouton : remonte le tableau visible ET la page en haut.
+        function ScrollHautTableau() {
+            var c = document.getElementById('content'); if (c) c.scrollTop = 0;
+            var t = visibleTblScroll(); if (t) t.scrollTop = 0;
+            var b = document.getElementById('btnScrollTop'); if (b) b.style.display = 'none';
+        }
+        // Remet tous les tableaux tout en haut (à l'entrée d'un onglet).
+        function ResetTblScroll() {
+            var boxes = document.querySelectorAll('.tbl-scroll');
+            for (var i = 0; i < boxes.length; i++) boxes[i].scrollTop = 0;
+            var b = document.getElementById('btnScrollTop'); if (b) b.style.display = 'none';
         }
 
     // ==========================================================
@@ -1072,6 +1095,7 @@
             if (!extractValid[s]) RenderExtractSub(s);
             if (s === 'NC') EgaliserHauteursExtraction();
             AjusterHauteurTables();
+            ResetTblScroll();   // le tableau du sous-onglet s'affiche tout en haut
         }
         // Parse EXPORT_ST / EXPORT_IQ : colonnes Ordre de Fabrication, User, Date, Heure (tabulé, ANSI).
         function ParseOF(content) {
@@ -3044,6 +3068,7 @@
         function AjusterHauteurTables() {
             var boxes = document.querySelectorAll('.tbl-scroll');
             for (var i = 0; i < boxes.length; i++) {
+                boxes[i].onscroll = tblScrollHandler;   // bouton "remonter" quand on défile dans le tableau
                 var r = boxes[i].getBoundingClientRect();
                 if (r.top === 0 && r.height === 0) continue;   // masqué
                 var h = window.innerHeight - r.top - 24;
@@ -3356,7 +3381,7 @@
 
     <!-- ====================== APPLICATION ====================== -->
     <div id="mainApp" style="display:none;">
-        <button id="btnScrollTop" onclick="ScrollContentTop()" title="Remonter en haut">&#8593;</button>
+        <button id="btnScrollTop" onclick="ScrollHautTableau()" title="Remonter en haut">&#8593;</button>
         <div id="sidebar">
             <div id="sidebar-header">
                 <div class="app-logo" id="appLogo">KPI PERFO</div>
