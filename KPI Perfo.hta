@@ -2082,7 +2082,9 @@
             var wt = document.getElementById('dashWeeksTitle');
             if (wt) wt.innerHTML = (dashFilter.gran === 'msn') ? "Évolution du traitement par MSN" : "Évolution du traitement par semaine";
             var pts = computeWeekPts(elig, dashFilter.gran === 'week');
-            if (!pts.length) { document.getElementById('dashWeeks').innerHTML = "<div class='msg-box msg-info'>Aucune donnée.</div>"; return; }
+            var hasData = false;
+            for (var i = 0; i < pts.length; i++) { if (pts[i].g != null || pts[i].t != null) { hasData = true; break; } }
+            if (!hasData) { hcDestroy('hcWeeks'); document.getElementById('dashWeeks').innerHTML = emptyChartHtml(dashRow1Height); return; }
             renderWeeksLineChart(pts);
         }
         // Résumé : amélioration (durée en baisse) ou dégradation entre les 2 semaines les plus récentes.
@@ -2161,6 +2163,11 @@
         // Détruit le graphique d'un conteneur (avant d'y mettre un message "Aucune donnée") pour éviter un ref orphelin.
         function hcDestroy(id) {
             if (window.hcRefs[id]) { try { window.hcRefs[id].destroy(); } catch (e) {} window.hcRefs[id] = null; }
+        }
+        // Cadre "Aucune donnée" homogène pour un graphique vide (remplit la hauteur du conteneur si h fourni).
+        function emptyChartHtml(h) {
+            var hs = h ? ("height:" + h + "px;") : "height:100%; min-height:120px;";
+            return "<div style='" + hs + " margin:0; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune donnée</span></div>";
         }
         // Rendu du graphique d'évolution : Highcharts si dispo, sinon repli SVG fait-main.
         function renderWeeksLineChart(pts) {
@@ -2523,6 +2530,7 @@
             var teamArr = (type === 'cree') ? (appData.teamST || []) : (appData.teamIQ || []);
             var nomMap = {}; for (var t = 0; t < teamArr.length; t++) { var tu = NettoyerChaine(teamArr[t].user).toUpperCase(); if (tu) nomMap[tu] = nomSeul(teamArr[t].nom || teamArr[t].user); }
             var b = ofBuckets(getOFTeamRows(type));
+            var ofHasData = false; for (var kk in b.total) { if (b.total.hasOwnProperty(kk)) { ofHasData = true; break; } }
             var userId = (type === 'cree') ? 'hcOFCreeUser' : 'hcOFClotUser';
             var totId = (type === 'cree') ? 'hcOFCreeTotal' : 'hcOFClotTotal';
             // Courbe par user.
@@ -2530,9 +2538,11 @@
             if (contU) {
                 if (!Object.keys(nomMap).length) {
                     hcDestroy(userId);
-                    contU.innerHTML = "<div style='height:280px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>";
+                    contU.innerHTML = "<div style='height:100%; min-height:120px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>";
                 } else if (typeof Highcharts === 'undefined') {
                     contU.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>";
+                } else if (!ofHasData) {
+                    hcDestroy(userId); contU.innerHTML = emptyChartHtml();
                 } else {
                     var series = [];
                     for (var u in nomMap) {
@@ -2559,6 +2569,8 @@
             if (contT) {
                 if (typeof Highcharts === 'undefined') {
                     contT.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>";
+                } else if (!ofHasData) {
+                    hcDestroy(totId); contT.innerHTML = emptyChartHtml();
                 } else {
                     var dataT = []; for (var k2 = 0; k2 < b.buckets.length; k2++) dataT.push(b.total[b.buckets[k2]] || 0);
                     try {
@@ -2671,9 +2683,11 @@
         }
         function hcICUserChart(id, lateRows, nomMap) {
             var cont = document.getElementById(id); if (!cont) return;
-            if (!Object.keys(nomMap).length) { hcDestroy(id); cont.innerHTML = "<div style='height:280px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
+            if (!Object.keys(nomMap).length) { hcDestroy(id); cont.innerHTML = "<div style='height:100%; min-height:120px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
             if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
-            var b = icLateBuckets(lateRows), series = [];
+            var b = icLateBuckets(lateRows), series = [], icHasData = false;
+            for (var kt in b.total) { if (b.total.hasOwnProperty(kt)) { icHasData = true; break; } }
+            if (!icHasData) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
             for (var u in nomMap) {
                 if (!nomMap.hasOwnProperty(u)) continue;
                 var data = [];
@@ -2727,7 +2741,10 @@
         function hcICTotalChart(id) {
             var cont = document.getElementById(id); if (!cont) return;
             if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
-            var b = icTotalBuckets(), dataLate = [], dataOnTime = [];
+            var b = icTotalBuckets(), dataLate = [], dataOnTime = [], icTotHasData = false;
+            for (var kt in b.late) { if (b.late.hasOwnProperty(kt)) { icTotHasData = true; break; } }
+            if (!icTotHasData) { for (var ko in b.onTime) { if (b.onTime.hasOwnProperty(ko)) { icTotHasData = true; break; } } }
+            if (!icTotHasData) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
             for (var k = 0; k < b.buckets.length; k++) { dataLate.push(b.late[b.buckets[k]] || 0); dataOnTime.push(b.onTime[b.buckets[k]] || 0); }
             try {
                 hcDraw(id, {
@@ -2772,7 +2789,7 @@
             var data = [];
             for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) data.push({ name: nomMap[r], y: agg[r].sum / agg[r].n / dayMs(), ms: agg[r].sum / agg[r].n, ntasks: agg[r].n }); }
             data.sort(function (a, b) { return b.y - a.y; });
-            if (!data.length) { hcDestroy(id); cont.innerHTML = "<div style='height:200px; margin:0; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune donnée</span></div>"; return; }
+            if (!data.length) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
             try {
                 window.hcRespChartRefs = window.hcRespChartRefs || {};
                 window.hcRespChartRefs[id] = hcDraw(id, {
@@ -2829,17 +2846,18 @@
         // Graphique courbes : une courbe par user (durée moyenne), abscisse = semaines.
         function hcTeamChart(id, users, umap, weeks, cats, agg) {
             var cont = document.getElementById(id); if (!cont) return;
-            if (!users.length) { hcDestroy(id); cont.innerHTML = "<div style='height:280px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
+            if (!users.length) { hcDestroy(id); cont.innerHTML = "<div style='height:100%; min-height:120px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
             if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
-            var dMs = dayMs(), series = [];
+            var dMs = dayMs(), series = [], hasData = false;
             for (var i = 0; i < users.length; i++) {
                 var u = users[i], data = [];
                 for (var k = 0; k < weeks.length; k++) {
                     var a = agg[u] && agg[u][weeks[k]];
-                    if (a && a.n) data.push({ y: a.sum / a.n / dMs, ms: a.sum / a.n }); else data.push(null);
+                    if (a && a.n) { data.push({ y: a.sum / a.n / dMs, ms: a.sum / a.n }); hasData = true; } else data.push(null);
                 }
                 series.push({ name: umap[u].nom || u, data: data });
             }
+            if (!hasData) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
             try {
                 window.hcTeamChartRefs = window.hcTeamChartRefs || {};
                 window.hcTeamChartRefs[id] = hcDraw(id, {
