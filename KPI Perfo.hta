@@ -3162,6 +3162,17 @@
             var html = "";
             for (var k = 0; k < list.length; k++) { html += renderParcoursCard(list[k]); }
             cont.innerHTML = html;
+            AjusterHauteurParcours();   // la liste des NC défile en interne -> la carte du haut reste fixe
+        }
+        // Ajuste la hauteur de la liste des NC (parcoursContainer) pour qu'elle défile en interne
+        // (la carte "Sélection semaine" reste ainsi visible en haut), en remplissant jusqu'au bas de la zone visible.
+        function AjusterHauteurParcours() {
+            var cont = document.getElementById('parcoursContainer');
+            if (!cont) return;
+            cont.style.overflowY = 'auto';
+            cont.style.paddingRight = '4px';
+            var av = ComputeAvailHeight('parcoursContainer');
+            if (av != null) cont.style.maxHeight = av + 'px';
         }
         function renderParcoursCard(nc) {
             // Tâches triées par Nº. Durée = écart réception (fin précédente, ou création NC pour la 1re) -> passage (sa fin).
@@ -3347,6 +3358,8 @@
                 if (pg && pg.className.indexOf('active') !== -1) { EgaliserHauteursExtraction(); AjusterHauteurTables(); }
                 var pd = document.getElementById('pageDashboard');
                 if (pd && pd.className.indexOf('active') !== -1) RenderActiveDashboardSub();
+                var pp = document.getElementById('pageParcours');
+                if (pp && pp.className.indexOf('active') !== -1) AjusterHauteurParcours();
             }, 150);
         };
     </script>
