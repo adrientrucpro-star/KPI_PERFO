@@ -110,7 +110,7 @@
 
         /* ====================== TABLEAU ====================== */
         table.data-table { width: 100%; border-collapse: collapse; background: white; border: 2px solid #c5d5de; font-size: 13px; table-layout: fixed; }
-        table.data-table th { background-color: #dde6ec; color: #334155; font-weight: 600; border: 1px solid #94a3b8; padding: 9px 8px; text-align: center; overflow: hidden; text-overflow: ellipsis; position: relative; z-index: 2; }
+        table.data-table th { background-color: #dde6ec; color: #334155; font-weight: 600; border: 1px solid #94a3b8; padding: 9px 8px; text-align: center; overflow: hidden; text-overflow: ellipsis; }
         table.data-table td { border: 1px solid #c5d5de; padding: 8px; color: #334155; vertical-align: middle; transition: background-color 0.3s; }
         table.data-table tr:hover td { background-color: #f5f9fb; }
         .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-right: 3px; }
@@ -888,18 +888,10 @@
             var b = document.getElementById('btnScrollTop');
             if (b) b.style.display = 'none';
         }
-        // En-tête collant (IE10 n'a pas position:sticky) : on décale chaque <th> de la valeur de défilement
-        // pour qu'il reste visuellement en haut du conteneur pendant qu'on fait défiler le tableau.
-        function stickHeader(box) {
-            if (!box) return;
-            var ths = box.getElementsByTagName('th'), y = box.scrollTop + 'px';
-            for (var i = 0; i < ths.length; i++) { ths[i].style.top = y; }
-        }
-        // Défilement À L'INTÉRIEUR des tableaux (.tbl-scroll) : affiche le bouton "remonter" + en-tête collant.
+        // Défilement À L'INTÉRIEUR des tableaux (.tbl-scroll) : affiche le bouton "remonter" quand on défile.
         function tblScrollHandler() {
             var b = document.getElementById('btnScrollTop');
             if (b) b.style.display = (this.scrollTop > 200) ? 'block' : 'none';
-            stickHeader(this);
         }
         // Le conteneur de tableau actuellement visible (les autres sous-onglets sont masqués).
         function visibleTblScroll() {
@@ -910,13 +902,13 @@
         // Clic sur le bouton : remonte le tableau visible ET la page en haut.
         function ScrollHautTableau() {
             var c = document.getElementById('content'); if (c) c.scrollTop = 0;
-            var t = visibleTblScroll(); if (t) { t.scrollTop = 0; stickHeader(t); }
+            var t = visibleTblScroll(); if (t) t.scrollTop = 0;
             var b = document.getElementById('btnScrollTop'); if (b) b.style.display = 'none';
         }
         // Remet tous les tableaux tout en haut (à l'entrée d'un onglet).
         function ResetTblScroll() {
             var boxes = document.querySelectorAll('.tbl-scroll');
-            for (var i = 0; i < boxes.length; i++) { boxes[i].scrollTop = 0; stickHeader(boxes[i]); }
+            for (var i = 0; i < boxes.length; i++) boxes[i].scrollTop = 0;
             var b = document.getElementById('btnScrollTop'); if (b) b.style.display = 'none';
         }
 
