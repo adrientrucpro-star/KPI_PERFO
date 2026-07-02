@@ -608,6 +608,7 @@
             if (!appData.lastOFImport) appData.lastOFImport = "";   // date/heure de la dernière extraction OF
             if (!appData.icRows) appData.icRows = [];        // Interventions Cards : [{ic,user,dfa,hfa,dc,hc}]
             if (!appData.lastICImport) appData.lastICImport = "";
+            if (typeof appData.testMode === 'undefined') appData.testMode = true;   // MODE TEST : intègre les fichiers d'export présents (phase de test). false = APP_DATA seul (extracts SAP).
             if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
             if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
             if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
@@ -648,6 +649,8 @@
                     lastOFImport: appData.lastOFImport || "",
                     icRows: appData.icRows || [],
                     lastICImport: appData.lastICImport || "",
+                    msnByAvis: appData.msnByAvis || {},
+                    testMode: !!appData.testMode,
                     cfg: appData.cfg || {},
                     calc: appData.calc || {},
                     lastImport: appData.lastImport || ""
@@ -771,12 +774,11 @@
             if (btn) { btn.disabled = true; btn.style.opacity = "0.85"; btn.style.cursor = "default"; btn.innerHTML = "<span class='spinner'></span> Chargement&hellip;"; }
             // mainApp affiché DERRIÈRE l'écran de connexion (opaque, z-index 9999) pour permettre les mesures/rendu.
             document.getElementById("mainApp").style.display = "block";
-            // Recharge le dernier extract s'il existe (la date s'affiche dans le cadre vert).
-            if (appData.rows && appData.rows.length) {
-                ChargerMSNDepuisFichier();   // récupère les MSN du dernier EXPORT_NC2.txt (avant le recalcul qui attache nc.msn)
-                RecomputeAll();
-            }
-            IngererICDepuisFichier();   // ingère les ICs depuis EXPORT_IC.txt s'il est présent (+ rattache le MSN)
+            // MODE TEST activé : on intègre les fichiers d'export présents (NC, MSN, IC, OF) avant le recalcul.
+            // MODE TEST désactivé : on se base uniquement sur APP_DATA (mis à jour par les vrais extracts SAP).
+            if (appData.testMode) IntegrerFichiersExport();
+            if (appData.rows && appData.rows.length) RecomputeAll();
+            UpdateTestModeUI();
             PrefillExtractDates();
             dashSuppressLaunchResize = true;
             ShowPage("pageDashboard", true);   // affiche la page SANS rendre les graphiques
@@ -1229,6 +1231,64 @@
                 }
                 return changed;
             } catch (e) { return false; }
+        }
+        // MODE TEST : ingère tous les fichiers d'export présents dans le dossier de données
+        // (EXPORT_NC.txt, EXPORT_NC2.txt (MSN), EXPORT_IC.txt, EXPORT_ST/IQ.txt) directement dans l'app,
+        // sans relancer SAP. Fusion/dédoublonnage comme les imports réels. Best-effort (jamais d'exception).
+        function IntegrerFichiersExport() {
+            var sh, folder, fso;
+            try {
+                sh = new ActiveXObject("WScript.Shell");
+                folder = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\";
+                fso = new ActiveXObject("Scripting.FileSystemObject");
+            } catch (e) { return false; }
+            function lire(name) {
+                try { var p = folder + name; if (!fso.FileExists(p)) return null; var t = fso.OpenTextFile(p, 1, false, 0); var c = t.AtEndOfStream ? "" : t.ReadAll(); t.Close(); return c; } catch (e) { return null; }
+            }
+            function fusionner(arr, data, keyFn) {
+                var seen = {}; for (var i = 0; i < arr.length; i++) seen[keyFn(arr[i])] = true;
+                for (var j = 0; j < data.length; j++) { var k = keyFn(data[j]); if (!seen[k]) { arr.push(data[j]); seen[k] = true; } }
+                return arr;
+            }
+            var now = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
+            // NC principal (QM13)
+            var cNC = lire("EXPORT_NC.txt");
+            if (cNC) { appData.rows = fusionner(appData.rows || [], ParseExport(cNC), function (r) { return r.a; }); if (!appData.lastImport) appData.lastImport = now; }
+            // MSN des NC (2e extract) + ICs (MSN inclus) : réutilise les fonctions dédiées.
+            ChargerMSNDepuisFichier();
+            IngererICDepuisFichier();
+            // Ordres de fabrication créés (ST) / clôturés (IQ)
+            var cST = lire("EXPORT_ST.txt");
+            if (cST) appData.ofCree = fusionner(appData.ofCree || [], ParseOF(cST), function (r) { return r.of; });
+            var cIQ = lire("EXPORT_IQ.txt");
+            if (cIQ) appData.ofClot = fusionner(appData.ofClot || [], ParseOF(cIQ), function (r) { return r.of; });
+            if ((cST || cIQ) && !appData.lastOFImport) appData.lastOFImport = now;
+            return true;
+        }
+        // Bascule le mode test (switch en haut de la sidebar).
+        function ToggleTestMode() {
+            appData.testMode = !appData.testMode;
+            if (appData.testMode) { IntegrerFichiersExport(); }   // ON : on intègre les fichiers d'export présents
+            if (appData.rows && appData.rows.length) RecomputeAll();
+            SaveData();
+            InvalidateDash(); InvalidateExtract(); InvalidatePages();
+            UpdateTestModeUI();
+            RafraichirPageActive();
+        }
+        function UpdateTestModeUI() {
+            var sw = document.getElementById('testModeSwitch');
+            var lb = document.getElementById('testModeLabel');
+            if (sw) sw.className = 'nc-switch' + (appData.testMode ? '' : ' off');
+            if (lb) lb.innerText = appData.testMode ? "Intègre les fichiers d'export" : "APP_DATA (extracts SAP)";
+        }
+        // Re-rend la page actuellement affichée (après bascule du mode test / invalidation des caches).
+        function RafraichirPageActive() {
+            var active = "pageDashboard";
+            for (var i = 0; i < PAGES.length; i++) { var el = document.getElementById(PAGES[i]); if (el && el.className.indexOf('active') !== -1) { active = PAGES[i]; break; } }
+            if (active === "pageDashboard") RenderActiveDashboardSub();
+            else if (active === "pageAnalyse") { RenderActiveExtractSub(); EgaliserHauteursExtraction(); AjusterHauteurTables(); }
+            else if (active === "pageParcours") RenderParcours();
+            else if (active === "pageParametres") RenderParametres();
         }
         function LireIC(path) {
             try {
@@ -3116,6 +3176,11 @@
             <div id="sidebar-header">
                 <div class="app-logo" id="appLogo">KPI PERFO</div>
                 <div class="app-sub" id="appSub">ANALYSE NC - QM13</div>
+            </div>
+            <div id="testModeBox" style="padding:12px 20px; border-bottom:1px solid rgba(255,255,255,0.08);">
+                <div style="font-size:10px; font-weight:700; letter-spacing:1px; color:#7aafc7; text-transform:uppercase; margin-bottom:8px;">Mode test</div>
+                <span class="nc-switch off" id="testModeSwitch" onclick="ToggleTestMode()" style="margin-left:0;"><span class="knob"></span></span>
+                <span id="testModeLabel" style="font-size:11px; color:#cfe3ef; margin-left:8px; vertical-align:middle;">APP_DATA (extracts SAP)</span>
             </div>
             <div id="navDashboard" class="nav-item active" onclick="ShowPage('pageDashboard')">Tableau de bord</div>
             <div id="navAnalyse" class="nav-item" onclick="ShowPage('pageAnalyse')">Extraction</div>
