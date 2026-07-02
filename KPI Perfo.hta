@@ -776,7 +776,7 @@
                 ChargerMSNDepuisFichier();   // récupère les MSN du dernier EXPORT_NC2.txt (avant le recalcul qui attache nc.msn)
                 RecomputeAll();
             }
-            ChargerMSNICDepuisFichier();   // rattache le MSN aux ICs déjà enregistrées (MSN présent dans EXPORT_IC.txt)
+            IngererICDepuisFichier();   // ingère les ICs depuis EXPORT_IC.txt s'il est présent (+ rattache le MSN)
             PrefillExtractDates();
             dashSuppressLaunchResize = true;
             ShowPage("pageDashboard", true);   // affiche la page SANS rendre les graphiques
@@ -1203,22 +1203,31 @@
             }
             return out;
         }
-        // Rattache le MSN (déjà présent dans EXPORT_IC.txt, col 1) aux ICs déjà enregistrées qui n'en ont pas.
-        // La fusion d'import (LireIC) ignore les ICs existantes ; ce back-fill garantit l'affichage du MSN. Best-effort.
-        function ChargerMSNICDepuisFichier() {
+        // Si EXPORT_IC.txt est présent, ingère les ICs (fusion/dédoublonnage par n° IC) ET rattache le MSN
+        // (col 1 de l'export) aux ICs déjà enregistrées qui n'en ont pas. Permet d'exploiter un export IC
+        // existant sans relancer SAP. Renvoie true si icRows a été modifié. Best-effort (jamais d'exception).
+        function IngererICDepuisFichier() {
             try {
                 var sh = new ActiveXObject("WScript.Shell");
                 var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_IC.txt";
                 var fso = new ActiveXObject("Scripting.FileSystemObject");
                 if (!fso.FileExists(path)) return false;
                 var ts = fso.OpenTextFile(path, 1, false, 0); var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
-                var data = ParseIC(content), msnByIC = {};
-                for (var i = 0; i < data.length; i++) { if (data[i].msn) msnByIC[data[i].ic] = data[i].msn; }
-                var rows = appData.icRows || [], n = 0;
-                for (var j = 0; j < rows.length; j++) {
-                    if ((!rows[j].msn || rows[j].msn === "") && msnByIC[rows[j].ic]) { rows[j].msn = msnByIC[rows[j].ic]; n++; }
+                var data = ParseIC(content);
+                if (!data.length) return false;
+                var cur = appData.icRows || [], seen = {}, changed = false;
+                for (var i = 0; i < cur.length; i++) seen[cur[i].ic] = cur[i];
+                for (var j = 0; j < data.length; j++) {
+                    var d = data[j];
+                    if (!seen[d.ic]) { cur.push(d); seen[d.ic] = d; changed = true; }                                   // nouvelle IC
+                    else if (d.msn && (!seen[d.ic].msn || seen[d.ic].msn === "")) { seen[d.ic].msn = d.msn; changed = true; }   // back-fill MSN
                 }
-                return n > 0;
+                appData.icRows = cur;
+                // Si aucune extraction n'a jamais été enregistrée, on date le badge d'après le fichier (évite un "Jamais" trompeur).
+                if (changed && !appData.lastICImport) {
+                    try { var fd = new Date(fso.GetFile(path).DateLastModified); appData.lastICImport = FormatDateString(fd) + " " + fd.toLocaleTimeString(); } catch (eD) {}
+                }
+                return changed;
             } catch (e) { return false; }
         }
         function LireIC(path) {
