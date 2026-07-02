@@ -773,6 +773,7 @@
             document.getElementById("mainApp").style.display = "block";
             // Recharge le dernier extract s'il existe (la date s'affiche dans le cadre vert).
             if (appData.rows && appData.rows.length) {
+                ChargerMSNDepuisFichier();   // récupère les MSN du dernier EXPORT_NC2.txt (avant le recalcul qui attache nc.msn)
                 RecomputeAll();
             }
             PrefillExtractDates();
@@ -955,19 +956,29 @@
                 if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Extract NC"; }
             }, 80);
         }
+        // Lit EXPORT_NC2.txt (dossier de données) s'il est présent et fusionne les MSN dans appData.msnByAvis.
+        // Renvoie true si des correspondances ont été chargées. Best-effort (jamais d'exception remontée).
+        function ChargerMSNDepuisFichier() {
+            try {
+                var sh = new ActiveXObject("WScript.Shell");
+                var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_NC2.txt";
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) return false;
+                var ts = fso.OpenTextFile(path, 1, false, 0); var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
+                var map = ParseNCMSN(content);
+                if (!appData.msnByAvis) appData.msnByAvis = {};
+                var n = 0;
+                for (var av in map) { if (map.hasOwnProperty(av)) { appData.msnByAvis[av] = map[av]; n++; } }
+                return n > 0;
+            } catch (e) { return false; }
+        }
         // 2e extract QM11 (variante LAROCHE_NC2) -> EXPORT_NC2.txt : met à jour appData.msnByAvis (map avis -> MSN).
         // Best-effort : un échec (SAP, aucune donnée...) n'interrompt PAS l'import NC ; on conserve les MSN déjà connus.
         function ChargerMSN(dateSAP, dateSAPFin, sh) {
             try {
                 var res = VBS_ExtractNCMSN(dateSAP, dateSAPFin);
                 if (!res || res.indexOf("ERREUR") !== -1) return;
-                var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_NC2.txt";
-                var fso = new ActiveXObject("Scripting.FileSystemObject");
-                if (!fso.FileExists(path)) return;
-                var ts = fso.OpenTextFile(path, 1, false, 0); var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
-                var map = ParseNCMSN(content);
-                if (!appData.msnByAvis) appData.msnByAvis = {};
-                for (var av in map) { if (map.hasOwnProperty(av)) appData.msnByAvis[av] = map[av]; }
+                ChargerMSNDepuisFichier();
             } catch (e) { /* best-effort : on n'interrompt pas l'import NC */ }
         }
         function LireEtAnalyser(path) {
