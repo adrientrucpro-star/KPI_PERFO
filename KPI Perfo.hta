@@ -1428,17 +1428,18 @@
                     + "<td style='text-align:center;'><button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(r.ic) + "', this)\" title=\"Afficher l'IC dans SAP (QM03)\" style='padding:5px 8px; border-radius:5px; background:#0C447C; border:none; cursor:pointer; vertical-align:middle;'><svg width='14' height='14' viewBox='0 0 24 24' style='display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg></button></td>"
                     + "<td style='text-align:center; font-weight:700;'>" + escapeHtml(r.ic) + "</td>"
                     + "<td style='text-align:center;'>" + (r.msn ? escapeHtml(r.msn) : "-") + "</td>"
-                    + "<td style='text-align:center;'>" + escapeHtml(r.user) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(fmtOFDate(r.dfa)) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(r.hfa) + "</td>"
                     + "<td style='text-align:center;" + lateSt + "'>" + escapeHtml(fmtOFDate(r.dc)) + "</td>"
-                    + "<td style='text-align:center;" + lateSt + "'>" + escapeHtml(r.hc) + "</td></tr>";
+                    + "<td style='text-align:center;" + lateSt + "'>" + escapeHtml(r.hc) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(r.user) + "</td></tr>";
             }
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
                 + "<table class='data-table'><thead><tr><th width='4%'></th>"
-                + icTh('ic', 'Numéro IC', '15%') + icTh('msn', 'MSN', '15%') + icTh('user', 'User', '15%')
-                + icTh('dfa', 'Date fin autorisée', '15%') + icTh('hfa', 'Heure fin autorisée', '15%')
-                + icTh('dc', 'Date clôture', '14%') + icTh('hc', 'Heure clôture', '')
+                + icTh('ic', 'Numéro IC', '13%') + icTh('msn', 'MSN', '13%')
+                + icTh('dfa', 'Date fin autorisée', '14%') + icTh('hfa', 'Heure fin autorisée', '14%')
+                + icTh('dc', 'Date clôture', '14%') + icTh('hc', 'Heure clôture', '14%')
+                + icTh('user', 'User', '')
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
