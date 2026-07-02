@@ -824,7 +824,7 @@
             return 'NC';
         }
         function RenderExtractSub(s) {
-            if (s === 'OF') { RenderOFTable('cree'); RenderOFTable('clot'); }
+            if (s === 'OF') { RenderOFCombined(); }
             else if (s === 'IC') { RenderICTable(); }
             else { RenderListe(); }
         }
@@ -1055,45 +1055,45 @@
             return out;
         }
         // Lit le fichier d'export OF, stocke, sauvegarde et affiche le tableau. type = 'cree' | 'clot'.
-        function LireOF(path, type) {
-            try {
-                var fso = new ActiveXObject("Scripting.FileSystemObject");
-                if (!fso.FileExists(path)) { AfficherErreur("Fichier introuvable :\n" + path); return; }
-                var ts = fso.OpenTextFile(path, 1, false, 0);   // ANSI
-                var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
-                var data = ParseOF(content);
-                // Fusion avec l'historique : on n'ajoute que les OF non déjà présents (dédoublonnage par n° d'OF).
-                var cur = (type === 'cree') ? (appData.ofCree || []) : (appData.ofClot || []);
-                var seen = {};
-                for (var i = 0; i < cur.length; i++) seen[cur[i].of] = true;
-                for (var j = 0; j < data.length; j++) { if (!seen[data[j].of]) { cur.push(data[j]); seen[data[j].of] = true; } }
-                if (type === 'cree') appData.ofCree = cur; else appData.ofClot = cur;
-                appData.lastOFImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
-                SaveData();
-                RenderOFTable(type);
-                InvalidateDash();   // données OF modifiées -> dashboard à recalculer
-                if (document.getElementById('dashSubOF') && document.getElementById('dashSubOF').style.display === 'block') RenderDashboardOF();
-                if (!data.length) alert("Extraction terminée, mais aucun OF exploitable détecté (format inattendu ?).");
-            } catch (e) { AfficherErreur("Erreur de lecture OF : " + e.message); }
+        // Lit un export OF (ST/IQ), fusionne dans ofCree/ofClot (dédoublonnage par n° d'OF, SANS rendu ni sauvegarde).
+        // Renvoie le nb d'OF ajoutés, ou -1 si le fichier est absent.
+        function MergeOFFile(path, type) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            if (!fso.FileExists(path)) return -1;
+            var ts = fso.OpenTextFile(path, 1, false, 0);   // ANSI
+            var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
+            var data = ParseOF(content);
+            var cur = (type === 'cree') ? (appData.ofCree || []) : (appData.ofClot || []);
+            var seen = {}; for (var i = 0; i < cur.length; i++) seen[cur[i].of] = true;
+            var added = 0;
+            for (var j = 0; j < data.length; j++) { if (!seen[data[j].of]) { cur.push(data[j]); seen[data[j].of] = true; added++; } }
+            if (type === 'cree') appData.ofCree = cur; else appData.ofClot = cur;
+            return added;
         }
-        function LancerExtractOF(type) {
+        // Extraction OF combinée : lance les DEUX extractions SAP (création + clôture) puis affiche le tableau unique.
+        function LancerExtractOFTout() {
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('ofDateFin').value).replace(/\//g, '.');
             if (!d1 || !d2) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
-            var btnId = (type === 'cree') ? 'btnOFCree' : 'btnOFClot';
-            var label = (type === 'cree') ? "Extract création" : "Extract clôture";
-            var btn = document.getElementById(btnId);
+            var btn = document.getElementById('btnOF');
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
             setTimeout(function () {
                 try {
-                    var res = (type === 'cree') ? VBS_ExtractOFCree(d1, d2) : VBS_ExtractOFClot(d1, d2);
-                    if (res && res.indexOf("ERREUR") === -1) {
-                        var sh = new ActiveXObject("WScript.Shell");
-                        var file = (type === 'cree') ? "EXPORT_ST.txt" : "EXPORT_IQ.txt";
-                        LireOF(sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\" + file, type);
-                    } else { AfficherErreur(res || "Erreur inconnue lors de l'extraction OF."); }
+                    var sh = new ActiveXObject("WScript.Shell");
+                    var folder = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\";
+                    var errs = [];
+                    var r1 = VBS_ExtractOFCree(d1, d2);
+                    if (r1 && r1.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("Création : " + (r1 || "erreur inconnue"));
+                    var r2 = VBS_ExtractOFClot(d1, d2);
+                    if (r2 && r2.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("Clôture : " + (r2 || "erreur inconnue"));
+                    appData.lastOFImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
+                    SaveData();
+                    RenderOFCombined();
+                    InvalidateDash();   // données OF modifiées -> dashboard à recalculer
+                    if (document.getElementById('dashSubOF') && document.getElementById('dashSubOF').style.display === 'block') RenderDashboardOF();
+                    if (errs.length) AfficherErreur("Extraction OF partielle :\n" + errs.join("\n"));
                 } catch (e) { AfficherErreur("Erreur : " + e.message); }
-                if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = label; }
+                if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Extract OF"; }
             }, 80);
         }
         // Bandeau "aucune donnée" centré et pleine hauteur pour les tableaux d'extraction (cohérent avec le dashboard).
@@ -1124,12 +1124,19 @@
             for (var d = 0; d < all.length; d++) { if (teamSet[NettoyerChaine(all[d].user).toUpperCase()]) data.push(all[d]); }
             return data;
         }
-        function RenderOFTable(type) {
+        // Jeu combiné pour le tableau unique OF : OF créés (Type=Création) + OF clôturés (Type=Clôture),
+        // filtrés aux membres d'équipe (ST pour les créés, IQ pour les clôturés). msn = "" (absent des exports OF).
+        function ofCombinedRows() {
+            var out = [], cree = getOFTeamRows('cree'), clot = getOFTeamRows('clot');
+            for (var i = 0; i < cree.length; i++) out.push({ of: cree[i].of, msn: cree[i].msn || "", user: cree[i].user, date: cree[i].date, heure: cree[i].heure, type: 'cree' });
+            for (var j = 0; j < clot.length; j++) out.push({ of: clot[j].of, msn: clot[j].msn || "", user: clot[j].user, date: clot[j].date, heure: clot[j].heure, type: 'clot' });
+            return out;
+        }
+        function RenderOFCombined() {
             extractValid.OF = true;   // rendu à jour (cache)
-            var cont = document.getElementById(type === 'cree' ? 'ofCreeTable' : 'ofClotTable');
-            if (!cont) return;
-            var data = getOFTeamRows(type);
-            // Filtres OF : plage de dates + recherche (n° d'OF ou user).
+            var cont = document.getElementById('ofTable'); if (!cont) return;
+            var data = ofCombinedRows();
+            // Filtres OF : plage de dates + recherche (n° d'OF, user, MSN ou type).
             var fE1 = document.getElementById('ofFiltreDateDebut'), fE2 = document.getElementById('ofFiltreDateFin'), fER = document.getElementById('ofFiltreRecherche');
             var nd = fE1 ? dateToNum(fE1.value) : null, nf = fE2 ? dateToNum(fE2.value) : null;
             var fr = fER ? NettoyerChaine(fER.value).toUpperCase() : "";
@@ -1138,43 +1145,52 @@
                 for (var k = 0; k < data.length; k++) {
                     var row = data[k];
                     if (nd || nf) { var rn = dateToNum(row.date); if (rn != null) { if (nd && rn < nd) continue; if (nf && rn > nf) continue; } }
-                    if (fr && (NettoyerChaine(row.of) + " " + NettoyerChaine(row.user)).toUpperCase().indexOf(fr) === -1) continue;
+                    var tl = (row.type === 'cree') ? 'CRÉATION' : 'CLÔTURE';
+                    if (fr && (NettoyerChaine(row.of) + " " + NettoyerChaine(row.user) + " " + NettoyerChaine(row.msn) + " " + tl).toUpperCase().indexOf(fr) === -1) continue;
                     keep.push(row);
                 }
                 data = keep;
             }
-            if (!data.length) { showEmptyExtract(type === 'cree' ? 'ofCreeTable' : 'ofClotTable', "Aucune extraction réalisée", "Lance une extraction des ordres de fabrication ci-dessus."); return; }
-            var sc = ofSort[type].col, sd = ofSort[type].dir;
+            if (!data.length) { showEmptyExtract('ofTable', "Aucune extraction réalisée", "Lance une extraction des ordres de fabrication ci-dessus."); return; }
+            var sc = ofSort.col, sd = ofSort.dir;
             if (sc) {
                 data.sort(function (a, b) {
-                    var va = (sc === 'date') ? (dateToNum(a.date) || 0) : NettoyerChaine(a[sc]).toUpperCase();
-                    var vb = (sc === 'date') ? (dateToNum(b.date) || 0) : NettoyerChaine(b[sc]).toUpperCase();
+                    var va, vb;
+                    if (sc === 'date') { va = dateToNum(a.date) || 0; vb = dateToNum(b.date) || 0; }
+                    else { va = NettoyerChaine(a[sc]).toUpperCase(); vb = NettoyerChaine(b[sc]).toUpperCase(); }
                     return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
                 });
             }
             var rows = "";
             for (var i = 0; i < data.length; i++) {
-                rows += "<tr><td style='text-align:center; font-weight:700;'>" + escapeHtml(data[i].of) + "</td>"
-                    + "<td style='text-align:center;'>" + escapeHtml(data[i].user) + "</td>"
-                    + "<td style='text-align:center;'>" + escapeHtml(fmtOFDate(data[i].date)) + "</td>"
-                    + "<td style='text-align:center;'>" + escapeHtml(data[i].heure) + "</td></tr>";
+                var r = data[i];
+                var badge = (r.type === 'cree')
+                    ? "<span style='display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; font-weight:700; background:#E6F1FB; color:#0C447C;'>Création</span>"
+                    : "<span style='display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; font-weight:700; background:#dcfce3; color:#166534;'>Clôture</span>";
+                rows += "<tr><td style='text-align:center; font-weight:700;'>" + escapeHtml(r.of) + "</td>"
+                    + "<td style='text-align:center;'>" + (r.msn ? escapeHtml(r.msn) : "-") + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(r.user) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(fmtOFDate(r.date)) + "</td>"
+                    + "<td style='text-align:center;'>" + escapeHtml(r.heure) + "</td>"
+                    + "<td style='text-align:center;'>" + badge + "</td></tr>";
             }
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
-                + "<table class='data-table'><thead><tr>" + ofTh(type, 'of', 'Ordre de Fabrication') + ofTh(type, 'user', 'User') + ofTh(type, 'date', 'Date') + ofTh(type, 'heure', 'Heure') + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+                + "<table class='data-table'><thead><tr>"
+                + ofTh('of', 'Ordre de Fabrication', '20%') + ofTh('msn', 'MSN', '10%') + ofTh('user', 'User', '16%')
+                + ofTh('date', 'Date', '16%') + ofTh('heure', 'Heure', '16%') + ofTh('type', 'Type', '14%')
+                + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
-        var ofSort = { cree: { col: null, dir: 1 }, clot: { col: null, dir: 1 } };
-        function ofTh(type, col, label) {
-            var s = ofSort[type];
-            var arrow = (s.col === col) ? (s.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
-            return "<th width='25%' style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortOF('" + type + "','" + col + "')\" title='Trier'>" + label + arrow + "</th>";
+        var ofSort = { col: 'date', dir: -1 };   // tri par défaut : date décroissante
+        function ofTh(col, label, w) {
+            var arrow = (ofSort.col === col) ? (ofSort.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
+            return "<th width='" + w + "' style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortOF('" + col + "')\" title='Trier'>" + label + arrow + "</th>";
         }
-        function SortOF(type, col) {
-            var s = ofSort[type];
-            if (s.col === col) s.dir = -s.dir; else { s.col = col; s.dir = 1; }
-            RenderOFTable(type);
+        function SortOF(col) {
+            if (ofSort.col === col) ofSort.dir = -ofSort.dir; else { ofSort.col = col; ofSort.dir = 1; }
+            RenderOFCombined();
         }
-        function RenderOFAll() { RenderOFTable('cree'); RenderOFTable('clot'); }
+        function RenderOFAll() { RenderOFCombined(); }
         function ResetOFFiltres() {
             var ids = ['ofFiltreDateDebut', 'ofFiltreDateFin', 'ofFiltreRecherche'];
             for (var i = 0; i < ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ""; }
@@ -3551,8 +3567,7 @@
                                         <span class="date-wrap"><input type="text" id="ofDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofDateFin', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
-                                        <button id="btnOFCree" class="btn-toolbar" style="padding:0 10px; min-width:130px;" onclick="LancerExtractOF('cree')">Extract création</button>
-                                        <button id="btnOFClot" class="btn-toolbar" style="margin-left:10px; padding:0 10px; min-width:130px;" onclick="LancerExtractOF('clot')">Extract clôture</button>
+                                        <button id="btnOF" class="btn-toolbar" style="padding:0 10px; min-width:150px;" onclick="LancerExtractOFTout()">Extract OF</button>
                                     </td>
                                 </tr></table>
                             </div>
@@ -3579,16 +3594,7 @@
                             </div>
                         </div>
                     </div>
-                    <div style="display:table; width:100%; table-layout:fixed;">
-                        <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <h3 style="margin:0 0 12px 0;">OF créés</h3>
-                            <div id="ofCreeTable"><div class="msg-box msg-info">Aucune extraction réalisée.</div></div>
-                        </div>
-                        <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <h3 style="margin:0 0 12px 0;">OF clôturés</h3>
-                            <div id="ofClotTable"><div class="msg-box msg-info">Aucune extraction réalisée.</div></div>
-                        </div>
-                    </div>
+                    <div id="ofTable"><div class="msg-box msg-info">Aucune extraction réalisée.</div></div>
                 </div><!-- /extractSubOF -->
 
                 <div id="extractSubIC" style="display:none;">
