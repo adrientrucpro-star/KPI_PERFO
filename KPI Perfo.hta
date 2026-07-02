@@ -2346,7 +2346,13 @@
             function arw(dis) { return "font-size:12px; font-weight:700; padding:7px 12px; border:1px solid #c5d5de; background:" + (dis ? "#f1f5f9" : "#fff") + "; color:" + (dis ? "#cbd5e1" : "#0C447C") + "; cursor:" + (dis ? "default" : "pointer") + "; vertical-align:middle; height:34px; box-sizing:border-box;"; }
             var prev = "<button type='button'" + (atOldest ? " disabled" : "") + " onclick=\"StepDashPeriod(-1)\" title='Période précédente' style='" + arw(atOldest) + " border-radius:6px 0 0 6px;'>&#9664;</button>";
             var next = "<button type='button'" + (atNewest ? " disabled" : "") + " onclick=\"StepDashPeriod(1)\" title='Période suivante' style='" + arw(atNewest) + " border-left:none; border-radius:0 6px 6px 0;'>&#9654;</button>";
-            var dd = "<select class='dashPeriodSelect' onchange='SetDashPeriod(this.value)' style='font-size:13px; font-weight:700; padding:6px 8px; height:34px; box-sizing:border-box; border:1px solid #c5d5de; border-left:none; border-radius:0; background:#fff; color:#0C447C; cursor:pointer; vertical-align:middle; text-align:center; width:160px;'>" + opt + "</select>";
+            // IE10 n'honore pas text-align sur la valeur affichée d'un <select> : on superpose un libellé centré
+            // (div) et un <select> transparent par-dessus pour l'interaction native (ouverture de la liste).
+            var curLabel = (s.idx >= 0 && s.items.length) ? s.label(s.items[s.idx]) : "";
+            var dd = "<span style='position:relative; display:inline-block; width:160px; height:34px; vertical-align:middle;'>"
+                + "<span style='position:absolute; top:0; left:0; width:100%; height:34px; line-height:32px; box-sizing:border-box; border:1px solid #c5d5de; border-left:none; background:#fff; color:#0C447C; font-size:13px; font-weight:700; text-align:center; overflow:hidden; white-space:nowrap;'>" + escapeHtml(curLabel) + "</span>"
+                + "<select class='dashPeriodSelect' onchange='SetDashPeriod(this.value)' style='position:absolute; top:0; left:0; width:100%; height:34px; opacity:0; cursor:pointer; font-size:13px;'>" + opt + "</select>"
+                + "</span>";
             return "<span style='white-space:nowrap;'>" + seg + "<span style='margin-left:16px; vertical-align:middle;'>" + prev + dd + next + "</span></span>";
         }
         // Changement de granularité : on sélectionne automatiquement la période la plus récente disponible.
