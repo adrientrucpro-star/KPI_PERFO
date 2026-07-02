@@ -889,7 +889,11 @@
             if (id === "pageParametres") { if (!pageValid.parametres) RenderParametres(); }
             if (id === "pageDashboard") RenderDashIfNeeded();
             if (id === "pageAnalyse") { RenderActiveExtractSub(); EgaliserHauteursExtraction(); AjusterHauteurTables(); ResetTblScroll(); PrerenderExtractSubs(); }
-            if (id === "pageParcours") { if (!pageValid.parcours) RenderParcours(); }
+            if (id === "pageParcours") {
+                if (!pageValid.parcours) RenderParcours();
+                var pc = document.getElementById('parcoursContainer'); if (pc) pc.scrollTop = 0;   // liste tout en haut
+                var bST = document.getElementById('btnScrollTop'); if (bST) bST.style.display = 'none';
+            }
         }
         function ScrollContentTop() {
             var c = document.getElementById('content');
@@ -912,6 +916,7 @@
         function ScrollHautTableau() {
             var c = document.getElementById('content'); if (c) c.scrollTop = 0;
             var t = visibleTblScroll(); if (t) t.scrollTop = 0;
+            var p = document.getElementById('parcoursContainer'); if (p) p.scrollTop = 0;   // liste des NC (Analyse NC)
             var b = document.getElementById('btnScrollTop'); if (b) b.style.display = 'none';
         }
         // Remet tous les tableaux tout en haut (à l'entrée d'un onglet).
@@ -3171,6 +3176,7 @@
             if (!cont) return;
             cont.style.overflowY = 'auto';
             cont.style.paddingRight = '4px';
+            cont.onscroll = tblScrollHandler;   // affiche le bouton "remonter" quand on défile la liste des NC
             var av = ComputeAvailHeight('parcoursContainer');
             if (av != null) cont.style.maxHeight = av + 'px';
         }
