@@ -1211,9 +1211,9 @@
                     + "<td style='text-align:center;'>" + badge + "</td></tr>";
             }
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
-                + "<table class='data-table'><thead><tr><th style='width:50px;'></th>"
-                + ofTh('of', 'Ordre de Fabrication', '18%') + ofTh('msn', 'MSN', '9%') + ofTh('user', 'User', '16%')
-                + ofTh('date', 'Date', '15%') + ofTh('heure', 'Heure', '14%') + ofTh('type', 'Type', '')
+                + "<table class='data-table'><thead><tr><th width='4%'></th>"
+                + ofTh('of', 'Ordre de Fabrication', '16%') + ofTh('msn', 'MSN', '16%') + ofTh('user', 'User', '16%')
+                + ofTh('date', 'Date', '16%') + ofTh('heure', 'Heure', '16%') + ofTh('type', 'Type', '')
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
@@ -1435,10 +1435,10 @@
                     + "<td style='text-align:center;" + lateSt + "'>" + escapeHtml(r.hc) + "</td></tr>";
             }
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
-                + "<table class='data-table'><thead><tr><th style='width:50px;'></th>"
-                + icTh('ic', 'Numéro IC', '12%') + icTh('msn', 'MSN', '8%') + icTh('user', 'User', '12%')
-                + icTh('dfa', 'Date fin autorisée', '16%') + icTh('hfa', 'Heure fin autorisée', '16%')
-                + icTh('dc', 'Date clôture', '16%') + icTh('hc', 'Heure clôture', '')
+                + "<table class='data-table'><thead><tr><th width='4%'></th>"
+                + icTh('ic', 'Numéro IC', '15%') + icTh('msn', 'MSN', '15%') + icTh('user', 'User', '15%')
+                + icTh('dfa', 'Date fin autorisée', '15%') + icTh('hfa', 'Heure fin autorisée', '15%')
+                + icTh('dc', 'Date clôture', '14%') + icTh('hc', 'Heure clôture', '')
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
@@ -2990,10 +2990,10 @@
                     + "</tr>";
             }
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'><table class='data-table'><thead><tr>"
-                + "<th style='width:50px;'></th>"
-                + listeTh('avis', 'Avis', "width='7%'")
+                + "<th width='4%'></th>"
+                + listeTh('avis', 'Avis', "width='8%'")
                 + listeTh('msn', 'MSN', "width='6%'")
-                + listeTh('desc', 'Descriptif', "")
+                + listeTh('desc', 'Descriptif', "width='20%'")
                 + listeTh('start', 'Date création', "width='10%'")
                 + listeTh('end', 'Date clôture', "width='10%'")
                 + listeTh('dur', 'Traitement global', "width='10%'")
