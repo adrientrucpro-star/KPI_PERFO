@@ -776,6 +776,7 @@
                 ChargerMSNDepuisFichier();   // récupère les MSN du dernier EXPORT_NC2.txt (avant le recalcul qui attache nc.msn)
                 RecomputeAll();
             }
+            ChargerMSNICDepuisFichier();   // rattache le MSN aux ICs déjà enregistrées (MSN présent dans EXPORT_IC.txt)
             PrefillExtractDates();
             dashSuppressLaunchResize = true;
             ShowPage("pageDashboard", true);   // affiche la page SANS rendre les graphiques
@@ -1194,13 +1195,31 @@
                 while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
                 if (/^\d{6,}$/.test(NettoyerChaine(parts[0]))) {          // format 7 col : Avis en 1re position
                     if (parts.length < 6) continue;
-                    out.push({ ic: NettoyerChaine(parts[0]), user: NettoyerChaine(parts[1]), dfa: NettoyerChaine(parts[2]), hfa: NettoyerChaine(parts[3]), dc: NettoyerChaine(parts[4]), hc: NettoyerChaine(parts[5]), statut: NettoyerChaine(parts[6] || "") });
+                    out.push({ ic: NettoyerChaine(parts[0]), msn: "", user: NettoyerChaine(parts[1]), dfa: NettoyerChaine(parts[2]), hfa: NettoyerChaine(parts[3]), dc: NettoyerChaine(parts[4]), hc: NettoyerChaine(parts[5]), statut: NettoyerChaine(parts[6] || "") });
                 } else if (parts.length > 1 && /^\d{6,}$/.test(NettoyerChaine(parts[1]))) {   // format 8 col : MSN puis Avis
                     if (parts.length < 8) continue;
-                    out.push({ ic: NettoyerChaine(parts[1]), user: NettoyerChaine(parts[3]), dfa: NettoyerChaine(parts[4]), hfa: NettoyerChaine(parts[5]), dc: NettoyerChaine(parts[6]), hc: NettoyerChaine(parts[7]), statut: "" });
+                    out.push({ ic: NettoyerChaine(parts[1]), msn: NettoyerChaine(parts[0]), user: NettoyerChaine(parts[3]), dfa: NettoyerChaine(parts[4]), hfa: NettoyerChaine(parts[5]), dc: NettoyerChaine(parts[6]), hc: NettoyerChaine(parts[7]), statut: "" });
                 }
             }
             return out;
+        }
+        // Rattache le MSN (déjà présent dans EXPORT_IC.txt, col 1) aux ICs déjà enregistrées qui n'en ont pas.
+        // La fusion d'import (LireIC) ignore les ICs existantes ; ce back-fill garantit l'affichage du MSN. Best-effort.
+        function ChargerMSNICDepuisFichier() {
+            try {
+                var sh = new ActiveXObject("WScript.Shell");
+                var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_IC.txt";
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) return false;
+                var ts = fso.OpenTextFile(path, 1, false, 0); var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
+                var data = ParseIC(content), msnByIC = {};
+                for (var i = 0; i < data.length; i++) { if (data[i].msn) msnByIC[data[i].ic] = data[i].msn; }
+                var rows = appData.icRows || [], n = 0;
+                for (var j = 0; j < rows.length; j++) {
+                    if ((!rows[j].msn || rows[j].msn === "") && msnByIC[rows[j].ic]) { rows[j].msn = msnByIC[rows[j].ic]; n++; }
+                }
+                return n > 0;
+            } catch (e) { return false; }
         }
         function LireIC(path) {
             try {
@@ -1262,7 +1281,7 @@
                 for (var k = 0; k < data.length; k++) {
                     var row = data[k];
                     if (nd || nf) { var rn = dateToNum(row.dc); if (rn != null) { if (nd && rn < nd) continue; if (nf && rn > nf) continue; } }
-                    if (fr && (NettoyerChaine(row.ic) + " " + NettoyerChaine(row.user)).toUpperCase().indexOf(fr) === -1) continue;
+                    if (fr && (NettoyerChaine(row.ic) + " " + NettoyerChaine(row.user) + " " + NettoyerChaine(row.msn || "")).toUpperCase().indexOf(fr) === -1) continue;
                     keep.push(row);
                 }
                 data = keep;
@@ -1282,6 +1301,7 @@
                 rows += "<tr" + (late ? " style='background:#fef2f2;'" : "") + ">"
                     + "<td style='text-align:center;'><button type='button' onclick=\"OuvrirNCSap('" + escapeHtml(r.ic) + "', this)\" title=\"Afficher l'IC dans SAP (QM03)\" style='padding:5px 8px; border-radius:5px; background:#0C447C; border:none; cursor:pointer; vertical-align:middle;'><svg width='14' height='14' viewBox='0 0 24 24' style='display:block;' fill='none' stroke='#ffffff' stroke-width='2'><path d='M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z'/><circle cx='12' cy='12' r='3'/></svg></button></td>"
                     + "<td style='text-align:center; font-weight:700;'>" + escapeHtml(r.ic) + "</td>"
+                    + "<td style='text-align:center;'>" + (r.msn ? escapeHtml(r.msn) : "-") + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(r.user) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(fmtOFDate(r.dfa)) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(r.hfa) + "</td>"
@@ -1290,9 +1310,9 @@
             }
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
                 + "<table class='data-table'><thead><tr><th width='4%'></th>"
-                + icTh('ic', 'Numéro IC', '14%') + icTh('user', 'User', '13%')
-                + icTh('dfa', 'Date fin autorisée', '17%') + icTh('hfa', 'Heure fin autorisée', '16%')
-                + icTh('dc', 'Date clôture', '18%') + icTh('hc', 'Heure clôture', '18%')
+                + icTh('ic', 'Numéro IC', '12%') + icTh('msn', 'MSN', '8%') + icTh('user', 'User', '12%')
+                + icTh('dfa', 'Date fin autorisée', '16%') + icTh('hfa', 'Heure fin autorisée', '16%')
+                + icTh('dc', 'Date clôture', '16%') + icTh('hc', 'Heure clôture', '16%')
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
