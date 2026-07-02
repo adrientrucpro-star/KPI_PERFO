@@ -678,40 +678,42 @@
             }
             appData.respAutres = [];
         }
+        // Construit l'objet à sauvegarder : uniquement les lignes des NC analysables (eligRaw = avant exclusion
+        // manuelle) + leurs commentaires. MÊME structure pour le fichier LOCAL et la base EN LIGNE.
+        function BuildSaveObject() {
+            var eligAvis = {};
+            for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligRaw) eligAvis[ncList[i].avis] = true; }
+            var allRows = appData.rows || [], savedRows = [];
+            for (var j = 0; j < allRows.length; j++) { if (eligAvis[allRows[j].a]) savedRows.push(allRows[j]); }
+            var savedComments = {};
+            if (appData.comments) { for (var a in appData.comments) { if (appData.comments.hasOwnProperty(a) && eligAvis[a]) savedComments[a] = appData.comments[a]; } }
+            return {
+                rows: savedRows,
+                roleDesig: appData.roleDesig || [],
+                teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
+                comments: savedComments,
+                selLine: appData.selLine || {},
+                excluded: appData.excluded || {},
+                ofCree: appData.ofCree || [],
+                ofClot: appData.ofClot || [],
+                lastOFImport: appData.lastOFImport || "",
+                icRows: appData.icRows || [],
+                lastICImport: appData.lastICImport || "",
+                msnByAvis: appData.msnByAvis || {},
+                dbMode: appData.dbMode || 'local',
+                cfg: appData.cfg || {},
+                calc: appData.calc || {},
+                lastImport: appData.lastImport || ""
+            };
+        }
         function SaveData() {
             try {
                 var path = getAppDataFilePath();
                 if (!path) return;
-                // On sauvegarde les lignes des NC analysables (eligRaw = avant exclusion manuelle),
-                // pour pouvoir réintégrer une NC exclue après rechargement.
-                var eligAvis = {};
-                for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligRaw) eligAvis[ncList[i].avis] = true; }
-                var allRows = appData.rows || [], savedRows = [];
-                for (var j = 0; j < allRows.length; j++) { if (eligAvis[allRows[j].a]) savedRows.push(allRows[j]); }
-                var savedComments = {};
-                if (appData.comments) { for (var a in appData.comments) { if (appData.comments.hasOwnProperty(a) && eligAvis[a]) savedComments[a] = appData.comments[a]; } }
-                var toSave = {
-                    rows: savedRows,
-                    roleDesig: appData.roleDesig || [],
-                    teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
-                    comments: savedComments,
-                    selLine: appData.selLine || {},
-                    excluded: appData.excluded || {},
-                    ofCree: appData.ofCree || [],
-                    ofClot: appData.ofClot || [],
-                    lastOFImport: appData.lastOFImport || "",
-                    icRows: appData.icRows || [],
-                    lastICImport: appData.lastICImport || "",
-                    msnByAvis: appData.msnByAvis || {},
-                    dbMode: appData.dbMode || 'local',
-                    cfg: appData.cfg || {},
-                    calc: appData.calc || {},
-                    lastImport: appData.lastImport || ""
-                };
                 var fso = new ActiveXObject("Scripting.FileSystemObject");
                 var tmp = path + ".tmp";
                 var f = fso.CreateTextFile(tmp, true, true);
-                f.Write(toJSON(toSave)); f.Close();
+                f.Write(toJSON(BuildSaveObject())); f.Close();
                 if (fso.FileExists(path)) fso.DeleteFile(path);
                 fso.MoveFile(tmp, path);
                 if (syncEnabled()) SyncPushDebounced();   // base partagée : pousse la MAJ (fusion + PUT) en différé
@@ -733,18 +735,9 @@
                  + (parseInt(t[0],10)||0) * 10000 + (parseInt(t[1],10)||0) * 100 + (parseInt(t[2],10)||0);
         }
         function laterDateStr(a, b) { return (dateStrNum(a) >= dateStrNum(b)) ? (a || b || "") : (b || ""); }
-        // Instantané des données à partager (TOUTES les lignes, pas seulement les éligibles) ; dbMode NON partagé (réglage par poste).
-        function BuildSyncSnapshot() {
-            return {
-                rows: appData.rows || [],
-                roleDesig: appData.roleDesig || [],
-                teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
-                comments: appData.comments || {}, selLine: appData.selLine || {}, excluded: appData.excluded || {},
-                ofCree: appData.ofCree || [], ofClot: appData.ofClot || [], lastOFImport: appData.lastOFImport || "",
-                icRows: appData.icRows || [], lastICImport: appData.lastICImport || "",
-                msnByAvis: appData.msnByAvis || {}, cfg: appData.cfg || {}, calc: appData.calc || {}, lastImport: appData.lastImport || ""
-            };
-        }
+        // Instantané des données à partager = MÊME contenu que la sauvegarde locale (NC éligibles seulement).
+        // À appeler APRÈS RecomputeAll pour que les NC fusionnées des autres postes soient bien prises en compte.
+        function BuildSyncSnapshot() { return BuildSaveObject(); }
         // Fusion « union » : on n'AJOUTE que ce qui manque, on ne supprime jamais. local prioritaire sur les conflits.
         function MergeAppData(local, remote) {
             if (!remote) return local;
@@ -824,6 +817,8 @@
                         if (g.status === 200) { var j = JSON.parse(g.responseText); sha = j.sha; var remote = JSON.parse(b64ToUtf8(j.content)); appData = MergeAppData(appData, remote); }
                         else if (g.status === 404) { sha = null; }
                         else { SyncStatus("Erreur synchro (" + g.status + ")"); return; }
+                        // Recalcule l'éligibilité sur l'ensemble fusionné (local + autres postes) AVANT de filtrer les NC éligibles.
+                        if (appData.rows && appData.rows.length) RecomputeAll();
                     } catch (e) { SyncStatus("Erreur synchro"); return; }
                     try {
                         var body = { message: "MAJ KPI Perfo " + new Date().toLocaleString(), content: utf8ToB64(toJSON(BuildSyncSnapshot())), branch: SYNC_BRANCH };
