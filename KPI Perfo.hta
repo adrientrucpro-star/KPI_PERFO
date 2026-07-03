@@ -1107,6 +1107,7 @@
                 var tab = document.getElementById(tabs[kk]); if (tab) tab.className = (kk === s) ? "subtab active" : "subtab";
             }
             if (!extractValid[s]) RenderExtractSub(s);
+            if (s === 'OF') UpdateOFExtractButton();   // maj état grisé même si le tableau est en cache
             if (s === 'NC') EgaliserHauteursExtraction();
             AjusterHauteurTables();
             ResetTblScroll();   // le tableau du sous-onglet s'affiche tout en haut
@@ -1190,12 +1191,19 @@
             for (var i = 0; i < arr.length; i++) { if (NettoyerChaine(arr[i].user) !== "") return true; }
             return false;
         }
+        // Grise le bouton "Extract OF" tant qu'aucune équipe ST/IQ n'est renseignée (les OF sont filtrés par équipe).
+        function UpdateOFExtractButton() {
+            var btn = document.getElementById('btnOF'); if (!btn) return;
+            var ok = teamHasMembers(appData.teamST) || teamHasMembers(appData.teamIQ);
+            btn.disabled = !ok;
+            btn.className = "btn-toolbar";
+            btn.style.backgroundColor = ok ? "" : "#94a3b8";
+            btn.style.opacity = ok ? "" : "0.8";
+            btn.style.cursor = ok ? "" : "not-allowed";
+            btn.title = ok ? "" : "Renseigne au moins une équipe (ST ou IQ) dans les Paramètres.";
+        }
         function LancerExtractOFTout() {
-            // Les OF sont filtrés par les équipes (ST pour les créés, IQ pour les clôturés) : sans équipe, l'extract ne renvoie rien.
-            if (!teamHasMembers(appData.teamST) && !teamHasMembers(appData.teamIQ)) {
-                AfficherErreur("Renseigne au moins une équipe (ST ou IQ) dans les Paramètres avant d'extraire les OF.");
-                return;
-            }
+            if (!teamHasMembers(appData.teamST) && !teamHasMembers(appData.teamIQ)) return;   // sécurité : bouton grisé sans équipe
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('ofDateFin').value).replace(/\//g, '.');
             if (!d1 || !d2) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
@@ -1220,7 +1228,8 @@
                     if (document.getElementById('dashSubOF') && document.getElementById('dashSubOF').style.display === 'block') RenderDashboardOF();
                     if (errs.length) AfficherErreur("Extraction OF partielle :\n" + errs.join("\n"));
                 } catch (e) { AfficherErreur("Erreur : " + e.message); }
-                if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Extract OF"; }
+                if (btn) { btn.innerHTML = "Extract OF"; }
+                UpdateOFExtractButton();   // rétablit l'état actif/grisé selon les équipes
             }, 80);
         }
         // Bandeau "aucune donnée" centré et pleine hauteur pour les tableaux d'extraction (cohérent avec le dashboard).
@@ -1261,6 +1270,7 @@
         }
         function RenderOFCombined() {
             extractValid.OF = true;   // rendu à jour (cache)
+            UpdateOFExtractButton();
             var lbl = document.getElementById('lastOFExtractDate'); if (lbl) lbl.innerText = appData.lastOFImport ? appData.lastOFImport : "Jamais";
             var cont = document.getElementById('ofTable'); if (!cont) return;
             var data = ofCombinedRows();
@@ -1812,6 +1822,7 @@
             RecomputeAll();   // recalcule l'éligibilité AVANT la sauvegarde
             SaveData();
             RenderParametres();
+            UpdateOFExtractButton();   // les équipes ont pu changer -> maj de l'état du bouton Extract OF
         }
         function ParamsAnnuler() {
             if (paramsBackup) {
