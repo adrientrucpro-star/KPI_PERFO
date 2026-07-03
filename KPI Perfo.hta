@@ -724,6 +724,41 @@
     // ==========================================================
     // CONNEXION : whitelist GitHub + blocage de version
     // ==========================================================
+        // Analyse le fichier Gist à sections : VERSION / USER / DATA_EQUIPE (team;user;nom) / DATA_RESP (code;nom).
+        // Rétrocompatible avec l'ancien format (ligne 1 = version, lignes suivantes = logins).
+        function ParseGistConfig(txt) {
+            var lines = NettoyerChaine(txt).split(/\r?\n/);
+            var cfg = { version: "", users: [], equipe: [], resp: [] };
+            var section = "", sawSection = false, i;
+            for (i = 0; i < lines.length; i++) {
+                var raw = NettoyerChaine(lines[i]);
+                if (raw === "") continue;
+                var up = raw.toUpperCase();
+                if (up === "VERSION" || up === "USER" || up === "USERS" || up === "DATA_EQUIPE" || up === "DATA_RESP" || up === "DATE_RESP") {
+                    sawSection = true;
+                    section = (up === "USERS") ? "USER" : (up === "DATE_RESP") ? "DATA_RESP" : up;
+                    continue;
+                }
+                if (section === "VERSION") { if (cfg.version === "") cfg.version = raw; }
+                else if (section === "USER") { cfg.users.push(up); }
+                else if (section === "DATA_EQUIPE") {
+                    var p = raw.split(";");
+                    if (p.length >= 2 && NettoyerChaine(p[1]) !== "") cfg.equipe.push({ team: NettoyerChaine(p[0]).toUpperCase(), user: NettoyerChaine(p[1]).toUpperCase(), nom: NettoyerChaine(p[2] || "") });
+                }
+                else if (section === "DATA_RESP") {
+                    var q = raw.split(";");
+                    if (NettoyerChaine(q[0]) !== "") cfg.resp.push({ code: NettoyerChaine(q[0]).toUpperCase(), nom: NettoyerChaine(q[1] || "") });
+                }
+            }
+            if (!sawSection) {   // ancien format sans en-têtes
+                for (i = 0; i < lines.length; i++) {
+                    var l = NettoyerChaine(lines[i]);
+                    if (l === "") continue;
+                    if (cfg.version === "") cfg.version = l; else cfg.users.push(l.toUpperCase());
+                }
+            }
+            return cfg;
+        }
         function DemarrerVerificationSysteme() {
             var statusMsg = document.getElementById("loginStatus");
             try {
@@ -743,18 +778,17 @@
                     if (timedOut) return;
                     if (xhr.status !== 200) { AfficherErreurLogin("Erreur r&eacute;seau", "Impossible de joindre le serveur de configuration."); return; }
 
-                    var lignes = NettoyerChaine(xhr.responseText).split(/\r?\n/);
-                    if (lignes.length < 2) { AfficherErreurLogin("Erreur de configuration", "Le fichier de configuration est vide ou mal format&eacute;."); return; }
+                    var cfg = ParseGistConfig(xhr.responseText);
+                    window.gistCfg = cfg;   // pool équipes/responsables pour les menus déroulants des Paramètres
+                    if (cfg.version === "" && cfg.users.length === 0) { AfficherErreurLogin("Erreur de configuration", "Le fichier de configuration est vide ou mal format&eacute;."); return; }
 
-                    var versionEnLigne = NettoyerChaine(lignes[0]);
+                    var versionEnLigne = cfg.version;
                     var accesAutorise = false;
                     window.userLogin = "";
 
-                    // Lignes suivantes = un login Windows autorisé par ligne (pas de rôle ni de nom).
-                    for (var i = 1; i < lignes.length; i++) {
-                        var loginLu = NettoyerChaine(lignes[i]).toLowerCase();
-                        if (loginLu === "") continue;
-                        if (loginLu === idWindows) {
+                    // Section USER = un login Windows autorisé par ligne.
+                    for (var i = 0; i < cfg.users.length; i++) {
+                        if (NettoyerChaine(cfg.users[i]).toLowerCase() === idWindows) {
                             accesAutorise = true;
                             window.userLogin = idWindows;
                             break;
@@ -1858,10 +1892,13 @@
             } return o;
         }
 
-        // Responsables distincts trouvés dans les extracts (code -> désignation), pour les listes déroulantes.
+        // Responsables (code -> désignation) pour les listes déroulantes : Gist (DATA_RESP) + ceux trouvés dans les extracts.
         function extractRespMap() {
-            var m = {}, rows = appData.rows || [];
-            for (var i = 0; i < rows.length; i++) { var r = NettoyerChaine(rows[i].r); if (r) m[r] = rows[i].dg || m[r] || ""; }
+            var m = {}, i;
+            var g = (window.gistCfg && gistCfg.resp) || [];
+            for (i = 0; i < g.length; i++) { var gc = NettoyerChaine(g[i].code); if (gc) m[gc] = g[i].nom || m[gc] || ""; }
+            var rows = appData.rows || [];
+            for (i = 0; i < rows.length; i++) { var r = NettoyerChaine(rows[i].r); if (r && !m[r]) m[r] = rows[i].dg || ""; }
             return m;
         }
         function respOptionsHtml(selected) {
@@ -1897,7 +1934,7 @@
                         + "<td style='text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='" + escapeHtml(full) + "'>" + escapeHtml(full) + "</td></tr>";
                 }
             }
-            if (arr.length === 0) html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:12px 10px;'>Lancer un extract pour alimenter les listes de responsables.</td></tr>";
+            if (arr.length === 0) html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:12px 10px;'>Utilise « Modifier » pour ajouter des responsables.</td></tr>";
             html += "</tbody></table>";
             cont.innerHTML = html;
         }
@@ -1917,6 +1954,23 @@
             if (role === "TL") return appData.teamTL;
             return appData.teamIQ;
         }
+        // Personnes proposées pour une équipe = celles taguées pour ce rôle dans le Gist (DATA_EQUIPE).
+        function teamPeopleFor(role) {
+            var out = [], eq = (window.gistCfg && gistCfg.equipe) || [];
+            for (var i = 0; i < eq.length; i++) { if (eq[i].team === role) out.push(eq[i]); }
+            return out;
+        }
+        // Options du menu déroulant d'une équipe (+ la valeur courante si elle n'est plus dans le pool Gist).
+        function teamOptionsHtml(role, selUser, selNom) {
+            var ppl = teamPeopleFor(role), h = "<option value=''></option>", seen = {}, found = false;
+            for (var i = 0; i < ppl.length; i++) {
+                var u = ppl[i].user; if (!u || seen[u]) continue; seen[u] = true;
+                if (u === selUser) found = true;
+                h += "<option value='" + escapeHtml(u) + "'" + (u === selUser ? " selected" : "") + ">" + escapeHtml(u) + (ppl[i].nom ? " - " + escapeHtml(ppl[i].nom) : "") + "</option>";
+            }
+            if (selUser && !found) h += "<option value='" + escapeHtml(selUser) + "' selected>" + escapeHtml(selUser) + (selNom ? " - " + escapeHtml(selNom) : "") + "</option>";
+            return h;
+        }
         function RenderTeam(role) {
             var cont = document.getElementById('team' + role);
             var arr = teamArr(role);
@@ -1925,8 +1979,8 @@
             for (var i = 0; i < arr.length; i++) {
                 if (ed) {
                     html += "<tr>"
-                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' style='text-align:center;' value='" + escapeHtml(arr[i].user || "") + "' onchange=\"UpdateTeam('" + role + "'," + i + ",'user',this.value)\"></div></td>"
-                        + "<td class='cell-input'><div class='cell-wrap'><input type='text' class='excel-input' value='" + escapeHtml(arr[i].nom || "") + "' onchange=\"UpdateTeam('" + role + "'," + i + ",'nom',this.value)\"></div></td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; -ms-text-align-last:center; text-align-last:center; cursor:pointer;' onchange=\"SetTeamUser('" + role + "'," + i + ",this.value)\">" + teamOptionsHtml(role, arr[i].user || "", arr[i].nom || "") + "</select></div></td>"
+                        + "<td style='text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#475569;' title='" + escapeHtml(arr[i].nom || "") + "'>" + escapeHtml(arr[i].nom || "") + "</td>"
                         + "</tr>";
                 } else {
                     html += "<tr><td style='font-weight:700; text-align:center;'>" + escapeHtml(arr[i].user || "") + "</td><td>" + escapeHtml(arr[i].nom || "") + "</td></tr>";
@@ -1938,10 +1992,14 @@
             html += "</tbody></table>";
             cont.innerHTML = html;
         }
-        function UpdateTeam(role, idx, field, val) {
-            var v = NettoyerChaine(val);
-            if (field === "user") v = v.toUpperCase();
-            teamArr(role)[idx][field] = v;
+        // Sélection d'une personne dans le menu déroulant : renseigne user + nom (nom auto depuis le Gist).
+        function SetTeamUser(role, idx, user) {
+            user = NettoyerChaine(user).toUpperCase();
+            var nom = "", ppl = teamPeopleFor(role);
+            for (var i = 0; i < ppl.length; i++) { if (ppl[i].user === user) { nom = ppl[i].nom; break; } }
+            var a = teamArr(role); if (!a[idx]) return;
+            a[idx].user = user; a[idx].nom = nom;
+            RenderTeam(role);
         }
 
     // ==========================================================
