@@ -1875,9 +1875,8 @@
                         + "<td style='text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='" + escapeHtml(full) + "'>" + escapeHtml(full) + "</td></tr>";
                 }
             }
-            if (arr.length === 0) html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:10px;'>Aucune entrée</td></tr>";
+            if (arr.length === 0) html += "<tr><td colspan='2' style='text-align:center; color:#94a3b8; font-style:italic; font-size:12px; padding:12px 10px;'>Lancer un extract pour alimenter les listes de responsables.</td></tr>";
             html += "</tbody></table>";
-            if (!(appData.rows && appData.rows.length)) html += "<div style='font-size:12px; color:#b45309; margin-top:8px;'>Lance d'abord un extract pour alimenter les listes de responsables.</div>";
             cont.innerHTML = html;
         }
         function SetRoleResp(idx, code) {
