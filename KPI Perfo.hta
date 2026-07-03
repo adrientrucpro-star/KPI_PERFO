@@ -1184,7 +1184,18 @@
             } catch (e) { return 0; }
         }
         // Extraction OF combinée : lance les DEUX extractions SAP (création + clôture) puis affiche le tableau unique.
+        // true si l'équipe contient au moins un membre (user renseigné).
+        function teamHasMembers(arr) {
+            arr = arr || [];
+            for (var i = 0; i < arr.length; i++) { if (NettoyerChaine(arr[i].user) !== "") return true; }
+            return false;
+        }
         function LancerExtractOFTout() {
+            // Les OF sont filtrés par les équipes (ST pour les créés, IQ pour les clôturés) : sans équipe, l'extract ne renvoie rien.
+            if (!teamHasMembers(appData.teamST) && !teamHasMembers(appData.teamIQ)) {
+                AfficherErreur("Renseigne au moins une équipe (ST ou IQ) dans les Paramètres avant d'extraire les OF.");
+                return;
+            }
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('ofDateFin').value).replace(/\//g, '.');
             if (!d1 || !d2) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
