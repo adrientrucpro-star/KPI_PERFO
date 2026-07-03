@@ -583,22 +583,6 @@
         var LIEN_CONFIG_APP = "https://gist.githubusercontent.com/adrientrucpro-star/366511f0828fbb653853c77b01752a5d/raw";
         var URL_TELECHARGEMENT_APP = "https://github.com/adrientrucpro-star/KPI_PERFO";
 
-        // ==========================================================
-        // SYNCHRONISATION BASE PARTAGÉE  (dépôt GitHub PRIVÉ, API Contents)
-        //  ⚠️ SÉCURITÉ : SYNC_TOKEN doit rester VIDE dans toute version poussée sur un dépôt PUBLIC.
-        //     Remplis le token uniquement dans ta copie locale et la copie du Google Drive (dépôt données = PRIVÉ).
-        //  Si SYNC_TOKEN ou SYNC_REPO est vide -> synchro DÉSACTIVÉE, l'app fonctionne 100 % en local (comme avant).
-        // ==========================================================
-        var SYNC_TOKEN  = "";                    // <-- token GitHub fine-grained (Contents: Read and write). LAISSER VIDE ici.
-        var SYNC_OWNER  = "adrientrucpro-star";  // propriétaire du dépôt de données
-        var SYNC_REPO   = "";                    // <-- nom du dépôt PRIVÉ des données (ex: "KPI_PERFO_DATA")
-        var SYNC_BRANCH = "main";                // branche
-        var SYNC_PATH   = "APP_DATA.txt";        // chemin du fichier dans le dépôt
-        function syncConfigured() { return NettoyerChaine(SYNC_TOKEN) !== "" && NettoyerChaine(SYNC_REPO) !== ""; }   // token + dépôt présents
-        function syncEnabled() { return syncConfigured() && appData.dbMode === 'online'; }   // + l'utilisateur a choisi "base en ligne"
-        function syncApiUrl() { return "https://api.github.com/repos/" + SYNC_OWNER + "/" + SYNC_REPO + "/contents/" + SYNC_PATH; }
-        var syncSha = null;   // dernier SHA connu du fichier distant
-
     // ==========================================================
     // DONNÉES GLOBALES
     // ==========================================================
@@ -661,7 +645,6 @@
             if (!appData.lastOFImport) appData.lastOFImport = "";   // date/heure de la dernière extraction OF
             if (!appData.icRows) appData.icRows = [];        // Interventions Cards : [{ic,user,dfa,hfa,dc,hc}]
             if (!appData.lastICImport) appData.lastICImport = "";
-            if (appData.dbMode !== 'online') appData.dbMode = 'local';   // 'local' = fichier APP_DATA.txt ; 'online' = base partagée GitHub. Défaut local.
             if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
             if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
             if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
@@ -700,7 +683,6 @@
                 icRows: appData.icRows || [],
                 lastICImport: appData.lastICImport || "",
                 msnByAvis: appData.msnByAvis || {},
-                dbMode: appData.dbMode || 'local',
                 cfg: appData.cfg || {},
                 calc: appData.calc || {},
                 lastImport: appData.lastImport || ""
@@ -716,144 +698,9 @@
                 f.Write(toJSON(BuildSaveObject())); f.Close();
                 if (fso.FileExists(path)) fso.DeleteFile(path);
                 fso.MoveFile(tmp, path);
-                if (syncEnabled()) SyncPushDebounced();   // base partagée : pousse la MAJ (fusion + PUT) en différé
             } catch (e) { AfficherErreur("Erreur de sauvegarde : " + e.message); }
         }
 
-        // ==========================================================
-        // SYNCHRONISATION : fusion (union, jamais de suppression) + API GitHub Contents
-        // ==========================================================
-        // Base64 UTF-8 (IE10 : btoa/atob ne gèrent que le Latin1 -> passage par encode/decodeURIComponent).
-        function utf8ToB64(s) { try { return btoa(unescape(encodeURIComponent(s))); } catch (e) { return ""; } }
-        function b64ToUtf8(b) { try { return decodeURIComponent(escape(atob((""+b).replace(/\s+/g, "")))); } catch (e) { return ""; } }
-        // "JJ/MM/AAAA HH:MM:SS" -> nombre comparable (pour garder la date la plus récente).
-        function dateStrNum(s) {
-            s = NettoyerChaine(s); if (!s) return 0;
-            var p = s.split(' '), d = (p[0] || "").split('/'), t = (p[1] || "0:0:0").split(':');
-            if (d.length < 3) return 0;
-            return (parseInt(d[2],10)||0) * 10000000000 + (parseInt(d[1],10)||0) * 100000000 + (parseInt(d[0],10)||0) * 1000000
-                 + (parseInt(t[0],10)||0) * 10000 + (parseInt(t[1],10)||0) * 100 + (parseInt(t[2],10)||0);
-        }
-        function laterDateStr(a, b) { return (dateStrNum(a) >= dateStrNum(b)) ? (a || b || "") : (b || ""); }
-        // Instantané des données à partager = MÊME contenu que la sauvegarde locale (NC éligibles seulement).
-        // À appeler APRÈS RecomputeAll pour que les NC fusionnées des autres postes soient bien prises en compte.
-        function BuildSyncSnapshot() { return BuildSaveObject(); }
-        // Fusion « union » : on n'AJOUTE que ce qui manque, on ne supprime jamais. local prioritaire sur les conflits.
-        function MergeAppData(local, remote) {
-            if (!remote) return local;
-            function unionBy(a, b, keyFn) {
-                var out = [], seen = {}; a = a || []; b = b || [];
-                for (var i = 0; i < a.length; i++) { var k = keyFn(a[i]); if (k != null && !seen[k]) { seen[k] = true; out.push(a[i]); } }
-                for (var j = 0; j < b.length; j++) { var k2 = keyFn(b[j]); if (k2 != null && !seen[k2]) { seen[k2] = true; out.push(b[j]); } }
-                return out;
-            }
-            function unionMap(a, b) { var o = {}, k; a = a || {}; b = b || {}; for (k in b) { if (b.hasOwnProperty(k)) o[k] = b[k]; } for (k in a) { if (a.hasOwnProperty(k)) o[k] = a[k]; } return o; }
-            function pref(a, b) { return (a && a.length) ? a : (b || []); }
-            var m = {};
-            m.rows    = unionBy(local.rows, remote.rows, function (r) { return r.a + "|" + (r.n || "") + "|" + (r.c || "") + "|" + (r.r || ""); });
-            m.ofCree  = unionBy(local.ofCree, remote.ofCree, function (r) { return r.of; });
-            m.ofClot  = unionBy(local.ofClot, remote.ofClot, function (r) { return r.of; });
-            m.icRows  = unionBy(local.icRows, remote.icRows, function (r) { return r.ic; });
-            m.comments = unionMap(local.comments, remote.comments);
-            m.selLine  = unionMap(local.selLine, remote.selLine);
-            m.excluded = unionMap(local.excluded, remote.excluded);
-            m.msnByAvis = unionMap(local.msnByAvis, remote.msnByAvis);
-            m.roleDesig = pref(local.roleDesig, remote.roleDesig);
-            m.teamST = pref(local.teamST, remote.teamST); m.teamTL = pref(local.teamTL, remote.teamTL); m.teamIQ = pref(local.teamIQ, remote.teamIQ);
-            m.cfg = unionMap(local.cfg, remote.cfg);
-            m.calc = (local.calc && local.calc.mode) ? local.calc : (remote.calc || {});
-            m.lastImport = laterDateStr(local.lastImport, remote.lastImport);
-            m.lastOFImport = laterDateStr(local.lastOFImport, remote.lastOFImport);
-            m.lastICImport = laterDateStr(local.lastICImport, remote.lastICImport);
-            m.dbMode = local.dbMode;   // réglage par poste : jamais fusionné
-            return m;
-        }
-        // Applique un instantané distant : fusionne dans appData, recalcule, sauvegarde en LOCAL (sans re-pousser).
-        function AppliquerSnapshotDistant(remote) {
-            appData = MergeAppData(appData, remote);
-            if (typeof RecomputeAll === 'function' && appData.rows && appData.rows.length) RecomputeAll();
-            syncSaving = true; try { SaveData(); } catch (e) {} syncSaving = false;   // sauvegarde locale sans redéclencher un push
-        }
-        var syncSaving = false;   // évite qu'un SaveData déclenché par la synchro ne relance une synchro
-        // PULL : récupère le fichier distant et le fusionne. cb(true/false).
-        function SyncPull(cb) {
-            if (!syncEnabled()) { if (cb) cb(false); return; }
-            try {
-                var xhr = new ActiveXObject("MSXML2.XMLHTTP.6.0");
-                xhr.open("GET", syncApiUrl() + "?ref=" + SYNC_BRANCH + "&t=" + new Date().getTime(), true);
-                xhr.setRequestHeader("Authorization", "token " + SYNC_TOKEN);
-                xhr.setRequestHeader("Accept", "application/vnd.github.v3+json");
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState !== 4) return;
-                    try {
-                        if (xhr.status === 200) {
-                            var j = JSON.parse(xhr.responseText);
-                            syncSha = j.sha;
-                            var remote = JSON.parse(b64ToUtf8(j.content));
-                            AppliquerSnapshotDistant(remote);
-                            SyncStatus("Synchronisé " + new Date().toLocaleTimeString());
-                            if (cb) cb(true);
-                        } else if (xhr.status === 404) {
-                            syncSha = null; SyncStatus("Base distante vide (sera créée)"); if (cb) cb(false);
-                        } else { SyncStatus("Erreur synchro (" + xhr.status + ")"); if (cb) cb(false); }
-                    } catch (e) { SyncStatus("Erreur synchro"); if (cb) cb(false); }
-                };
-                xhr.send();
-            } catch (e) { if (cb) cb(false); }
-        }
-        // PUSH : recharge la version distante, fusionne, PUT avec le SHA courant. Réessaie en cas de conflit.
-        function SyncPush(retries) {
-            if (!syncEnabled()) return;
-            if (retries == null) retries = 3;
-            try {
-                var g = new ActiveXObject("MSXML2.XMLHTTP.6.0");
-                g.open("GET", syncApiUrl() + "?ref=" + SYNC_BRANCH + "&t=" + new Date().getTime(), true);
-                g.setRequestHeader("Authorization", "token " + SYNC_TOKEN);
-                g.setRequestHeader("Accept", "application/vnd.github.v3+json");
-                g.onreadystatechange = function () {
-                    if (g.readyState !== 4) return;
-                    var sha = null;
-                    try {
-                        if (g.status === 200) { var j = JSON.parse(g.responseText); sha = j.sha; var remote = JSON.parse(b64ToUtf8(j.content)); appData = MergeAppData(appData, remote); }
-                        else if (g.status === 404) { sha = null; }
-                        else { SyncStatus("Erreur synchro (" + g.status + ")"); return; }
-                        // Recalcule l'éligibilité sur l'ensemble fusionné (local + autres postes) AVANT de filtrer les NC éligibles.
-                        if (appData.rows && appData.rows.length) RecomputeAll();
-                    } catch (e) { SyncStatus("Erreur synchro"); return; }
-                    try {
-                        var body = { message: "MAJ KPI Perfo " + new Date().toLocaleString(), content: utf8ToB64(toJSON(BuildSyncSnapshot())), branch: SYNC_BRANCH };
-                        if (sha) body.sha = sha;
-                        var p = new ActiveXObject("MSXML2.XMLHTTP.6.0");
-                        p.open("PUT", syncApiUrl(), true);
-                        p.setRequestHeader("Authorization", "token " + SYNC_TOKEN);
-                        p.setRequestHeader("Accept", "application/vnd.github.v3+json");
-                        p.setRequestHeader("Content-Type", "application/json");
-                        p.onreadystatechange = function () {
-                            if (p.readyState !== 4) return;
-                            if (p.status === 200 || p.status === 201) { try { var pj = JSON.parse(p.responseText); if (pj.content) syncSha = pj.content.sha; } catch (e) {} SyncStatus("Synchronisé " + new Date().toLocaleTimeString()); }
-                            else if ((p.status === 409 || p.status === 422) && retries > 0) { SyncPush(retries - 1); }   // conflit de SHA -> on refait pull+merge+put
-                            else { SyncStatus("Erreur envoi (" + p.status + ")"); }
-                        };
-                        p.send(toJSON(body));
-                    } catch (e) { SyncStatus("Erreur envoi"); }
-                };
-                g.send();
-            } catch (e) {}
-        }
-        var syncPushTimer = null;
-        function SyncPushDebounced() {
-            if (syncSaving) return;   // ne pas re-pousser lors d'une sauvegarde déclenchée par un pull
-            if (syncPushTimer) clearTimeout(syncPushTimer);
-            syncPushTimer = setTimeout(function () { SyncPush(); }, 1500);   // coalesce les sauvegardes rapprochées
-        }
-        // Synchro manuelle (bouton) : pull puis re-rendu de la vue courante.
-        function SyncNow() {
-            if (!syncEnabled()) { alert("Synchronisation non configurée (token / dépôt)."); return; }
-            SyncStatus("Synchronisation…");
-            SyncPull(function () { if (typeof InvalidateDash === 'function') InvalidateDash(); if (typeof RafraichirPageActive === 'function') RafraichirPageActive(); SyncPush(); });
-        }
-        // Affiche l'état de synchro (petit texte dans la sidebar, si présent).
-        function SyncStatus(txt) { var el = document.getElementById('syncStatus'); if (el) el.innerText = txt; }
         // Sérialiseur JSON minimal (JSON.stringify absent en moteur IE ancien).
         function toJSON(v) {
             if (v === null || v === undefined) return "null";
@@ -966,8 +813,6 @@
             // mainApp affiché DERRIÈRE l'écran de connexion (opaque, z-index 9999) pour permettre les mesures/rendu.
             document.getElementById("mainApp").style.display = "block";
             if (appData.rows && appData.rows.length) RecomputeAll();
-            UpdateDbModeUI();
-            if (syncConfigured()) { var sb = document.getElementById('dbModeBox'); if (sb) sb.style.display = 'block'; }
             PrefillExtractDates();
             dashSuppressLaunchResize = true;
             ShowPage("pageDashboard", true);   // affiche la page SANS rendre les graphiques
@@ -988,22 +833,11 @@
                 RenderDashboard();   // rendu UNIQUE, à la taille finale (l'écran de connexion couvre encore)
                 // Graphiques affichés -> on masque l'écran de connexion pour révéler le tableau de bord déjà complet.
                 setTimeout(function () { document.getElementById("loginScreen").style.display = "none"; }, 30);
-                if (syncEnabled()) setTimeout(SyncPullEtRafraichir, 400);   // base partagée : récupère les données des autres en arrière-plan
                 return;
             }
             setTimeout(function () { LancerRenduDashboard(tries + 1, h); }, 25);
         }
         var dashSuppressLaunchResize = false;
-        // Récupère la base partagée au démarrage puis rafraîchit la vue courante.
-        function SyncPullEtRafraichir() {
-            SyncPull(function (ok) {
-                if (!ok) return;
-                if (typeof InvalidateDash === 'function') InvalidateDash();
-                if (typeof InvalidateExtract === 'function') InvalidateExtract();
-                if (typeof InvalidatePages === 'function') InvalidatePages();
-                if (typeof RafraichirPageActive === 'function') RafraichirPageActive();
-            });
-        }
 
     // ==========================================================
     // NAVIGATION
@@ -1466,34 +1300,6 @@
                 }
             }
             return out;
-        }
-        // Bascule base LOCALE (fichier APP_DATA.txt) <-> base EN LIGNE (dépôt GitHub).
-        function ToggleDbMode() {
-            var toOnline = (appData.dbMode !== 'online');
-            if (toOnline && !syncConfigured()) { alert("Base en ligne non configurée (token / dépôt GitHub manquants dans cette copie du HTA)."); return; }
-            appData.dbMode = toOnline ? 'online' : 'local';
-            SaveData();
-            UpdateDbModeUI();
-            if (appData.dbMode === 'online') { SyncStatus("Synchronisation…"); SyncPullEtRafraichir(); }
-            else { SyncStatus("Base locale"); }
-        }
-        function UpdateDbModeUI() {
-            var online = (appData.dbMode === 'online');
-            var sw = document.getElementById('dbModeSwitch');
-            var lb = document.getElementById('dbModeLabel');
-            var sc = document.getElementById('syncControls');
-            if (sw) sw.className = 'nc-switch' + (online ? '' : ' off');
-            if (lb) lb.innerText = online ? "En ligne (GitHub)" : "Locale (fichier)";
-            if (sc) sc.style.display = online ? 'block' : 'none';
-        }
-        // Re-rend la page actuellement affichée (après bascule du mode test / invalidation des caches).
-        function RafraichirPageActive() {
-            var active = "pageDashboard";
-            for (var i = 0; i < PAGES.length; i++) { var el = document.getElementById(PAGES[i]); if (el && el.className.indexOf('active') !== -1) { active = PAGES[i]; break; } }
-            if (active === "pageDashboard") RenderActiveDashboardSub();
-            else if (active === "pageAnalyse") { RenderActiveExtractSub(); EgaliserHauteursExtraction(); AjusterHauteurTables(); }
-            else if (active === "pageParcours") RenderParcours();
-            else if (active === "pageParametres") RenderParametres();
         }
         function LireIC(path) {
             try {
@@ -3534,15 +3340,6 @@
             <div id="sidebar-header">
                 <div class="app-logo" id="appLogo">KPI PERFO</div>
                 <div class="app-sub" id="appSub">ANALYSE NC - QM13</div>
-            </div>
-            <div id="dbModeBox" style="display:none; padding:12px 20px; border-bottom:1px solid rgba(255,255,255,0.08);">
-                <div style="font-size:10px; font-weight:700; letter-spacing:1px; color:#7aafc7; text-transform:uppercase; margin-bottom:8px;">Base de données</div>
-                <span class="nc-switch off" id="dbModeSwitch" onclick="ToggleDbMode()" style="margin-left:0;"><span class="knob"></span></span>
-                <span id="dbModeLabel" style="font-size:11px; color:#cfe3ef; margin-left:8px; vertical-align:middle;">Locale (fichier)</span>
-                <div id="syncControls" style="display:none; margin-top:10px;">
-                    <div id="syncStatus" style="font-size:11px; color:#cfe3ef; margin-bottom:8px;">&mdash;</div>
-                    <button onclick="SyncNow()" style="font-size:11px; font-weight:600; padding:5px 12px; border:none; border-radius:5px; background:#006698; color:#fff; cursor:pointer;">Synchroniser</button>
-                </div>
             </div>
             <div id="navDashboard" class="nav-item active" onclick="ShowPage('pageDashboard')">Tableau de bord</div>
             <div id="navAnalyse" class="nav-item" onclick="ShowPage('pageAnalyse')">Extraction</div>
