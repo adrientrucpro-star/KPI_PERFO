@@ -1151,20 +1151,9 @@
             var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
             var data = ParseOF(content);
             var cur = (type === 'cree') ? (appData.ofCree || []) : (appData.ofClot || []);
-            var seen = {}; for (var i = 0; i < cur.length; i++) seen[cur[i].of] = cur[i];
-            var added = 0, doneFromFile = {};
-            for (var j = 0; j < data.length; j++) {
-                var d = data[j];
-                if (doneFromFile[d.of]) continue;   // 1re occurrence gardée (les OF clôturés apparaissent plusieurs fois = jalons)
-                doneFromFile[d.of] = true;
-                if (!seen[d.of]) { cur.push(d); seen[d.of] = d; added++; }
-                else {
-                    // OF déjà présent : on l'ACTUALISE avec les données du nouvel extract (corrige d'anciennes colonnes décalées + rattache le MSN).
-                    var ex = seen[d.of];
-                    ex.user = d.user; ex.date = d.date; ex.heure = d.heure;
-                    if (d.msn) ex.msn = d.msn;
-                }
-            }
+            var seen = {}; for (var i = 0; i < cur.length; i++) seen[cur[i].of] = true;
+            var added = 0;
+            for (var j = 0; j < data.length; j++) { if (!seen[data[j].of]) { cur.push(data[j]); seen[data[j].of] = true; added++; } }
             if (type === 'cree') appData.ofCree = cur; else appData.ofClot = cur;
             return added;
         }
@@ -1815,6 +1804,17 @@
             }
             isEditingParams = false; paramsBackup = null;
             RenderParametres();
+        }
+        // Réinitialise complètement l'application : efface la base APP_DATA.txt et redémarre à vide.
+        function ReinitialiserApplication() {
+            if (!confirm("Réinitialiser l'application ?\n\nToutes les données seront EFFACÉES : NC, OF, IC, commentaires et paramètres.\nCette action est IRRÉVERSIBLE.")) return;
+            if (!confirm("Confirmer la réinitialisation ?\nL'application va redémarrer à vide.")) return;
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                var path = getAppDataFilePath();
+                if (path && fso.FileExists(path)) fso.DeleteFile(path, true);
+            } catch (e) { AfficherErreur("Erreur lors de la réinitialisation : " + e.message); return; }
+            try { location.reload(); } catch (e2) { location.href = location.href; }
         }
         function cleanRoleDesig(a) {
             // Conserve une ligne seulement si le responsable ET le type sont renseignés.
@@ -3779,6 +3779,14 @@
                             <div style="padding:15px;"><div id="teamIQ"></div></div>
                         </div>
                     </div>
+                </div>
+
+                <div class="card" style="margin-top:16px; margin-bottom:0; padding:16px 20px; border:1px solid #fca5a5; background:#fef2f2; overflow:hidden;">
+                    <div style="float:right;">
+                        <button class="btn-toolbar" style="background:#dc2626; color:#fff; border:none; padding:0 18px;" onclick="ReinitialiserApplication()">Réinitialiser l'application</button>
+                    </div>
+                    <h3 style="margin:0 0 4px 0; color:#b91c1c;">Réinitialisation</h3>
+                    <div style="font-size:13px; color:#7f1d1d;">Efface toutes les données (NC, OF, IC, commentaires, paramètres) et redémarre l'application à vide. Action irréversible.</div>
                 </div>
             </div>
 
