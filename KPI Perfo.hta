@@ -3111,7 +3111,8 @@
             var card = document.getElementById('weekSelectCard');
             if (!closed.length) {
                 if (card) card.style.display = "none";
-                cont.innerHTML = "<div class='msg-box msg-info'>Aucune NC à analyser. Lance un extract (Extract NC) et renseigne les Paramètres.</div>";
+                cont.style.overflowY = ''; cont.style.maxHeight = ''; cont.style.paddingRight = '';   // pas de scroll pour le cadre vide
+                showEmptyExtract('parcoursContainer', "Aucune NC à analyser", "Lance une extraction NC et renseigne les rôles ST/IQ dans les Paramètres.");
                 return;
             }
             if (card) card.style.display = "block";
