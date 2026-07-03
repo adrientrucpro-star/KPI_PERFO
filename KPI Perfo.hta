@@ -1112,6 +1112,17 @@
             ResetTblScroll();   // le tableau du sous-onglet s'affiche tout en haut
         }
         // Parse EXPORT_ST / EXPORT_IQ : colonnes Ordre de Fabrication, User, Date, Heure (tabulé, ANSI).
+        // "MSV-000846/WG000" -> "846" (bloc de chiffres après MSV, zéros de tête retirés).
+        function msnFromOTP(s) {
+            s = NettoyerChaine(s);
+            var m = s.match(/MSV[-\s_]*0*(\d+)/i);
+            if (m) return m[1];
+            var m2 = s.match(/0*(\d{3,})/);   // repli : 1er bloc de 3+ chiffres
+            return m2 ? ("" + parseInt(m2[1], 10)) : "";
+        }
+        // Parse un export OF. Détecte automatiquement la disposition des colonnes :
+        //   - ST (créés)    : Ordre | Élément d'OTP (MSN) | User | Date | Heure
+        //   - IQ (clôturés) : Ordre | User | Date | Heure | Jalon  (pas de MSN ici -> via EXPORT_IQ2)
         function ParseOF(content) {
             var lines = content.split(/\r?\n/), out = [];
             for (var i = 0; i < lines.length; i++) {
@@ -1122,7 +1133,11 @@
                 if (parts.length < 4) continue;
                 var of = NettoyerChaine(parts[0]);
                 if (!/^\d{6,}$/.test(of)) continue;   // 1re colonne = n° d'OF (6+ chiffres)
-                out.push({ of: of, user: NettoyerChaine(parts[1]), date: NettoyerChaine(parts[2]), heure: NettoyerChaine(parts[3]) });
+                if (/MSV/i.test(parts[1])) {          // colonne 2 = Élément d'OTP -> disposition ST (avec MSN)
+                    out.push({ of: of, msn: msnFromOTP(parts[1]), user: NettoyerChaine(parts[2]), date: NettoyerChaine(parts[3]), heure: NettoyerChaine(parts[4] || "") });
+                } else {                              // disposition IQ (user en colonne 2, pas de MSN)
+                    out.push({ of: of, msn: "", user: NettoyerChaine(parts[1]), date: NettoyerChaine(parts[2]), heure: NettoyerChaine(parts[3]) });
+                }
             }
             return out;
         }
@@ -1142,8 +1157,7 @@
             if (type === 'cree') appData.ofCree = cur; else appData.ofClot = cur;
             return added;
         }
-        // EXPORT_IQ2.txt (variante LAROCHE_IQ2) : correspondance Ordre <-> MSN pour les OF clôturés.
-        // Robuste à l'ordre des colonnes (Ordre = 6+ chiffres, MSN = autre valeur). Renvoie une map { of : msn }.
+        // EXPORT_IQ2.txt (variante LAROCHE_IQ2) : Ordre | Élément d'OTP -> map { of : MSN }.
         function ParseOFMSN(content) {
             var lines = content.split(/\r?\n/), map = {};
             for (var i = 0; i < lines.length; i++) {
@@ -1151,12 +1165,10 @@
                 var parts = raw.split("\t");
                 while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
                 if (parts.length < 2) continue;
-                var a = NettoyerChaine(parts[0]), b = NettoyerChaine(parts[1]);
-                var of = "", msn = "";
-                if (/^\d{6,}$/.test(b)) { msn = a; of = b; }        // MSN | Ordre (comme EXPORT_NC2)
-                else if (/^\d{6,}$/.test(a)) { of = a; msn = b; }   // Ordre | MSN
-                else continue;
-                if (of) map[of] = msn;
+                var of = NettoyerChaine(parts[0]);
+                if (!/^\d{6,}$/.test(of)) continue;   // 1re colonne = Ordre (6+ chiffres)
+                var msn = msnFromOTP(parts[1]);       // 2e colonne = "MSV-000846/..." -> 846
+                if (msn) map[of] = msn;
             }
             return map;
         }
