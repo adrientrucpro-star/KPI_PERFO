@@ -428,6 +428,9 @@
         Function VBS_ExtractOFClot(strLow, strHigh)   ' OFs clôturés (IQ)
             VBS_ExtractOFClot = VBS_ExtractCOOIS("LAROCHE_IQ", "S_ISTEN", strLow, strHigh, "EXPORT_IQ.txt", True)
         End Function
+        Function VBS_ExtractOFClotMSN(strLow, strHigh)   ' MSN des OFs clôturés (variante IQ2, sans dépliage) -> EXPORT_IQ2.txt
+            VBS_ExtractOFClotMSN = VBS_ExtractCOOIS("LAROCHE_IQ2", "S_ISTEN", strLow, strHigh, "EXPORT_IQ2.txt", False)
+        End Function
         ' Extraction des Interventions Cards via QM11 (variante LAROCHE_IC2, plage QMDAT) -> EXPORT_IC.txt.
         Function VBS_ExtractIC(strDateLow, strDateHigh)
             On Error Resume Next
@@ -1139,6 +1142,35 @@
             if (type === 'cree') appData.ofCree = cur; else appData.ofClot = cur;
             return added;
         }
+        // EXPORT_IQ2.txt (variante LAROCHE_IQ2) : correspondance Ordre <-> MSN pour les OF clôturés.
+        // Robuste à l'ordre des colonnes (Ordre = 6+ chiffres, MSN = autre valeur). Renvoie une map { of : msn }.
+        function ParseOFMSN(content) {
+            var lines = content.split(/\r?\n/), map = {};
+            for (var i = 0; i < lines.length; i++) {
+                var raw = lines[i]; if (raw.indexOf("\t") === -1) continue;
+                var parts = raw.split("\t");
+                while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
+                if (parts.length < 2) continue;
+                var a = NettoyerChaine(parts[0]), b = NettoyerChaine(parts[1]);
+                var of = "", msn = "";
+                if (/^\d{6,}$/.test(b)) { msn = a; of = b; }        // MSN | Ordre (comme EXPORT_NC2)
+                else if (/^\d{6,}$/.test(a)) { of = a; msn = b; }   // Ordre | MSN
+                else continue;
+                if (of) map[of] = msn;
+            }
+            return map;
+        }
+        // Rattache le MSN (depuis EXPORT_IQ2.txt) aux lignes des OF clôturés. Best-effort.
+        function MergeOFClotMSN(path) {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) return;
+                var ts = fso.OpenTextFile(path, 1, false, 0); var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
+                var map = ParseOFMSN(content), rows = appData.ofClot || [], n = 0;
+                for (var i = 0; i < rows.length; i++) { if (map[rows[i].of]) { rows[i].msn = map[rows[i].of]; n++; } }
+                return n;
+            } catch (e) { return 0; }
+        }
         // Extraction OF combinée : lance les DEUX extractions SAP (création + clôture) puis affiche le tableau unique.
         function LancerExtractOFTout() {
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
@@ -1155,6 +1187,9 @@
                     if (r1 && r1.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("Création : " + (r1 || "erreur inconnue"));
                     var r2 = VBS_ExtractOFClot(d1, d2);
                     if (r2 && r2.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("Clôture : " + (r2 || "erreur inconnue"));
+                    // 3e extract : MSN des OF clôturés (variante IQ2) -> rattaché aux lignes ofClot (best-effort).
+                    var r3 = VBS_ExtractOFClotMSN(d1, d2);
+                    if (r3 && r3.indexOf("ERREUR") === -1) MergeOFClotMSN(folder + "EXPORT_IQ2.txt"); else if (r3) errs.push("MSN clôture : " + r3);
                     appData.lastOFImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
                     SaveData();
                     RenderOFCombined();
