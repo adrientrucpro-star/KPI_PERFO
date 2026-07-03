@@ -1151,9 +1151,20 @@
             var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
             var data = ParseOF(content);
             var cur = (type === 'cree') ? (appData.ofCree || []) : (appData.ofClot || []);
-            var seen = {}; for (var i = 0; i < cur.length; i++) seen[cur[i].of] = true;
-            var added = 0;
-            for (var j = 0; j < data.length; j++) { if (!seen[data[j].of]) { cur.push(data[j]); seen[data[j].of] = true; added++; } }
+            var seen = {}; for (var i = 0; i < cur.length; i++) seen[cur[i].of] = cur[i];
+            var added = 0, doneFromFile = {};
+            for (var j = 0; j < data.length; j++) {
+                var d = data[j];
+                if (doneFromFile[d.of]) continue;   // 1re occurrence gardée (les OF clôturés apparaissent plusieurs fois = jalons)
+                doneFromFile[d.of] = true;
+                if (!seen[d.of]) { cur.push(d); seen[d.of] = d; added++; }
+                else {
+                    // OF déjà présent : on l'ACTUALISE avec les données du nouvel extract (corrige d'anciennes colonnes décalées + rattache le MSN).
+                    var ex = seen[d.of];
+                    ex.user = d.user; ex.date = d.date; ex.heure = d.heure;
+                    if (d.msn) ex.msn = d.msn;
+                }
+            }
             if (type === 'cree') appData.ofCree = cur; else appData.ofClot = cur;
             return added;
         }
