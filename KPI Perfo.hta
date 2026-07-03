@@ -1338,12 +1338,20 @@
                 if (raw.indexOf("\t") === -1) continue;
                 var parts = raw.split("\t");
                 while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
-                if (/^\d{6,}$/.test(NettoyerChaine(parts[0]))) {          // format 7 col : Avis en 1re position
-                    if (parts.length < 6) continue;
-                    out.push({ ic: NettoyerChaine(parts[0]), msn: "", user: NettoyerChaine(parts[1]), dfa: NettoyerChaine(parts[2]), hfa: NettoyerChaine(parts[3]), dc: NettoyerChaine(parts[4]), hc: NettoyerChaine(parts[5]), statut: NettoyerChaine(parts[6] || "") });
-                } else if (parts.length > 1 && /^\d{6,}$/.test(NettoyerChaine(parts[1]))) {   // format 8 col : MSN puis Avis
+                var p0 = NettoyerChaine(parts[0]), p1 = NettoyerChaine(parts[1] || "");
+                if (/^\d{6,}$/.test(p0)) {   // colonne 1 = Avis
+                    // Format actuel (8 col) : Avis | MSN | Auteur | Date but auto | Heure fin auto | Date réf | Heure réf | Statut
+                    // (col 2 = MSN = chiffres ou vide ; sinon = ancien format 7 col avec l'Auteur en col 2)
+                    var newFmt = (parts.length >= 8) && (p1 === "" || /^\d+$/.test(p1));
+                    if (newFmt) {
+                        out.push({ ic: p0, msn: p1, user: NettoyerChaine(parts[2]), dfa: NettoyerChaine(parts[3]), hfa: NettoyerChaine(parts[4]), dc: NettoyerChaine(parts[5]), hc: NettoyerChaine(parts[6]), statut: NettoyerChaine(parts[7] || "") });
+                    } else {
+                        if (parts.length < 6) continue;   // ancien format 7 col : Avis | Auteur | dfa | hfa | dc | hc | statut
+                        out.push({ ic: p0, msn: "", user: p1, dfa: NettoyerChaine(parts[2]), hfa: NettoyerChaine(parts[3]), dc: NettoyerChaine(parts[4]), hc: NettoyerChaine(parts[5]), statut: NettoyerChaine(parts[6] || "") });
+                    }
+                } else if (parts.length > 1 && /^\d{6,}$/.test(p1)) {   // ancien format 8 col : MSN | Avis | Date | Auteur | dfa | hfa | dc | hc
                     if (parts.length < 8) continue;
-                    out.push({ ic: NettoyerChaine(parts[1]), msn: NettoyerChaine(parts[0]), user: NettoyerChaine(parts[3]), dfa: NettoyerChaine(parts[4]), hfa: NettoyerChaine(parts[5]), dc: NettoyerChaine(parts[6]), hc: NettoyerChaine(parts[7]), statut: "" });
+                    out.push({ ic: p1, msn: p0, user: NettoyerChaine(parts[3]), dfa: NettoyerChaine(parts[4]), hfa: NettoyerChaine(parts[5]), dc: NettoyerChaine(parts[6]), hc: NettoyerChaine(parts[7]), statut: "" });
                 }
             }
             return out;
