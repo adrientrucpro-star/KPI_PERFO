@@ -1052,6 +1052,15 @@
             }
             return true;
         }
+        // Contrôle de l'ordre d'une paire de dates au LANCEMENT d'une extraction (NC/OF/IC). Affiche l'alerte et renvoie false si "du" > "au".
+        function verifierOrdreDates(loVal, hiVal) {
+            var nlo = dateToNum(loVal), nhi = dateToNum(hiVal);
+            if (nlo != null && nhi != null && nlo > nhi) {
+                AfficherErreur("La date « à partir du » ne peut pas être postérieure à la date « jusqu'au ».");
+                return false;
+            }
+            return true;
+        }
         // Efface une date (bouton ×) et rafraîchit le rendu si c'est un filtre.
         function clearDate(id, event) {
             var el = document.getElementById(id); if (el) el.value = "";
@@ -1088,6 +1097,7 @@
             var dateVal = NettoyerChaine(document.getElementById('extractDate').value);
             var dateFin = NettoyerChaine(document.getElementById('extractDateFin').value);
             if (!useExportFiles && (!dateVal || !dateFin)) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
+            if (!useExportFiles && !verifierOrdreDates(dateVal, dateFin)) return;
             var dateSAP = dateVal.replace(/\//g, '.');          // JJ/MM/AAAA -> JJ.MM.AAAA
             var dateSAPFin = dateFin.replace(/\//g, '.');
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
@@ -1301,6 +1311,7 @@
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('ofDateFin').value).replace(/\//g, '.');
             if (!useExportFiles && (!d1 || !d2)) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
+            if (!useExportFiles && !verifierOrdreDates(d1, d2)) return;
             var btn = document.getElementById('btnOF');
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
             setTimeout(function () {
@@ -1506,6 +1517,7 @@
             var d1 = NettoyerChaine(document.getElementById('icDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('icDateFin').value).replace(/\//g, '.');
             if (!useExportFiles && (!d1 || !d2)) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
+            if (!useExportFiles && !verifierOrdreDates(d1, d2)) return;
             var btn = document.getElementById('btnICExtract');
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
             setTimeout(function () {
