@@ -2032,6 +2032,7 @@
             if (code === "") appData.roleDesig[idx].nom = "";
             else if (m.hasOwnProperty(code)) appData.roleDesig[idx].nom = m[code];   // sinon (valeur héritée hors Gist) : on conserve le nom
             RenderRolesTable();
+            clearFocusSelection();
         }
         function UpdateRoleDesig(idx, field, val) {
             appData.roleDesig[idx][field] = NettoyerChaine(val);
@@ -2082,6 +2083,15 @@
             html += "</tbody></table>";
             cont.innerHTML = html;
         }
+        // Efface la sélection de texte parasite laissée par IE après un re-rendu innerHTML pendant qu'un <select> est focalisé
+        // (sinon une bande bleue reste en surbrillance sur la ligne).
+        function clearFocusSelection() {
+            try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
+            try {
+                if (window.getSelection) { var s = window.getSelection(); if (s && s.removeAllRanges) s.removeAllRanges(); }
+                else if (document.selection && document.selection.empty) document.selection.empty();
+            } catch (e2) {}
+        }
         // Sélection d'une personne dans le menu déroulant : renseigne user + nom (nom auto depuis le Gist).
         function SetTeamUser(role, idx, user) {
             user = NettoyerChaine(user).toUpperCase();
@@ -2090,6 +2100,7 @@
             var a = teamArr(role); if (!a[idx]) return;
             a[idx].user = user; a[idx].nom = nom;
             RenderTeam(role);
+            clearFocusSelection();
         }
 
     // ==========================================================
