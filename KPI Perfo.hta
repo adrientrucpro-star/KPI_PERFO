@@ -3431,6 +3431,18 @@
             }
             return b('week', 'Semaine', true) + b('msn', 'MSN', false);
         }
+        // Liste des NC de la sélection courante (mêmes filtres que l'affichage : semaine ou MSN), triée par durée décroissante.
+        function currentParcoursList() {
+            var out = [];
+            for (var i = 0; i < ncList.length; i++) {
+                var nc = ncList[i];
+                if (!(nc.eligRaw && nc.end)) continue;
+                var keep = (parcoursMode === 'msn') ? (NettoyerChaine(nc.msn || "") === parcoursMsn) : (getWeekStart(nc.end).getTime() === parcoursWeek);
+                if (keep) out.push(nc);
+            }
+            out.sort(function (a, b) { return (b.durMs || 0) - (a.durMs || 0); });
+            return out;
+        }
         function RenderParcours() {
             pageValid.parcours = true;   // rendu à jour (cache)
             var cont = document.getElementById('parcoursContainer');
@@ -3475,7 +3487,6 @@
                     }
                     selMsn.innerHTML = ohm;
                 }
-                for (var i3m = 0; i3m < closed.length; i3m++) { if (NettoyerChaine(closed[i3m].msn || "") === parcoursMsn) list.push(closed[i3m]); }
             } else {
                 if (selMsn) selMsn.style.display = 'none';
                 if (selWeek) selWeek.style.display = '';
@@ -3493,10 +3504,9 @@
                     }
                     selWeek.innerHTML = oh;
                 }
-                for (var i3 = 0; i3 < closed.length; i3++) { if (getWeekStart(closed[i3].end).getTime() === parcoursWeek) list.push(closed[i3]); }
             }
 
-            list.sort(function (a, b) { return (b.durMs || 0) - (a.durMs || 0); });
+            list = currentParcoursList();
             if (wc) wc.innerText = list.length + (list.length > 1 ? " NC clôturées" : " NC clôturée");
 
             var html = "";
@@ -3558,6 +3568,70 @@
                 + "</div>"
                 + "<table class='data-table'><thead><tr><th width='5%'></th><th width='14%' style='text-align:center;'>Code</th><th width='14%' style='text-align:center;'>Responsable</th><th width='25%'>Désignation</th><th width='14%' style='text-align:center;'>Terminé par</th><th width='14%' style='text-align:center;'>Date et Heure</th><th width='14%' style='text-align:center;'>Durée</th></tr></thead><tbody>"
                 + rows + "</tbody></table></div>";
+        }
+        // ---- Export PDF du récapitulatif Analyse NC (sélection courante) via impression d'un rapport HTML ----
+        function ExportParcoursPDF() {
+            var list = currentParcoursList();
+            if (!list.length) { AfficherErreur("Aucune NC à exporter pour la sélection actuelle."); return; }
+            var filterLabel = (parcoursMode === 'msn')
+                ? ("MSN " + (parcoursMsn === "" ? "(sans MSN)" : parcoursMsn))
+                : weekLabel(new Date(parcoursWeek));
+            var sumG = 0, nG = 0, sumT = 0, nT = 0;
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].durMs != null) { sumG += list[i].durMs; nG++; }
+                if (list[i].chezMs != null) { sumT += list[i].chezMs; nT++; }
+            }
+            PrintHtmlReport(buildParcoursReportHtml(list, filterLabel, nG ? sumG / nG : null, nT ? sumT / nT : null));
+        }
+        // Une NC (en-tête + tableau des étapes) pour le rapport imprimable.
+        function parcoursReportCard(nc) {
+            var lines = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
+            var rows = "", prevEnd = nc.start;
+            for (var j = 0; j < lines.length; j++) {
+                var LL = lines[j], e = parseDT(LL.td, LL.tt);
+                var gap = (e && prevEnd && e > prevEnd) ? durBetween(prevEnd, e) : null;
+                rows += "<tr><td class='c'>" + escapeHtml(LL.c) + "</td><td class='c'>" + escapeHtml(LL.r) + "</td><td>" + escapeHtml(LL.dg) + "</td><td class='c'>" + escapeHtml(LL.tp || "") + "</td><td class='c'>" + (e ? FormatDateString(e) + " " + fmtHM(e) : "-") + "</td><td class='c b'>" + (gap == null ? "-" : fmtDHM(gap)) + "</td></tr>";
+                if (e) prevEnd = e;
+            }
+            var comment = (appData.comments && appData.comments[nc.avis]) ? appData.comments[nc.avis] : "";
+            return "<div class='nc'>"
+                + "<div class='nchead'><span class='ncttl'>NC " + escapeHtml(nc.avis) + "</span>" + (nc.msn ? " &middot; MSN " + escapeHtml(nc.msn) : "") + " &middot; " + escapeHtml(nc.desc) + "</div>"
+                + "<div class='badges'><span class='bg1'>Traitement global : " + fmtDHM(nc.durMs) + "</span> <span class='bg2'>Traitement équipe : " + fmtDHM(nc.chezMs) + "</span></div>"
+                + (comment ? "<div class='cmt'>Commentaire : " + escapeHtml(comment) + "</div>" : "")
+                + "<table class='tbl'><thead><tr><th>Code</th><th>Responsable</th><th>Désignation</th><th>Terminé par</th><th>Date et Heure</th><th>Durée</th></tr></thead><tbody>" + rows + "</tbody></table>"
+                + "</div>";
+        }
+        function buildParcoursReportHtml(list, filterLabel, avgG, avgT) {
+            var now = new Date(), body = "";
+            for (var i = 0; i < list.length; i++) body += parcoursReportCard(list[i]);
+            var css = "*{box-sizing:border-box;} body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;margin:18px;font-size:12px;}"
+                + ".rpt-head{border-bottom:2px solid #0C447C;padding-bottom:8px;margin-bottom:14px;}"
+                + ".rpt-title{font-size:18px;font-weight:700;color:#0C447C;} .rpt-sub{font-size:12px;color:#475569;margin-top:3px;} .rpt-stats{font-size:12px;margin-top:6px;}"
+                + ".nc{border:1px solid #c5d5de;border-radius:6px;padding:10px 12px;margin-bottom:12px;page-break-inside:avoid;}"
+                + ".nchead{font-weight:700;font-size:13px;margin-bottom:6px;} .ncttl{color:#0C447C;}"
+                + ".badges{margin-bottom:8px;} .badges span{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;margin-right:6px;}"
+                + ".bg1{background:#E6F1FB;color:#0C447C;} .bg2{background:#dcfce3;color:#166534;}"
+                + ".cmt{font-size:11px;font-style:italic;color:#475569;margin-bottom:8px;}"
+                + "table.tbl{width:100%;border-collapse:collapse;} table.tbl th,table.tbl td{border:1px solid #c5d5de;padding:4px 6px;font-size:11px;} table.tbl th{background:#f0f4f7;text-align:center;}"
+                + "td.c{text-align:center;} td.b{font-weight:600;} @media print{body{margin:0;}}";
+            return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Récapitulatif Analyse NC</title><style>" + css + "</style></head><body>"
+                + "<div class='rpt-head'><div class='rpt-title'>KPI PERFO &mdash; Récapitulatif Analyse NC</div>"
+                + "<div class='rpt-sub'>" + escapeHtml(filterLabel) + " &middot; " + list.length + " NC" + (list.length > 1 ? "s" : "") + " &middot; Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div>"
+                + "<div class='rpt-stats'>Traitement global moyen : <b>" + (avgG == null ? "-" : fmtDHM(avgG)) + "</b> &nbsp;|&nbsp; Traitement équipe moyen : <b>" + (avgT == null ? "-" : fmtDHM(avgT)) + "</b></div>"
+                + "</div>" + body + "</body></html>";
+        }
+        // Imprime un rapport HTML via une iframe cachée (l'utilisateur choisit "Microsoft Print to PDF").
+        function PrintHtmlReport(html) {
+            var old = document.getElementById('printFrame'); if (old && old.parentNode) old.parentNode.removeChild(old);
+            var ifr = document.createElement('iframe');
+            ifr.id = 'printFrame';
+            ifr.style.position = 'fixed'; ifr.style.right = '0'; ifr.style.bottom = '0'; ifr.style.width = '0'; ifr.style.height = '0'; ifr.style.border = '0';
+            document.body.appendChild(ifr);
+            try {
+                var doc = ifr.contentWindow.document;
+                doc.open(); doc.write(html); doc.close();
+                setTimeout(function () { try { ifr.contentWindow.focus(); ifr.contentWindow.print(); } catch (e) { AfficherErreur("Impression impossible : " + e.message); } }, 250);
+            } catch (e2) { AfficherErreur("Erreur lors de la génération du rapport : " + e2.message); }
         }
         function SetNCComment(avis, val) {
             if (!appData.comments) appData.comments = {};
@@ -4109,6 +4183,7 @@
                     <select id="weekSelect" onchange="SetParcoursWeek(this.value); this.blur();" style="vertical-align:middle; border:1px solid #c5d5de; padding:8px 12px; height:38px; border-radius:6px; font-family:inherit; font-size:14px; color:#1e293b; background:#fff; cursor:pointer; min-width:320px;"></select>
                     <select id="msnSelect" onchange="SetParcoursMsn(this.value); this.blur();" style="display:none; vertical-align:middle; border:1px solid #c5d5de; padding:8px 12px; height:38px; border-radius:6px; font-family:inherit; font-size:14px; color:#1e293b; background:#fff; cursor:pointer; min-width:200px;"></select>
                     <span id="weekCount" style="display:inline-block; vertical-align:middle; margin-left:14px; padding:8px 16px; height:38px; line-height:20px; border:1px solid #c5d5de; border-radius:6px; background:#f0f4f7; font-size:14px; font-weight:700; color:#006698; box-sizing:border-box;">-</span>
+                    <button type="button" onclick="ExportParcoursPDF()" title="Exporter un récapitulatif PDF de la sélection actuelle" style="float:right; vertical-align:middle; height:38px; padding:0 16px; border:none; border-radius:6px; background:#0C447C; color:#fff; font-size:13px; font-weight:600; cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Exporter PDF</button>
                 </div>
                 <div id="parcoursContainer"><div class="msg-box msg-info">Aucune NC analysée pour l'instant.</div></div>
             </div>
