@@ -2939,14 +2939,15 @@
                 });
             } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
-        // Agrège TOUTES les IC clôturées par semaine (ou jour) : somme et compte des écarts de clôture -> moyenne au rendu.
+        // Agrège les IC des membres d'équipe ST/TL/IQ par semaine (ou jour) : somme et compte des écarts -> moyenne au rendu.
         function icTotalBuckets() {
             if (dashFilter.gran === 'msn') return icTotalMSNBuckets();
             var byDay = dashFilter.gran === 'week';
-            var all = appData.icRows || [], bucketSet = {}, sumB = {}, cntB = {};
+            var all = appData.icRows || [], bucketSet = {}, sumB = {}, cntB = {}, team = teamUserSet();
             for (var i = 0; i < all.length; i++) {
                 var r = all[i], d = parseDT(r.dc, r.hc), ec = icEcartMs(r);
                 if (!d || ec == null || !inSelectedPeriod(d)) continue;
+                if (!team[NettoyerChaine(r.user).toUpperCase()]) continue;   // restreint aux équipes ST/TL/IQ
                 var ts = byDay ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : getWeekStart(d).getTime();
                 bucketSet[ts] = true;
                 sumB[ts] = (sumB[ts] || 0) + ec; cntB[ts] = (cntB[ts] || 0) + 1;
@@ -2957,12 +2958,13 @@
             var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(byDay ? fmtDDMM(new Date(buckets[k])) : "S" + isoWeek(new Date(buckets[k])));
             return { buckets: buckets, cats: cats, sum: sumB, cnt: cntB };
         }
-        // Mode MSN : écart de clôture moyen par MSN (période filtrée par le menu).
+        // Mode MSN : écart de clôture moyen par MSN, restreint aux membres d'équipe ST/TL/IQ (période filtrée par le menu).
         function icTotalMSNBuckets() {
-            var all = appData.icRows || [], keySet = {}, sumB = {}, cntB = {};
+            var all = appData.icRows || [], keySet = {}, sumB = {}, cntB = {}, team = teamUserSet();
             for (var i = 0; i < all.length; i++) {
                 var r = all[i], d = parseDT(r.dc, r.hc), ec = icEcartMs(r);
                 if (!d || ec == null || !inSelectedPeriod(d)) continue;
+                if (!team[NettoyerChaine(r.user).toUpperCase()]) continue;   // restreint aux équipes ST/TL/IQ
                 var key = msnBucketKey(r.msn);
                 keySet[key] = true;
                 sumB[key] = (sumB[key] || 0) + ec; cntB[key] = (cntB[key] || 0) + 1;
