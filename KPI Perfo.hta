@@ -3173,6 +3173,8 @@
     // PAGE : PARCOURS / GOULOTS
     // ==========================================================
         var parcoursWeek = null;   // timestamp (ms) du lundi de la semaine sélectionnée
+        var parcoursMode = 'week'; // 'week' = filtrer par semaine, 'msn' = filtrer par MSN
+        var parcoursMsn = null;    // MSN sélectionné (chaîne ; "" = NC sans MSN)
         function getWeekStart(d) { var x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); var dy = x.getDay(); var diff = (dy === 0 ? -6 : 1 - dy); x.setDate(x.getDate() + diff); x.setHours(0, 0, 0, 0); return x; }
         function isoWeek(d) {
             var date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -3185,11 +3187,22 @@
         }
         function weekLabel(mon) { var sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6); return "Semaine " + isoWeek(mon) + " - " + FormatDateString(mon) + " au " + FormatDateString(sun); }
         function SetParcoursWeek(v) { parcoursWeek = v ? parseInt(v, 10) : null; RenderParcours(); }
+        function SetParcoursMsn(v) { parcoursMsn = (v == null) ? "" : ("" + v); RenderParcours(); }
+        function SetParcoursMode(m) { if (m !== parcoursMode) { parcoursMode = m; RenderParcours(); } }
+        // Bascule Semaine / MSN (deux boutons collés).
+        function parcoursToggleHtml() {
+            function b(val, txt, first) {
+                var on = (parcoursMode === val);
+                return "<button type='button' onclick=\"SetParcoursMode('" + val + "')\" style='vertical-align:middle; border:1px solid #c5d5de; background:" + (on ? "#006698" : "#fff") + "; color:" + (on ? "#fff" : "#475569") + "; padding:0 16px; height:38px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; " + (first ? "border-radius:6px 0 0 6px;" : "border-radius:0 6px 6px 0; border-left:none;") + "'>" + txt + "</button>";
+            }
+            return b('week', 'Semaine', true) + b('msn', 'MSN', false);
+        }
         function RenderParcours() {
             pageValid.parcours = true;   // rendu à jour (cache)
             var cont = document.getElementById('parcoursContainer');
             if (!cont) return;
-            var sel = document.getElementById('weekSelect');
+            var selWeek = document.getElementById('weekSelect');
+            var selMsn = document.getElementById('msnSelect');
 
             // NC analysées (ST + IQ) ET clôturées par la qualité (APQ0 + Responsable du tableau 1).
             var closed = [];
@@ -3203,25 +3216,52 @@
                 return;
             }
             if (card) card.style.display = "block";
-
-            // Regroupe par semaine de clôture (lundi).
-            var weeksMap = {};
-            for (var i2 = 0; i2 < closed.length; i2++) { var ws = getWeekStart(closed[i2].end).getTime(); weeksMap[ws] = (weeksMap[ws] || 0) + 1; }
-            var weeks = []; for (var w in weeksMap) { if (weeksMap.hasOwnProperty(w)) weeks.push(parseInt(w, 10)); }
-            weeks.sort(function (a, b) { return b - a; });   // semaine la plus récente en premier
-            if (parcoursWeek === null || weeksMap[parcoursWeek] === undefined) parcoursWeek = weeks[0];
-
-            if (sel) {
-                var oh = "";
-                for (var z = 0; z < weeks.length; z++) {
-                    var mon = new Date(weeks[z]);
-                    oh += "<option value='" + weeks[z] + "'" + (weeks[z] === parcoursWeek ? " selected" : "") + ">" + weekLabel(mon) + "</option>";
-                }
-                sel.innerHTML = oh;
-            }
+            var tog = document.getElementById('parcoursModeToggle'); if (tog) tog.innerHTML = parcoursToggleHtml();
 
             var list = [];
-            for (var i3 = 0; i3 < closed.length; i3++) { if (getWeekStart(closed[i3].end).getTime() === parcoursWeek) list.push(closed[i3]); }
+            if (parcoursMode === 'msn') {
+                if (selWeek) selWeek.style.display = 'none';
+                if (selMsn) selMsn.style.display = '';
+                // Regroupe par MSN (les NC sans MSN sont regroupées sous "").
+                var msnMap = {};
+                for (var im = 0; im < closed.length; im++) { var mk = NettoyerChaine(closed[im].msn || ""); msnMap[mk] = (msnMap[mk] || 0) + 1; }
+                var msnKeys = []; for (var mkk in msnMap) { if (msnMap.hasOwnProperty(mkk)) msnKeys.push(mkk); }
+                msnKeys.sort(function (a, b) {
+                    if (a === "") return 1; if (b === "") return -1;   // "(Sans MSN)" en dernier
+                    var na = parseInt(a, 10), nb = parseInt(b, 10);
+                    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+                    return a < b ? -1 : (a > b ? 1 : 0);
+                });
+                if (parcoursMsn === null || msnMap[parcoursMsn] === undefined) parcoursMsn = msnKeys[0];
+                if (selMsn) {
+                    var ohm = "";
+                    for (var zm = 0; zm < msnKeys.length; zm++) {
+                        var mkey = msnKeys[zm], mlabel = (mkey === "") ? "(Sans MSN)" : ("MSN " + mkey);
+                        ohm += "<option value='" + escapeHtml(mkey) + "'" + (mkey === parcoursMsn ? " selected" : "") + ">" + escapeHtml(mlabel) + " (" + msnMap[mkey] + ")</option>";
+                    }
+                    selMsn.innerHTML = ohm;
+                }
+                for (var i3m = 0; i3m < closed.length; i3m++) { if (NettoyerChaine(closed[i3m].msn || "") === parcoursMsn) list.push(closed[i3m]); }
+            } else {
+                if (selMsn) selMsn.style.display = 'none';
+                if (selWeek) selWeek.style.display = '';
+                // Regroupe par semaine de clôture (lundi).
+                var weeksMap = {};
+                for (var i2 = 0; i2 < closed.length; i2++) { var ws = getWeekStart(closed[i2].end).getTime(); weeksMap[ws] = (weeksMap[ws] || 0) + 1; }
+                var weeks = []; for (var w in weeksMap) { if (weeksMap.hasOwnProperty(w)) weeks.push(parseInt(w, 10)); }
+                weeks.sort(function (a, b) { return b - a; });   // semaine la plus récente en premier
+                if (parcoursWeek === null || weeksMap[parcoursWeek] === undefined) parcoursWeek = weeks[0];
+                if (selWeek) {
+                    var oh = "";
+                    for (var z = 0; z < weeks.length; z++) {
+                        var mon = new Date(weeks[z]);
+                        oh += "<option value='" + weeks[z] + "'" + (weeks[z] === parcoursWeek ? " selected" : "") + ">" + weekLabel(mon) + "</option>";
+                    }
+                    selWeek.innerHTML = oh;
+                }
+                for (var i3 = 0; i3 < closed.length; i3++) { if (getWeekStart(closed[i3].end).getTime() === parcoursWeek) list.push(closed[i3]); }
+            }
+
             list.sort(function (a, b) { return (b.durMs || 0) - (a.durMs || 0); });
             if (wc) wc.innerText = list.length + (list.length > 1 ? " NC clôturées" : " NC clôturée");
 
@@ -3823,9 +3863,11 @@
             <!-- PAGE PARCOURS / GOULOTS -->
             <div id="pageParcours" class="page">
                 <div id="weekSelectCard" class="card" style="padding:14px 25px;">
-                    <span style="font-size:13px; font-weight:600; color:#475569; margin-right:12px;">Sélection semaine</span>
-                    <select id="weekSelect" onchange="SetParcoursWeek(this.value); this.blur();" style="border:1px solid #c5d5de; padding:8px 12px; height:38px; border-radius:6px; font-family:inherit; font-size:14px; color:#1e293b; background:#fff; cursor:pointer; min-width:320px;"></select>
-                    <span id="weekCount" style="display:inline-block; margin-left:14px; padding:8px 16px; height:38px; line-height:20px; border:1px solid #c5d5de; border-radius:6px; background:#f0f4f7; font-size:14px; font-weight:700; color:#006698; box-sizing:border-box;">-</span>
+                    <span style="font-size:13px; font-weight:600; color:#475569; margin-right:12px; vertical-align:middle;">Filtrer par</span>
+                    <span id="parcoursModeToggle" style="display:inline-block; vertical-align:middle; margin-right:16px;"></span>
+                    <select id="weekSelect" onchange="SetParcoursWeek(this.value); this.blur();" style="vertical-align:middle; border:1px solid #c5d5de; padding:8px 12px; height:38px; border-radius:6px; font-family:inherit; font-size:14px; color:#1e293b; background:#fff; cursor:pointer; min-width:320px;"></select>
+                    <select id="msnSelect" onchange="SetParcoursMsn(this.value); this.blur();" style="display:none; vertical-align:middle; border:1px solid #c5d5de; padding:8px 12px; height:38px; border-radius:6px; font-family:inherit; font-size:14px; color:#1e293b; background:#fff; cursor:pointer; min-width:200px;"></select>
+                    <span id="weekCount" style="display:inline-block; vertical-align:middle; margin-left:14px; padding:8px 16px; height:38px; line-height:20px; border:1px solid #c5d5de; border-radius:6px; background:#f0f4f7; font-size:14px; font-weight:700; color:#006698; box-sizing:border-box;">-</span>
                 </div>
                 <div id="parcoursContainer"><div class="msg-box msg-info">Aucune NC analysée pour l'instant.</div></div>
             </div>
