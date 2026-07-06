@@ -127,6 +127,8 @@
         .cell-wrap { position: relative; width: 100%; height: 36px; }   /* conteneur relatif (IE ne gère pas position:relative sur td) */
         .excel-input { width: 100%; height: 36px; padding: 0 10px; line-height: 36px; border: none; background: transparent; font-family: inherit; font-size: 13px; color: #1e293b; box-sizing: border-box; }
         .excel-input:focus { outline: none; }   /* pas de surbrillance de focus sur les cases (selects) des Paramètres */
+        /* IE affiche la valeur d'un <select> focalisé avec la surbrillance système (bande bleue, surtout si vide) : on la neutralise */
+        select.excel-input::-ms-value { background: transparent; color: #1e293b; }
         /* Masque le bouton "effacer" (X) natif d'IE qui apparaît quand le champ a du texte */
         input::-ms-clear { display: none; width: 0; height: 0; }
         select.excel-input::-ms-expand { display: none; }   /* masque la flèche : clic dans la case ouvre la liste */
