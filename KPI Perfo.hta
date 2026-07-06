@@ -1382,6 +1382,11 @@
             var fin = parseDT(r.dfa, r.hfa), clo = parseDT(r.dc, r.hc);
             return (fin && clo) ? (clo > fin) : false;
         }
+        // Écart de clôture d'une IC (ms) : clôture réelle − fin autorisée. Positif = en retard, négatif = en avance ; null si dates invalides.
+        function icEcartMs(r) {
+            var fin = parseDT(r.dfa, r.hfa), clo = parseDT(r.dc, r.hc);
+            return (fin && clo) ? (clo.getTime() - fin.getTime()) : null;
+        }
         // Parse EXPORT_IC (QM11, tabulé ANSI). Deux formats gérés selon la variante :
         //  - 7 colonnes : Avis(=IC), Auteur(=user), Date début(=dfa), H fin au(=hfa), Date réf(=dc), HRéf(=hc), Statut de l'avis
         //  - 8 colonnes : MSN, Avis, Date, Auteur, Da.deb au, Hr fin au, DateRéfér., HRéf
@@ -1766,6 +1771,12 @@
             if (h > 0) parts.push(h + " h");
             if (m > 0 || parts.length === 0) parts.push(m + " min");
             return parts.join(" ");
+        }
+        // Formate un écart de clôture SIGNÉ (ms) : "+ 2 j 3 h" (retard) / "− 1 j" (avance) / "à l'heure".
+        function fmtEcartSigned(ms) {
+            if (ms == null || isNaN(ms)) return "-";
+            if (Math.round(Math.abs(ms) / 60000) === 0) return "à l'heure";
+            return (ms < 0 ? "− " : "+ ") + fmtDHM(Math.abs(ms));
         }
 
     // ==========================================================
@@ -2774,9 +2785,9 @@
             var ids = ['hcICTotal', 'hcICST', 'hcICTL', 'hcICIQ'];
             for (var z = 0; z < ids.length; z++) { var e = document.getElementById(ids[z]); if (e) e.style.height = rowH + "px"; }
             hcICTotalChart('hcICTotal');
-            hcICUserChart('hcICST', getICLateTeamRows('ST'), teamNomMap('ST'));
-            hcICUserChart('hcICTL', getICLateTeamRows('TL'), teamNomMap('TL'));
-            hcICUserChart('hcICIQ', getICLateTeamRows('IQ'), teamNomMap('IQ'));
+            hcICUserChart('hcICST', getICTeamRows('ST'), teamNomMap('ST'));
+            hcICUserChart('hcICTL', getICTeamRows('TL'), teamNomMap('TL'));
+            hcICUserChart('hcICIQ', getICTeamRows('IQ'), teamNomMap('IQ'));
             EgaliserCards(document.querySelectorAll('.dashEqualIC'));
             EgaliserCards(document.querySelectorAll('.dashEqualIC2'));
             var contentEl = document.getElementById('content');
@@ -2801,60 +2812,65 @@
             for (var t = 0; t < arr.length; t++) { var tu = NettoyerChaine(arr[t].user).toUpperCase(); if (tu) m[tu] = nomSeul(arr[t].nom || arr[t].user); }
             return m;
         }
-        function getICLateTeamRows(team) {
+        // Toutes les IC d'une équipe (users du tableau d'équipe), quel que soit leur statut retard/à l'heure.
+        function getICTeamRows(team) {
             var m = teamNomMap(team), out = [], all = appData.icRows || [];
-            for (var i = 0; i < all.length; i++) { if (isICLate(all[i]) && m[NettoyerChaine(all[i].user).toUpperCase()]) out.push(all[i]); }
+            for (var i = 0; i < all.length; i++) { if (m[NettoyerChaine(all[i].user).toUpperCase()]) out.push(all[i]); }
             return out;
         }
-        // Nb d'IC en retard par semaine (ou jour si filtre semaine) de CLÔTURE, par user + total, sur la période choisie.
-        function icLateBuckets(rows) {
-            if (dashFilter.gran === 'msn') return icLateMSNBuckets(rows);
+        // Écart de clôture MOYEN par semaine (ou jour) de CLÔTURE, par user, sur la période choisie. Somme + compte -> moyenne au rendu.
+        function icEcartBuckets(rows) {
+            if (dashFilter.gran === 'msn') return icEcartMSNBuckets(rows);
             var byDay = dashFilter.gran === 'week';
-            var bucketSet = {}, perUser = {}, total = {};
+            var bucketSet = {}, perUserSum = {}, perUserCnt = {};
             for (var i = 0; i < rows.length; i++) {
-                var d = parseDT(rows[i].dc, rows[i].hc);
-                if (!d || !inSelectedPeriod(d)) continue;
+                var d = parseDT(rows[i].dc, rows[i].hc), ec = icEcartMs(rows[i]);
+                if (!d || ec == null || !inSelectedPeriod(d)) continue;
                 var ts = byDay ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : getWeekStart(d).getTime();
                 bucketSet[ts] = true;
                 var u = NettoyerChaine(rows[i].user).toUpperCase();
-                if (!perUser[u]) perUser[u] = {};
-                perUser[u][ts] = (perUser[u][ts] || 0) + 1;
-                total[ts] = (total[ts] || 0) + 1;
+                if (!perUserSum[u]) { perUserSum[u] = {}; perUserCnt[u] = {}; }
+                perUserSum[u][ts] = (perUserSum[u][ts] || 0) + ec;
+                perUserCnt[u][ts] = (perUserCnt[u][ts] || 0) + 1;
             }
             var buckets;
             if (byDay) { buckets = selectedWeekDays(); }
             else { buckets = []; for (var w in bucketSet) { if (bucketSet.hasOwnProperty(w)) buckets.push(parseInt(w, 10)); } buckets.sort(function (a, b) { return a - b; }); }
             var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(byDay ? fmtDDMM(new Date(buckets[k])) : "S" + isoWeek(new Date(buckets[k])));
-            return { buckets: buckets, cats: cats, perUser: perUser, total: total };
+            return { buckets: buckets, cats: cats, perUserSum: perUserSum, perUserCnt: perUserCnt };
         }
-        // Mode MSN : nb d'IC en retard par MSN, par user + total (période filtrée par le menu).
-        function icLateMSNBuckets(rows) {
-            var keySet = {}, perUser = {}, total = {};
+        // Mode MSN : écart de clôture moyen par MSN, par user (période filtrée par le menu).
+        function icEcartMSNBuckets(rows) {
+            var keySet = {}, perUserSum = {}, perUserCnt = {};
             for (var i = 0; i < rows.length; i++) {
-                var d = parseDT(rows[i].dc, rows[i].hc);
-                if (!d || !inSelectedPeriod(d)) continue;
+                var d = parseDT(rows[i].dc, rows[i].hc), ec = icEcartMs(rows[i]);
+                if (!d || ec == null || !inSelectedPeriod(d)) continue;
                 var key = msnBucketKey(rows[i].msn);
                 keySet[key] = true;
                 var u = NettoyerChaine(rows[i].user).toUpperCase();
-                if (!perUser[u]) perUser[u] = {};
-                perUser[u][key] = (perUser[u][key] || 0) + 1;
-                total[key] = (total[key] || 0) + 1;
+                if (!perUserSum[u]) { perUserSum[u] = {}; perUserCnt[u] = {}; }
+                perUserSum[u][key] = (perUserSum[u][key] || 0) + ec;
+                perUserCnt[u][key] = (perUserCnt[u][key] || 0) + 1;
             }
             var buckets = []; for (var w in keySet) { if (keySet.hasOwnProperty(w)) buckets.push(w); }
             msnSortKeys(buckets);
-            return { buckets: buckets, cats: buckets.slice(0), perUser: perUser, total: total };
+            return { buckets: buckets, cats: buckets.slice(0), perUserSum: perUserSum, perUserCnt: perUserCnt };
         }
-        function hcICUserChart(id, lateRows, nomMap) {
+        function hcICUserChart(id, teamRows, nomMap) {
             var cont = document.getElementById(id); if (!cont) return;
             if (!Object.keys(nomMap).length) { hcDestroy(id); cont.innerHTML = "<div style='height:100%; min-height:120px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
             if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
-            var b = icLateBuckets(lateRows), series = [], icHasData = false;
-            for (var kt in b.total) { if (b.total.hasOwnProperty(kt)) { icHasData = true; break; } }
+            var b = icEcartBuckets(teamRows), series = [], dMs = dayMs(), icHasData = false;
+            for (var kt in b.perUserCnt) { if (b.perUserCnt.hasOwnProperty(kt)) { icHasData = true; break; } }
             if (!icHasData) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
             for (var u in nomMap) {
                 if (!nomMap.hasOwnProperty(u)) continue;
                 var data = [];
-                for (var k = 0; k < b.buckets.length; k++) { var c = b.perUser[u] && b.perUser[u][b.buckets[k]]; data.push(c || null); }
+                for (var k = 0; k < b.buckets.length; k++) {
+                    var bk = b.buckets[k], c = b.perUserCnt[u] && b.perUserCnt[u][bk];
+                    if (c) { var avg = b.perUserSum[u][bk] / c; data.push({ y: Math.round(avg / dMs * 100) / 100, ms: avg, n: c }); }
+                    else data.push(null);
+                }
                 series.push({ name: nomMap[u], data: data });
             }
             try {
@@ -2862,66 +2878,65 @@
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: null }, min: 0, allowDecimals: false },
-                    tooltip: { formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.x + ' : ' + this.y + ' IC en retard'; } },
+                    yAxis: { title: { text: null }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    tooltip: { useHTML: true, formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.x + ' : ' + fmtEcartSigned(this.point.ms) + ' &middot; ' + this.point.n + ' IC'; } },
                     plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
                     series: series
                 });
             } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
-        // Agrège TOUTES les IC clôturées par semaine (ou jour) : nb en retard ET nb dans les temps, axe commun.
+        // Agrège TOUTES les IC clôturées par semaine (ou jour) : somme et compte des écarts de clôture -> moyenne au rendu.
         function icTotalBuckets() {
             if (dashFilter.gran === 'msn') return icTotalMSNBuckets();
             var byDay = dashFilter.gran === 'week';
-            var all = appData.icRows || [], bucketSet = {}, lateB = {}, onTimeB = {};
+            var all = appData.icRows || [], bucketSet = {}, sumB = {}, cntB = {};
             for (var i = 0; i < all.length; i++) {
-                var r = all[i], d = parseDT(r.dc, r.hc);
-                if (!d || !inSelectedPeriod(d)) continue;
+                var r = all[i], d = parseDT(r.dc, r.hc), ec = icEcartMs(r);
+                if (!d || ec == null || !inSelectedPeriod(d)) continue;
                 var ts = byDay ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : getWeekStart(d).getTime();
                 bucketSet[ts] = true;
-                if (isICLate(r)) lateB[ts] = (lateB[ts] || 0) + 1; else onTimeB[ts] = (onTimeB[ts] || 0) + 1;
+                sumB[ts] = (sumB[ts] || 0) + ec; cntB[ts] = (cntB[ts] || 0) + 1;
             }
             var buckets;
             if (byDay) { buckets = selectedWeekDays(); }
             else { buckets = []; for (var w in bucketSet) { if (bucketSet.hasOwnProperty(w)) buckets.push(parseInt(w, 10)); } buckets.sort(function (a, b) { return a - b; }); }
             var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(byDay ? fmtDDMM(new Date(buckets[k])) : "S" + isoWeek(new Date(buckets[k])));
-            return { buckets: buckets, cats: cats, late: lateB, onTime: onTimeB };
+            return { buckets: buckets, cats: cats, sum: sumB, cnt: cntB };
         }
-        // Mode MSN : nb d'IC en retard / dans les temps par MSN (période filtrée par le menu).
+        // Mode MSN : écart de clôture moyen par MSN (période filtrée par le menu).
         function icTotalMSNBuckets() {
-            var all = appData.icRows || [], keySet = {}, lateB = {}, onTimeB = {};
+            var all = appData.icRows || [], keySet = {}, sumB = {}, cntB = {};
             for (var i = 0; i < all.length; i++) {
-                var r = all[i], d = parseDT(r.dc, r.hc);
-                if (!d || !inSelectedPeriod(d)) continue;
+                var r = all[i], d = parseDT(r.dc, r.hc), ec = icEcartMs(r);
+                if (!d || ec == null || !inSelectedPeriod(d)) continue;
                 var key = msnBucketKey(r.msn);
                 keySet[key] = true;
-                if (isICLate(r)) lateB[key] = (lateB[key] || 0) + 1; else onTimeB[key] = (onTimeB[key] || 0) + 1;
+                sumB[key] = (sumB[key] || 0) + ec; cntB[key] = (cntB[key] || 0) + 1;
             }
             var buckets = []; for (var w in keySet) { if (keySet.hasOwnProperty(w)) buckets.push(w); }
             msnSortKeys(buckets);
-            return { buckets: buckets, cats: buckets.slice(0), late: lateB, onTime: onTimeB };
+            return { buckets: buckets, cats: buckets.slice(0), sum: sumB, cnt: cntB };
         }
         function hcICTotalChart(id) {
             var cont = document.getElementById(id); if (!cont) return;
             if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
-            var b = icTotalBuckets(), dataLate = [], dataOnTime = [], icTotHasData = false;
-            for (var kt in b.late) { if (b.late.hasOwnProperty(kt)) { icTotHasData = true; break; } }
-            if (!icTotHasData) { for (var ko in b.onTime) { if (b.onTime.hasOwnProperty(ko)) { icTotHasData = true; break; } } }
+            var b = icTotalBuckets(), data = [], dMs = dayMs(), icTotHasData = false;
+            for (var k = 0; k < b.buckets.length; k++) {
+                var bk = b.buckets[k], c = b.cnt[bk];
+                if (c) { icTotHasData = true; var avg = b.sum[bk] / c; data.push({ y: Math.round(avg / dMs * 100) / 100, ms: avg, n: c }); }
+                else data.push(null);
+            }
             if (!icTotHasData) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
-            for (var k = 0; k < b.buckets.length; k++) { dataLate.push(b.late[b.buckets[k]] || 0); dataOnTime.push(b.onTime[b.buckets[k]] || 0); }
             try {
                 hcDraw(id, {
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false },
-                    legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemStyle: { fontSize: '12px' }, margin: 4, padding: 4, itemMarginTop: 0, itemMarginBottom: 0 },
+                    legend: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: null }, min: 0, allowDecimals: false },
-                    tooltip: { formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.x + ' : ' + this.y + ' IC'; } },
-                    plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 } } },
-                    series: [
-                        { name: 'En retard', data: dataLate, color: '#dc2626' },
-                        { name: 'Dans les temps', data: dataOnTime, color: '#16a34a' }
-                    ]
+                    yAxis: { title: { text: null }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    tooltip: { useHTML: true, formatter: function () { return '<b>' + this.x + '</b><br/>Temps de clôture moyen : ' + fmtEcartSigned(this.point.ms) + '<br/>' + this.point.n + ' IC'; } },
+                    plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 }, color: '#dc2626', negativeColor: '#16a34a' }, series: { connectNulls: true } },
+                    series: [ { name: 'Temps de clôture moyen', data: data, color: '#dc2626', negativeColor: '#16a34a' } ]
                 });
             } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
@@ -3671,7 +3686,7 @@
                                     </span>
                                 </div>
                                 <div style="font-size:17px; font-weight:700; color:#334155; margin-bottom:8px;">Aucune Intervention Card à analyser</div>
-                                <div style="font-size:14px; color:#64748b; margin-bottom:22px;">Lance une extraction des Interventions Cards pour afficher le nombre d'IC clôturées en retard.</div>
+                                <div style="font-size:14px; color:#64748b; margin-bottom:22px;">Lance une extraction des Interventions Cards pour afficher les temps de clôture moyens.</div>
                                 <button class="btn-toolbar" onclick="ShowPage('pageAnalyse'); ShowExtractSub('IC');">Aller à l'extraction</button>
                             </div>
                         </div>
@@ -3680,13 +3695,13 @@
                         <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
                             <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                                 <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                    <h3 style="margin:0 0 12px 0;">Total IC clôturées</h3>
+                                    <h3 style="margin:0 0 12px 0;">Temps de clôture moyen - Total</h3>
                                     <div id="hcICTotal" style="width:100%; height:280px;"></div>
                                 </div>
                             </div>
                             <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
                                 <div class="card dashEqualIC" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                    <h3 style="margin:0 0 12px 0;">IC en retard - Équipe ST</h3>
+                                    <h3 style="margin:0 0 12px 0;">Temps de clôture moyen - Équipe ST</h3>
                                     <div id="hcICST" style="width:100%; height:280px;"></div>
                                 </div>
                             </div>
@@ -3694,13 +3709,13 @@
                         <div style="display:table; width:100%; table-layout:fixed;">
                             <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                                 <div class="card dashEqualIC2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                    <h3 style="margin:0 0 12px 0;">IC en retard - Équipe TL</h3>
+                                    <h3 style="margin:0 0 12px 0;">Temps de clôture moyen - Équipe TL</h3>
                                     <div id="hcICTL" style="width:100%; height:280px;"></div>
                                 </div>
                             </div>
                             <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
                                 <div class="card dashEqualIC2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                    <h3 style="margin:0 0 12px 0;">IC en retard - Équipe IQ</h3>
+                                    <h3 style="margin:0 0 12px 0;">Temps de clôture moyen - Équipe IQ</h3>
                                     <div id="hcICIQ" style="width:100%; height:280px;"></div>
                                 </div>
                             </div>
