@@ -761,6 +761,60 @@
             }
             return cfg;
         }
+        // Cache local de la dernière config Gist VALIDE (fichier séparé d'APP_DATA -> aucun risque d'écraser les NC).
+        function getGistCachePath() {
+            try { var sh = new ActiveXObject("WScript.Shell"); return sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\GIST_CACHE.txt"; } catch (e) { return ""; }
+        }
+        function SaveGistCache(text) {
+            try {
+                var path = getGistCachePath(); if (!path) return;
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                var dir = fso.GetParentFolderName(path);
+                if (dir && !fso.FolderExists(dir)) fso.CreateFolder(dir);
+                var f = fso.CreateTextFile(path, true, true); f.Write(text); f.Close();
+            } catch (e) {}
+        }
+        function LoadGistCache() {
+            try {
+                var path = getGistCachePath(); if (!path) return "";
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) return "";
+                var f = fso.OpenTextFile(path, 1, false, -1); var c = f.ReadAll(); f.Close();
+                return c;
+            } catch (e) { return ""; }
+        }
+        // Applique une config Gist (texte brut) : parse + whitelist + contrôle de version. Retourne true si accès accordé.
+        function AppliquerConfigGist(text, idWindows) {
+            var cfg = ParseGistConfig(text);
+            if (cfg.version === "" && cfg.users.length === 0) { AfficherErreurLogin("Erreur de configuration", "Le fichier de configuration est vide ou mal format&eacute;."); return false; }
+            window.gistCfg = cfg;   // pool équipes/responsables pour les menus déroulants des Paramètres
+            var accesAutorise = false; window.userLogin = "";
+            for (var i = 0; i < cfg.users.length; i++) {
+                if (NettoyerChaine(cfg.users[i]).toLowerCase() === idWindows) { accesAutorise = true; window.userLogin = idWindows; break; }
+            }
+            if (!accesAutorise) { AfficherErreurLogin("Acc&egrave;s refus&eacute;", "Votre identifiant Windows (" + idWindows.toUpperCase() + ") n'est pas autoris&eacute;."); return false; }
+            document.getElementById("loginCheckView").style.display = "none";
+            document.getElementById("loginErrorView").style.display = "none";
+            document.getElementById("loginSuccess").style.display = "block";
+            if (cfg.version !== "" && compareVersions(cfg.version, VERSION_ACTUELLE) > 0) {
+                document.getElementById("nvVersionNum").innerText = cfg.version;
+                document.getElementById("nvUrlInput").value = URL_TELECHARGEMENT_APP;
+                document.getElementById("newVersionAlert").style.display = "block";
+                document.getElementById("btnEntrer").style.display = "none";
+                document.getElementById("loginTitleOk").innerText = "Mise à jour requise";
+            }
+            return true;
+        }
+        // Repli quand GitHub est injoignable / limite le débit (429) : dernière config valide mise en cache localement.
+        // Retourne true si un cache exploitable a été appliqué (accès accordé OU refusé, affichage géré).
+        function UtiliserConfigCache(idWindows) {
+            var text = LoadGistCache();
+            if (NettoyerChaine(text) === "") return false;
+            var cfg = ParseGistConfig(text);
+            if (cfg.version === "" && cfg.users.length === 0) return false;
+            AppliquerConfigGist(text, idWindows);
+            return true;
+        }
         function DemarrerVerificationSysteme() {
             var statusMsg = document.getElementById("loginStatus");
             try {
@@ -769,50 +823,22 @@
                 statusMsg.innerText = "Vérification des droits pour : " + idWindows.toUpperCase();
 
                 var xhr = new ActiveXObject("MSXML2.XMLHTTP.6.0");
-                var url = LIEN_CONFIG_APP + "?t=" + new Date().getTime();
+                // Cache-buster par TRANCHE DE 5 MIN (et non à la milliseconde) : les lancements rapprochés réutilisent
+                // la même URL -> servie par le cache local IE / le CDN GitHub, sans retaper l'origine (limite le rate limit).
+                var url = LIEN_CONFIG_APP + "?t=" + Math.floor(new Date().getTime() / 300000);
                 var timedOut = false;
                 var to = setTimeout(function () { timedOut = true; try { xhr.abort(); } catch (e) {}
-                    AfficherErreurLogin("D&eacute;lai d&eacute;pass&eacute;", "Impossible de joindre le serveur de configuration."); }, 8000);
+                    if (!UtiliserConfigCache(idWindows)) AfficherErreurLogin("D&eacute;lai d&eacute;pass&eacute;", "Impossible de joindre le serveur de configuration."); }, 8000);
                 xhr.open("GET", url, true);
                 xhr.onreadystatechange = function () {
                     if (xhr.readyState !== 4) return;
                     clearTimeout(to);
                     if (timedOut) return;
-                    if (xhr.status !== 200) { AfficherErreurLogin("Erreur r&eacute;seau", "Impossible de joindre le serveur de configuration."); return; }
-
-                    var cfg = ParseGistConfig(xhr.responseText);
-                    window.gistCfg = cfg;   // pool équipes/responsables pour les menus déroulants des Paramètres
-                    if (cfg.version === "" && cfg.users.length === 0) { AfficherErreurLogin("Erreur de configuration", "Le fichier de configuration est vide ou mal format&eacute;."); return; }
-
-                    var versionEnLigne = cfg.version;
-                    var accesAutorise = false;
-                    window.userLogin = "";
-
-                    // Section USER = un login Windows autorisé par ligne.
-                    for (var i = 0; i < cfg.users.length; i++) {
-                        if (NettoyerChaine(cfg.users[i]).toLowerCase() === idWindows) {
-                            accesAutorise = true;
-                            window.userLogin = idWindows;
-                            break;
-                        }
-                    }
-
-                    if (!accesAutorise) {
-                        AfficherErreurLogin("Acc&egrave;s refus&eacute;", "Votre identifiant Windows (" + idWindows.toUpperCase() + ") n'est pas autoris&eacute;.");
+                    if (xhr.status !== 200) {   // 429 (rate limit) / erreur réseau -> repli sur la dernière config connue
+                        if (!UtiliserConfigCache(idWindows)) AfficherErreurLogin("Erreur r&eacute;seau", "Impossible de joindre le serveur de configuration.");
                         return;
                     }
-
-                    document.getElementById("loginCheckView").style.display = "none";
-                    document.getElementById("loginErrorView").style.display = "none";
-                    document.getElementById("loginSuccess").style.display = "block";
-
-                    if (versionEnLigne !== "" && compareVersions(versionEnLigne, VERSION_ACTUELLE) > 0) {
-                        document.getElementById("nvVersionNum").innerText = versionEnLigne;
-                        document.getElementById("nvUrlInput").value = URL_TELECHARGEMENT_APP;
-                        document.getElementById("newVersionAlert").style.display = "block";
-                        document.getElementById("btnEntrer").style.display = "none";
-                        document.getElementById("loginTitleOk").innerText = "Mise à jour requise";
-                    }
+                    if (AppliquerConfigGist(xhr.responseText, idWindows)) SaveGistCache(xhr.responseText);   // config valide -> cache local (repli futur)
                 };
                 xhr.send();
             } catch (e) { AfficherErreurLogin("Erreur locale", e.message); }
@@ -1938,14 +1964,14 @@
             for (i = 0; i < rows.length; i++) { var r = NettoyerChaine(rows[i].r); if (r && !m[r]) m[r] = rows[i].dg || ""; }
             return m;
         }
-        // Menu déroulant des responsables : uniquement le code (la désignation reste visible en mode lecture).
+        // Menu déroulant des responsables : code + désignation.
         function respOptionsHtml(selected) {
             var m = extractRespMap(), codes = [];
             for (var c in m) { if (m.hasOwnProperty(c)) codes.push(c); }
             codes.sort();
             var h = "<option value=''></option>";
             for (var i = 0; i < codes.length; i++) {
-                h += "<option value='" + escapeHtml(codes[i]) + "'" + (codes[i] === selected ? " selected" : "") + ">" + escapeHtml(codes[i]) + "</option>";
+                h += "<option value='" + escapeHtml(codes[i]) + "'" + (codes[i] === selected ? " selected" : "") + ">" + escapeHtml(codes[i]) + " - " + escapeHtml(m[codes[i]]) + "</option>";
             }
             return h;
         }
