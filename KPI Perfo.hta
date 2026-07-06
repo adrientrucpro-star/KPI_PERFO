@@ -2672,13 +2672,13 @@
             var all = dashAllMSN();
             var selCount = 0, tous = !dashFilter.msnSel;
             if (!tous) { for (var kk in dashFilter.msnSel) { if (dashFilter.msnSel.hasOwnProperty(kk) && dashFilter.msnSel[kk]) selCount++; } }
-            var lbl = tous ? "Tous les MSN" : (selCount + " MSN sél.");
-            var btn = "<button type='button' id='msnBtn' onclick=\"ToggleMsnPanel(event)\" style='font-size:13px; font-weight:700; padding:7px 14px; border:1px solid #c5d5de; border-radius:6px; background:#fff; color:#0C447C; cursor:pointer; vertical-align:middle; height:34px; box-sizing:border-box; width:232px; text-align:left;'>" + escapeHtml(lbl) + " &#9662;</button>";
-            var rows = "<label style='display:block; padding:6px 12px; font-weight:700; border-bottom:1px solid #e2e8f0; cursor:pointer;'><input type='checkbox'" + (tous ? " checked" : "") + " onclick=\"SetAllMsn(this.checked)\" style='margin-right:8px; vertical-align:middle;'>Tout sélectionner</label>";
+            var lbl = tous ? "Tous les MSN" : (selCount + " MSN sélectionné" + (selCount > 1 ? "s" : ""));
+            var btn = "<button type='button' id='msnBtn' onclick=\"ToggleMsnPanel(event)\" style='font-size:13px; font-weight:700; padding:7px 14px; border:1px solid #c5d5de; border-radius:6px; background:#fff; color:#0C447C; cursor:pointer; vertical-align:middle; height:34px; box-sizing:border-box; width:232px; text-align:center;'>" + escapeHtml(lbl) + " &#9662;</button>";
+            var rows = "<label style='display:block; padding:6px 12px; font-weight:700; border-bottom:1px solid #e2e8f0; cursor:pointer;'><input type='checkbox'" + (tous ? " checked" : "") + " onclick=\"SetAllMsn(this.checked, event)\" style='margin-right:8px; vertical-align:middle;'>Tout sélectionner</label>";
             for (var i = 0; i < all.length; i++) {
                 var key = all[i], on = msnSelected(key);
                 var txt = (key === '—') ? '(Sans MSN)' : ('MSN ' + key);
-                rows += "<label style='display:block; padding:6px 12px; cursor:pointer; white-space:nowrap;'><input type='checkbox'" + (on ? " checked" : "") + " onclick=\"ToggleMsnKey('" + escapeHtml(key) + "', this.checked)\" style='margin-right:8px; vertical-align:middle;'>" + escapeHtml(txt) + "</label>";
+                rows += "<label style='display:block; padding:6px 12px; cursor:pointer; white-space:nowrap;'><input type='checkbox'" + (on ? " checked" : "") + " onclick=\"ToggleMsnKey('" + escapeHtml(key) + "', this.checked, event)\" style='margin-right:8px; vertical-align:middle;'>" + escapeHtml(txt) + "</label>";
             }
             if (!all.length) rows += "<div style='padding:10px 12px; color:#94a3b8; font-style:italic;'>Aucun MSN</div>";
             // position:fixed -> non coupé par l'ancêtre overflow:hidden ; placé sous le bouton à l'ouverture.
@@ -2699,12 +2699,14 @@
             if (p) { if (p.style.display === 'block') p.style.display = 'none'; else showMsnPanel(); }
             if (ev && ev.stopPropagation) ev.stopPropagation();
         }
-        function SetAllMsn(on) {
+        function SetAllMsn(on, ev) {
+            if (ev && ev.stopPropagation) ev.stopPropagation();   // le clic ne remonte pas -> ne ferme pas le panneau
             dashFilter.msnSel = on ? null : {};   // null = tous ; {} = aucun
             InvalidateDash(); RenderActiveDashboardSub();
             showMsnPanel();   // garde le panneau ouvert
         }
-        function ToggleMsnKey(key, checked) {
+        function ToggleMsnKey(key, checked, ev) {
+            if (ev && ev.stopPropagation) ev.stopPropagation();   // le clic ne remonte pas -> ne ferme pas le panneau
             if (!dashFilter.msnSel) { dashFilter.msnSel = {}; var a0 = dashAllMSN(); for (var i = 0; i < a0.length; i++) dashFilter.msnSel[a0[i]] = true; }
             if (checked) dashFilter.msnSel[key] = true; else delete dashFilter.msnSel[key];
             var a1 = dashAllMSN(), allOn = true;
@@ -2712,6 +2714,14 @@
             if (allOn) dashFilter.msnSel = null;   // tout coché -> repasse en "Tous"
             InvalidateDash(); RenderActiveDashboardSub();
             showMsnPanel();   // garde le panneau ouvert
+        }
+        // Ferme le panneau MSN quand on clique en dehors (ni sur le bouton ni dans le panneau).
+        function DocClickCloseMsn(e) {
+            var p = document.getElementById('msnPanel');
+            if (!p || p.style.display !== 'block') return;
+            var t = e.target || e.srcElement, btn = document.getElementById('msnBtn');
+            if ((p.contains && p.contains(t)) || (btn && btn.contains && btn.contains(t))) return;   // clic interne -> on garde ouvert
+            p.style.display = 'none';
         }
         // Changement de granularité : on sélectionne automatiquement la période la plus récente disponible.
         function SetDashGran(g) {
@@ -3660,6 +3670,9 @@
                     if (b) b.style.display = (c.scrollTop > 200) ? 'block' : 'none';
                 };
             }
+            // Fermeture du panneau MSN au clic en dehors.
+            if (document.addEventListener) document.addEventListener('click', DocClickCloseMsn, false);
+            else if (document.attachEvent) document.attachEvent('onclick', DocClickCloseMsn);
         };
         var resizeTimer = null;
         window.onresize = function () {
