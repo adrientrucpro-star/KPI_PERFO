@@ -126,7 +126,7 @@
         table.data-table td.cell-input { padding: 0 !important; height: 38px; }
         .cell-wrap { position: relative; width: 100%; height: 36px; }   /* conteneur relatif (IE ne gère pas position:relative sur td) */
         .excel-input { width: 100%; height: 36px; padding: 0 10px; line-height: 36px; border: none; background: transparent; font-family: inherit; font-size: 13px; color: #1e293b; box-sizing: border-box; }
-        .excel-input:focus { background-color: #fffbeb; outline: none; }
+        .excel-input:focus { outline: none; }   /* pas de surbrillance de focus sur les cases (selects) des Paramètres */
         /* Masque le bouton "effacer" (X) natif d'IE qui apparaît quand le champ a du texte */
         input::-ms-clear { display: none; width: 0; height: 0; }
         select.excel-input::-ms-expand { display: none; }   /* masque la flèche : clic dans la case ouvre la liste */
@@ -1980,24 +1980,23 @@
             } return o;
         }
 
-        // Responsables (code -> désignation) pour les listes déroulantes : Gist (DATA_RESP) + ceux trouvés dans les extracts.
-        function extractRespMap() {
-            var m = {}, i;
-            var g = (window.gistCfg && gistCfg.resp) || [];
-            for (i = 0; i < g.length; i++) { var gc = NettoyerChaine(g[i].code); if (gc) m[gc] = g[i].nom || m[gc] || ""; }
-            var rows = appData.rows || [];
-            for (i = 0; i < rows.length; i++) { var r = NettoyerChaine(rows[i].r); if (r && !m[r]) m[r] = rows[i].dg || ""; }
+        // Responsables (code -> désignation) : UNIQUEMENT ceux du Gist (section DATA_RESP).
+        function gistRespMap() {
+            var m = {}, g = (window.gistCfg && gistCfg.resp) || [];
+            for (var i = 0; i < g.length; i++) { var gc = NettoyerChaine(g[i].code); if (gc) m[gc] = g[i].nom || m[gc] || ""; }
             return m;
         }
-        // Menu déroulant des responsables : code + désignation.
-        function respOptionsHtml(selected) {
-            var m = extractRespMap(), codes = [];
+        // Menu déroulant des responsables : code + désignation (liste = Gist). + la valeur courante si elle n'est plus dans le Gist.
+        function respOptionsHtml(selected, selNom) {
+            var m = gistRespMap(), codes = [];
             for (var c in m) { if (m.hasOwnProperty(c)) codes.push(c); }
             codes.sort();
-            var h = "<option value=''></option>";
+            var h = "<option value=''></option>", found = false;
             for (var i = 0; i < codes.length; i++) {
+                if (codes[i] === selected) found = true;
                 h += "<option value='" + escapeHtml(codes[i]) + "'" + (codes[i] === selected ? " selected" : "") + ">" + escapeHtml(codes[i]) + " - " + escapeHtml(m[codes[i]]) + "</option>";
             }
+            if (selected && !found) h += "<option value='" + escapeHtml(selected) + "' selected>" + escapeHtml(selected) + (selNom ? " - " + escapeHtml(selNom) : "") + "</option>";
             return h;
         }
 
@@ -2012,7 +2011,7 @@
                 if (ed) {
                     html += "<tr>"
                         + "<td class='cell-input' style='text-align:center;'><div class='cell-wrap'><select class='excel-input' style='text-align:center; -ms-text-align-last:center; text-align-last:center; cursor:pointer;' onchange=\"UpdateRoleDesig(" + i + ",'type',this.value); this.blur();\"><option value=''" + (type === "" ? " selected" : "") + "></option><option value='int'" + (type === "int" ? " selected" : "") + ">Interne</option><option value='ext'" + (type === "ext" ? " selected" : "") + ">Externe</option></select></div></td>"
-                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='cursor:pointer;' onchange=\"SetRoleResp(" + i + ", this.value)\">" + respOptionsHtml(resp) + "</select></div></td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='cursor:pointer;' onchange=\"SetRoleResp(" + i + ", this.value)\">" + respOptionsHtml(resp, arr[i].nom || "") + "</select></div></td>"
                         + "</tr>";
                 } else {
                     var badge = "";
@@ -2028,9 +2027,10 @@
             cont.innerHTML = html;
         }
         function SetRoleResp(idx, code) {
-            var m = extractRespMap(); code = NettoyerChaine(code);
+            var m = gistRespMap(); code = NettoyerChaine(code);
             appData.roleDesig[idx].resp = code;
-            appData.roleDesig[idx].nom = m[code] || "";
+            if (code === "") appData.roleDesig[idx].nom = "";
+            else if (m.hasOwnProperty(code)) appData.roleDesig[idx].nom = m[code];   // sinon (valeur héritée hors Gist) : on conserve le nom
             RenderRolesTable();
         }
         function UpdateRoleDesig(idx, field, val) {
