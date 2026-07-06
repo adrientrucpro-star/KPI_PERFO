@@ -1997,15 +1997,16 @@
             for (var i = 0; i < eq.length; i++) { if (eq[i].team === role) out.push(eq[i]); }
             return out;
         }
-        // Options du menu déroulant d'une équipe (+ la valeur courante si elle n'est plus dans le pool Gist).
-        function teamOptionsHtml(role, selUser, selNom) {
+        // Options du menu déroulant d'une équipe : uniquement le user (le nom s'affiche dans la colonne Nom à côté).
+        // (+ la valeur courante si elle n'est plus dans le pool Gist).
+        function teamOptionsHtml(role, selUser) {
             var ppl = teamPeopleFor(role), h = "<option value=''></option>", seen = {}, found = false;
             for (var i = 0; i < ppl.length; i++) {
                 var u = ppl[i].user; if (!u || seen[u]) continue; seen[u] = true;
                 if (u === selUser) found = true;
-                h += "<option value='" + escapeHtml(u) + "'" + (u === selUser ? " selected" : "") + ">" + escapeHtml(u) + (ppl[i].nom ? " - " + escapeHtml(ppl[i].nom) : "") + "</option>";
+                h += "<option value='" + escapeHtml(u) + "'" + (u === selUser ? " selected" : "") + ">" + escapeHtml(u) + "</option>";
             }
-            if (selUser && !found) h += "<option value='" + escapeHtml(selUser) + "' selected>" + escapeHtml(selUser) + (selNom ? " - " + escapeHtml(selNom) : "") + "</option>";
+            if (selUser && !found) h += "<option value='" + escapeHtml(selUser) + "' selected>" + escapeHtml(selUser) + "</option>";
             return h;
         }
         function RenderTeam(role) {
@@ -2016,7 +2017,7 @@
             for (var i = 0; i < arr.length; i++) {
                 if (ed) {
                     html += "<tr>"
-                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; -ms-text-align-last:center; text-align-last:center; cursor:pointer;' onchange=\"SetTeamUser('" + role + "'," + i + ",this.value)\">" + teamOptionsHtml(role, arr[i].user || "", arr[i].nom || "") + "</select></div></td>"
+                        + "<td class='cell-input'><div class='cell-wrap'><select class='excel-input' style='text-align:center; -ms-text-align-last:center; text-align-last:center; cursor:pointer;' onchange=\"SetTeamUser('" + role + "'," + i + ",this.value)\">" + teamOptionsHtml(role, arr[i].user || "") + "</select></div></td>"
                         + "<td style='text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#475569;' title='" + escapeHtml(arr[i].nom || "") + "'>" + escapeHtml(arr[i].nom || "") + "</td>"
                         + "</tr>";
                 } else {
