@@ -1920,9 +1920,11 @@
             var e = document.getElementById('btnParamsEdit');
             var v = document.getElementById('btnParamsSave');
             var c = document.getElementById('btnParamsCancel');
+            var r = document.getElementById('btnParamsReset');
             if (e) e.style.display = isEditingParams ? 'none' : 'inline-block';
             if (v) v.style.display = isEditingParams ? 'inline-block' : 'none';
             if (c) c.style.display = isEditingParams ? 'inline-block' : 'none';
+            if (r) r.style.display = isEditingParams ? 'none' : 'inline-block';   // masqué en mode édition
         }
         function ParamsEdit() {
             isEditingParams = true;
@@ -4115,10 +4117,10 @@
             <div id="pageParametres" class="page">
                 <div class="card" style="margin-bottom:16px; padding:16px 20px; overflow:hidden;">
                     <div style="float:right;">
+                        <button id="btnParamsReset" class="btn-toolbar" style="margin-right:24px; background:#dc2626; color:#fff; border:none;" onclick="ReinitialiserApplication()">Réinitialiser l'application</button>
                         <button id="btnParamsEdit" class="btn-toolbar btn-green" onclick="ParamsEdit()">Modifier</button>
                         <button id="btnParamsSave" class="btn-toolbar btn-green" style="display:none; margin-left:8px;" onclick="ParamsValider()">Valider</button>
                         <button id="btnParamsCancel" class="btn-toolbar btn-grey" style="display:none; margin-left:6px;" onclick="ParamsAnnuler()">Annuler</button>
-                        <button class="btn-toolbar" style="margin-left:24px; background:#dc2626; color:#fff; border:none;" onclick="ReinitialiserApplication()">Réinitialiser l'application</button>
                     </div>
                     <h3 style="margin:0; display:inline-block; vertical-align:middle; margin-right:28px;">Mode de calcul des durées</h3>
                     <div id="calcModePanel" style="display:inline-block; vertical-align:middle;"></div>
