@@ -2897,13 +2897,13 @@
             for (var i = 0; i < all.length; i++) { if (m[NettoyerChaine(all[i].user).toUpperCase()]) out.push(all[i]); }
             return out;
         }
-        // Écart de clôture MOYEN par semaine (ou jour) de CLÔTURE, par user, sur la période choisie. Somme + compte -> moyenne au rendu.
+        // Écart de clôture MOYEN par semaine (ou jour) de FIN AUTORISÉE, par user, sur la période choisie. Somme + compte -> moyenne au rendu.
         function icEcartBuckets(rows) {
             if (dashFilter.gran === 'msn') return icEcartMSNBuckets(rows);
             var byDay = dashFilter.gran === 'week';
             var bucketSet = {}, perUserSum = {}, perUserCnt = {};
             for (var i = 0; i < rows.length; i++) {
-                var d = parseDT(rows[i].dc, rows[i].hc), ec = icEcartMs(rows[i]);
+                var d = parseDT(rows[i].dfa, rows[i].hfa), ec = icEcartMs(rows[i]);   // regroupement/filtre par date de FIN AUTORISÉE
                 if (!d || ec == null || !inSelectedPeriod(d)) continue;
                 var ts = byDay ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : getWeekStart(d).getTime();
                 bucketSet[ts] = true;
@@ -2922,7 +2922,7 @@
         function icEcartMSNBuckets(rows) {
             var keySet = {}, perUserSum = {}, perUserCnt = {};
             for (var i = 0; i < rows.length; i++) {
-                var d = parseDT(rows[i].dc, rows[i].hc), ec = icEcartMs(rows[i]);
+                var d = parseDT(rows[i].dfa, rows[i].hfa), ec = icEcartMs(rows[i]);   // regroupement/filtre par date de FIN AUTORISÉE
                 if (!d || ec == null || !inSelectedPeriod(d)) continue;
                 var key = msnBucketKey(rows[i].msn);
                 keySet[key] = true;
@@ -2980,7 +2980,7 @@
             var byDay = dashFilter.gran === 'week';
             var all = appData.icRows || [], bucketSet = {}, sumB = {}, cntB = {}, team = teamUserSet();
             for (var i = 0; i < all.length; i++) {
-                var r = all[i], d = parseDT(r.dc, r.hc), ec = icEcartMs(r);
+                var r = all[i], d = parseDT(r.dfa, r.hfa), ec = icEcartMs(r);   // regroupement/filtre par date de FIN AUTORISÉE
                 if (!d || ec == null || !inSelectedPeriod(d)) continue;
                 if (!team[NettoyerChaine(r.user).toUpperCase()]) continue;   // restreint aux équipes ST/TL/IQ
                 var ts = byDay ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : getWeekStart(d).getTime();
@@ -2997,7 +2997,7 @@
         function icTotalMSNBuckets() {
             var all = appData.icRows || [], keySet = {}, sumB = {}, cntB = {}, team = teamUserSet();
             for (var i = 0; i < all.length; i++) {
-                var r = all[i], d = parseDT(r.dc, r.hc), ec = icEcartMs(r);
+                var r = all[i], d = parseDT(r.dfa, r.hfa), ec = icEcartMs(r);   // regroupement/filtre par date de FIN AUTORISÉE
                 if (!d || ec == null || !inSelectedPeriod(d)) continue;
                 if (!team[NettoyerChaine(r.user).toUpperCase()]) continue;   // restreint aux équipes ST/TL/IQ
                 var key = msnBucketKey(r.msn);
