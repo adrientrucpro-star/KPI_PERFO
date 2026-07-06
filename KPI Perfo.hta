@@ -1320,7 +1320,7 @@
                 try {
                     var sh = new ActiveXObject("WScript.Shell");
                     var folder = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\";
-                    var errs = [];
+                    var errs = [], sapDown = false;
                     if (useExportFiles) {                       // mode test : lecture directe des fichiers
                         var fsoT = new ActiveXObject("Scripting.FileSystemObject");
                         if (fsoT.FileExists(folder + "EXPORT_ST.txt")) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("EXPORT_ST.txt introuvable");
@@ -1328,19 +1328,26 @@
                         if (fsoT.FileExists(folder + "EXPORT_IQ2.txt")) MergeOFClotMSN(folder + "EXPORT_IQ2.txt");
                     } else {
                         var r1 = VBS_ExtractOFCree(d1, d2);
-                        if (r1 && r1.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("Création : " + (r1 || "erreur inconnue"));
-                        var r2 = VBS_ExtractOFClot(d1, d2);
-                        if (r2 && r2.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("Clôture : " + (r2 || "erreur inconnue"));
-                        // 3e extract : MSN des OF clôturés (variante IQ2) -> rattaché aux lignes ofClot (best-effort).
-                        var r3 = VBS_ExtractOFClotMSN(d1, d2);
-                        if (r3 && r3.indexOf("ERREUR") === -1) MergeOFClotMSN(folder + "EXPORT_IQ2.txt"); else if (r3) errs.push("MSN clôture : " + r3);
+                        if (r1 && r1.indexOf("SAP inaccessible") !== -1) { sapDown = true; }   // SAP indisponible -> message unique, on n'enchaîne pas les autres extracts
+                        else {
+                            if (r1 && r1.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("Création : " + (r1 || "erreur inconnue"));
+                            var r2 = VBS_ExtractOFClot(d1, d2);
+                            if (r2 && r2.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("Clôture : " + (r2 || "erreur inconnue"));
+                            // 3e extract : MSN des OF clôturés (variante IQ2) -> rattaché aux lignes ofClot (best-effort).
+                            var r3 = VBS_ExtractOFClotMSN(d1, d2);
+                            if (r3 && r3.indexOf("ERREUR") === -1) MergeOFClotMSN(folder + "EXPORT_IQ2.txt"); else if (r3) errs.push("MSN clôture : " + r3);
+                        }
                     }
-                    appData.lastOFImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
-                    SaveData();
-                    RenderOFCombined();
-                    InvalidateDash();   // données OF modifiées -> dashboard à recalculer
-                    if (document.getElementById('dashSubOF') && document.getElementById('dashSubOF').style.display === 'block') RenderDashboardOF();
-                    if (errs.length) AlerteExtract("Extraction OF partielle :\n" + errs.join("\n"));
+                    if (sapDown) {
+                        AlerteExtract("SAP n'est pas disponible. Ouvre SAP Logon et connecte-toi.");
+                    } else {
+                        appData.lastOFImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
+                        SaveData();
+                        RenderOFCombined();
+                        InvalidateDash();   // données OF modifiées -> dashboard à recalculer
+                        if (document.getElementById('dashSubOF') && document.getElementById('dashSubOF').style.display === 'block') RenderDashboardOF();
+                        if (errs.length) AlerteExtract("Extraction OF partielle :\n" + errs.join("\n"));
+                    }
                 } catch (e) { AlerteExtract("Erreur : " + e.message); }
                 if (btn) { btn.innerHTML = "Extract OF"; }
                 UpdateOFExtractButton();   // rétablit l'état actif/grisé selon les équipes
