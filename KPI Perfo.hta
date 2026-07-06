@@ -1938,13 +1938,14 @@
             for (i = 0; i < rows.length; i++) { var r = NettoyerChaine(rows[i].r); if (r && !m[r]) m[r] = rows[i].dg || ""; }
             return m;
         }
+        // Menu déroulant des responsables : uniquement le code (la désignation reste visible en mode lecture).
         function respOptionsHtml(selected) {
             var m = extractRespMap(), codes = [];
             for (var c in m) { if (m.hasOwnProperty(c)) codes.push(c); }
             codes.sort();
             var h = "<option value=''></option>";
             for (var i = 0; i < codes.length; i++) {
-                h += "<option value='" + escapeHtml(codes[i]) + "'" + (codes[i] === selected ? " selected" : "") + ">" + escapeHtml(codes[i]) + " - " + escapeHtml(m[codes[i]]) + "</option>";
+                h += "<option value='" + escapeHtml(codes[i]) + "'" + (codes[i] === selected ? " selected" : "") + ">" + escapeHtml(codes[i]) + "</option>";
             }
             return h;
         }
