@@ -3651,8 +3651,10 @@
                 doc.open(); doc.write(html); doc.close();
                 setTimeout(function () {
                     var st = stripPrintHeaders();
-                    try { ifr.contentWindow.focus(); ifr.contentWindow.print(); } catch (e) { AfficherErreur("Impression impossible : " + e.message); }
-                    restorePrintHeaders(st);   // print() est bloquant jusqu'à la boîte de dialogue -> restauration sûre
+                    try { ifr.contentWindow.focus(); ifr.contentWindow.print(); }
+                    catch (e) { AfficherErreur("Impression impossible : " + e.message); restorePrintHeaders(st); return; }
+                    // "Print to PDF" lit les en-têtes au moment de l'ENREGISTREMENT (après print()) -> on restaure bien plus tard.
+                    setTimeout(function () { restorePrintHeaders(st); }, 30000);
                 }, 250);
             } catch (e2) { AfficherErreur("Erreur lors de la génération du rapport : " + e2.message); }
         }
