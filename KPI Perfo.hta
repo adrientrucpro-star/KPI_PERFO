@@ -2299,7 +2299,12 @@
         // Liste ordonnée des buckets de l'axe X : jours de la semaine / semaines présentes / 12 mois de l'année.
         function bucketKeysForMode(mode, presentSet) {
             if (mode === 'day') return selectedWeekDays();
-            if (mode === 'month') { var out = []; for (var m = 0; m < 12; m++) out.push(new Date(dashFilter.year, m, 1).getTime()); return out; }
+            if (mode === 'month') {
+                var out = [], now = new Date();
+                var lastM = (dashFilter.year === now.getFullYear()) ? now.getMonth() : 11;   // année en cours -> jusqu'au mois actuel
+                for (var m = 0; m <= lastM; m++) out.push(new Date(dashFilter.year, m, 1).getTime());
+                return out;
+            }
             var keys = []; for (var w in presentSet) { if (presentSet.hasOwnProperty(w)) keys.push(parseInt(w, 10)); } keys.sort(function (a, b) { return a - b; }); return keys;
         }
         // Libellé d'un bucket temporel selon le mode.
@@ -2638,7 +2643,7 @@
                 seg += "<button type='button' onclick=\"SetDashGran('" + g + "')\" style='font-size:13px; font-weight:600; padding:7px 14px; border:1px solid " + (on ? "#0C447C" : "#c5d5de") + "; " + (i > 0 ? "border-left:none; " : "") + rad + " cursor:pointer; vertical-align:middle; " + (on ? "background:#0C447C; color:#fff;" : "background:#fff; color:#475569;") + "'>" + grans[i][1] + "</button>";
             }
 
-            var arw = function (dis) { return "font-size:12px; font-weight:700; padding:7px 12px; border:1px solid #c5d5de; background:" + (dis ? "#f1f5f9" : "#fff") + "; color:" + (dis ? "#cbd5e1" : "#0C447C") + "; cursor:" + (dis ? "default" : "pointer") + "; vertical-align:middle; height:34px; box-sizing:border-box;"; };
+            var arw = function (dis) { return "font-size:12px; font-weight:700; padding:7px 0; width:36px; text-align:center; border:1px solid #c5d5de; background:" + (dis ? "#f1f5f9" : "#fff") + "; color:" + (dis ? "#cbd5e1" : "#0C447C") + "; cursor:" + (dis ? "default" : "pointer") + "; vertical-align:middle; height:34px; box-sizing:border-box;"; };
             var right;
             if (dashFilter.gran === 'msn') {
                 right = dashMsnControlHtml();   // multi-sélection des MSN (au lieu du sélecteur de période)
@@ -2653,7 +2658,7 @@
                 var next = "<button type='button'" + (atNewest ? " disabled" : "") + " onclick=\"StepDashPeriod(1)\" title='Période suivante' style='" + arw(atNewest) + " border-left:none; border-radius:0 6px 6px 0;'>&#9654;</button>";
                 // IE10 n'honore pas text-align sur la valeur affichée d'un <select> : libellé centré (div) + <select> transparent par-dessus.
                 var curLabel = (s.idx >= 0 && s.items.length) ? s.label(s.items[s.idx]) : "";
-                var ddW = (dashFilter.gran === 'year') ? 96 : 160;
+                var ddW = 160;   // largeur constante quel que soit le mode (Année/Mois/Semaine)
                 var dd = "<span style='position:relative; display:inline-block; width:" + ddW + "px; height:34px; vertical-align:middle;'>"
                     + "<span style='position:absolute; top:0; left:0; width:100%; height:34px; line-height:32px; box-sizing:border-box; border:1px solid #c5d5de; border-left:none; background:#fff; color:#0C447C; font-size:13px; font-weight:700; text-align:center; overflow:hidden; white-space:nowrap;'>" + escapeHtml(curLabel) + "</span>"
                     + "<select class='dashPeriodSelect' onchange='SetDashPeriod(this.value)' style='position:absolute; top:0; left:0; width:100%; height:34px; opacity:0; cursor:pointer; font-size:13px;'>" + opt + "</select>"
@@ -2668,7 +2673,7 @@
             var selCount = 0, tous = !dashFilter.msnSel;
             if (!tous) { for (var kk in dashFilter.msnSel) { if (dashFilter.msnSel.hasOwnProperty(kk) && dashFilter.msnSel[kk]) selCount++; } }
             var lbl = tous ? "Tous les MSN" : (selCount + " MSN sél.");
-            var btn = "<button type='button' id='msnBtn' onclick=\"ToggleMsnPanel(event)\" style='font-size:13px; font-weight:700; padding:7px 14px; border:1px solid #c5d5de; border-radius:6px; background:#fff; color:#0C447C; cursor:pointer; vertical-align:middle; height:34px; box-sizing:border-box; min-width:150px; text-align:left;'>" + escapeHtml(lbl) + " &#9662;</button>";
+            var btn = "<button type='button' id='msnBtn' onclick=\"ToggleMsnPanel(event)\" style='font-size:13px; font-weight:700; padding:7px 14px; border:1px solid #c5d5de; border-radius:6px; background:#fff; color:#0C447C; cursor:pointer; vertical-align:middle; height:34px; box-sizing:border-box; width:232px; text-align:left;'>" + escapeHtml(lbl) + " &#9662;</button>";
             var rows = "<label style='display:block; padding:6px 12px; font-weight:700; border-bottom:1px solid #e2e8f0; cursor:pointer;'><input type='checkbox'" + (tous ? " checked" : "") + " onclick=\"SetAllMsn(this.checked)\" style='margin-right:8px; vertical-align:middle;'>Tout sélectionner</label>";
             for (var i = 0; i < all.length; i++) {
                 var key = all[i], on = msnSelected(key);
