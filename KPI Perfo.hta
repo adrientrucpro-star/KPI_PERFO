@@ -897,7 +897,7 @@
             else { RenderListe(); }
         }
         // Rend le sous-onglet d'extraction visible UNIQUEMENT s'il a été invalidé.
-        function RenderActiveExtractSub() { var s = activeExtractSub(); if (!extractValid[s]) RenderExtractSub(s); }
+        function RenderActiveExtractSub() { var s = activeExtractSub(); if (!extractValid[s]) RenderExtractSub(s); UpdateExtractButtons(); }
         // Pré-rend en arrière-plan les sous-onglets d'extraction non encore rendus (construit le HTML dans les conteneurs
         // masqués), pour que le changement d'onglet soit instantané (le coût du rendu est déplacé hors du clic).
         function PrerenderExtractSubs() {
@@ -1043,6 +1043,7 @@
     // ==========================================================
         // Lance l'extraction SAP QM13 puis analyse le fichier généré.
         function LancerExtractionSAP() {
+            if (!hasAnyTeamMember()) return;   // sécurité : bouton grisé sans équipe
             var btn = document.getElementById('btnExtract');
             var dateVal = NettoyerChaine(document.getElementById('extractDate').value);
             var dateFin = NettoyerChaine(document.getElementById('extractDateFin').value);
@@ -1064,7 +1065,8 @@
                 } catch (e) {
                     AfficherErreur("Erreur : " + e.message);
                 }
-                if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Extract NC"; }
+                if (btn) { btn.innerHTML = "Extract NC"; }
+                UpdateExtractButtons();   // rétablit l'état actif/grisé selon les équipes
             }, 80);
         }
         // Lit EXPORT_NC2.txt (dossier de données) s'il est présent et fusionne les MSN dans appData.msnByAvis.
@@ -1141,7 +1143,7 @@
                 var tab = document.getElementById(tabs[kk]); if (tab) tab.className = (kk === s) ? "subtab active" : "subtab";
             }
             if (!extractValid[s]) RenderExtractSub(s);
-            if (s === 'OF') UpdateOFExtractButton();   // maj état grisé même si le tableau est en cache
+            UpdateExtractButtons();   // maj état grisé des boutons d'export même si le tableau est en cache
             if (s === 'NC') EgaliserHauteursExtraction();
             AjusterHauteurTables();
             ResetTblScroll();   // le tableau du sous-onglet s'affiche tout en haut
@@ -1225,17 +1227,30 @@
             for (var i = 0; i < arr.length; i++) { if (NettoyerChaine(arr[i].user) !== "") return true; }
             return false;
         }
-        // Grise le bouton "Extract OF" tant qu'aucune équipe ST/IQ n'est renseignée (les OF sont filtrés par équipe).
-        function UpdateOFExtractButton() {
-            var btn = document.getElementById('btnOF'); if (!btn) return;
-            var ok = teamHasMembers(appData.teamST) || teamHasMembers(appData.teamIQ);
+        // Au moins un membre d'équipe sélectionné (ST, TL ou IQ) ?
+        function hasAnyTeamMember() {
+            return teamHasMembers(appData.teamST) || teamHasMembers(appData.teamTL) || teamHasMembers(appData.teamIQ);
+        }
+        // Active/grise un bouton d'export selon 'ok' (fond gris + curseur interdit + infobulle si grisé).
+        function setExtractBtnDisabled(id, ok, tip) {
+            var btn = document.getElementById(id); if (!btn) return;
             btn.disabled = !ok;
             btn.className = "btn-toolbar";
             btn.style.backgroundColor = ok ? "" : "#94a3b8";
             btn.style.opacity = ok ? "" : "0.8";
             btn.style.cursor = ok ? "" : "not-allowed";
-            btn.title = ok ? "" : "Renseigne au moins une équipe (ST ou IQ) dans les Paramètres.";
+            btn.title = ok ? "" : (tip || "");
         }
+        // Grise les 3 boutons d'export tant qu'aucune équipe n'est sélectionnée (les extracts sont filtrés par équipe).
+        // OF reste plus strict : il lui faut ST ou IQ (créés = ST, clôturés = IQ).
+        function UpdateExtractButtons() {
+            var any = hasAnyTeamMember(), tip = "Sélectionne au moins une équipe (ST, TL ou IQ) dans les Paramètres.";
+            setExtractBtnDisabled('btnExtract', any, tip);      // Extract NC
+            setExtractBtnDisabled('btnICExtract', any, tip);    // Extract IC
+            setExtractBtnDisabled('btnOF', teamHasMembers(appData.teamST) || teamHasMembers(appData.teamIQ), "Renseigne au moins une équipe (ST ou IQ) dans les Paramètres.");   // Extract OF
+        }
+        // Conservé pour compat : met à jour l'ensemble des boutons d'export.
+        function UpdateOFExtractButton() { UpdateExtractButtons(); }
         function LancerExtractOFTout() {
             if (!teamHasMembers(appData.teamST) && !teamHasMembers(appData.teamIQ)) return;   // sécurité : bouton grisé sans équipe
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
@@ -1435,6 +1450,7 @@
             } catch (e) { AfficherErreur("Erreur de lecture IC : " + e.message); }
         }
         function LancerExtractIC() {
+            if (!hasAnyTeamMember()) return;   // sécurité : bouton grisé sans équipe
             var d1 = NettoyerChaine(document.getElementById('icDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('icDateFin').value).replace(/\//g, '.');
             if (!d1 || !d2) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
@@ -1448,7 +1464,8 @@
                         LireIC(sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_IC.txt");
                     } else { AfficherErreur(res || "Erreur inconnue lors de l'extraction IC."); }
                 } catch (e) { AfficherErreur("Erreur : " + e.message); }
-                if (btn) { btn.className = "btn-toolbar"; btn.innerHTML = "Extract IC"; }
+                if (btn) { btn.innerHTML = "Extract IC"; }
+                UpdateExtractButtons();   // rétablit l'état actif/grisé selon les équipes
             }, 80);
         }
         var icSort = { col: null, dir: 1 };
