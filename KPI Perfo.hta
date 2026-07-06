@@ -297,10 +297,11 @@
                 Exit Function
             End If
 
-            ' Variante d'affichage LAROCHE_NC
+            ' Variante d'affichage LAROCHE_NC (+ effacement du filtre auteur ENAME)
             oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
             If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
                 oSession.FindById("wnd[1]/usr/txtV-LOW").Text = "LAROCHE_NC"
+                If Not (oSession.FindById("wnd[1]/usr/txtENAME-LOW", False) Is Nothing) Then oSession.FindById("wnd[1]/usr/txtENAME-LOW").Text = ""
                 oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
             End If
 
@@ -374,10 +375,11 @@
                 VBS_ExtractCOOIS = "ERREUR : COOIS n'a pas démarré."
                 Exit Function
             End If
-            ' Variante d'affichage
+            ' Variante d'affichage (+ effacement du filtre auteur ENAME)
             oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
             If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
                 oSession.FindById("wnd[1]/usr/txtV-LOW").Text = varNom
+                If Not (oSession.FindById("wnd[1]/usr/txtENAME-LOW", False) Is Nothing) Then oSession.FindById("wnd[1]/usr/txtENAME-LOW").Text = ""
                 oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
             End If
             ' Plage de dates (dans le tabstrip de sélection)
