@@ -615,6 +615,8 @@
             return (""+t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
         }
         function AfficherErreur(msg) { alert(msg); }
+        // Alerte liée à une extraction : masquée en mode "Fichiers d'export" (temporaire / test).
+        function AlerteExtract(msg) { if (!useExportFiles) AfficherErreur(msg); }
 
     // ==========================================================
     // PERSISTANCE JSON  (%APPDATA%\<DOSSIER_DONNEES>\APP_DATA.txt)
@@ -1118,7 +1120,7 @@
                         }
                     }
                 } catch (e) {
-                    AfficherErreur("Erreur : " + e.message);
+                    AlerteExtract("Erreur : " + e.message);
                 }
                 if (btn) { btn.innerHTML = "Extract NC"; }
                 UpdateExtractButtons();   // rétablit l'état actif/grisé selon les équipes
@@ -1152,11 +1154,11 @@
         function LireEtAnalyser(path) {
             try {
                 var fso = new ActiveXObject("Scripting.FileSystemObject");
-                if (!fso.FileExists(path)) { AfficherErreur("Fichier introuvable :\n" + path); return; }
+                if (!fso.FileExists(path)) { AlerteExtract("Fichier introuvable :\n" + path); return; }
                 var ts = fso.OpenTextFile(path, 1, false, 0); // 0 = ANSI (Windows-1252)
                 var content = ts.ReadAll(); ts.Close();
                 var rows = ParseExport(content);
-                if (rows.length === 0) { AfficherErreur("Aucune ligne exploitable détectée (format inattendu)."); return; }
+                if (rows.length === 0) { AlerteExtract("Aucune ligne exploitable détectée (format inattendu)."); return; }
 
                 // Fusion avec l'historique : on n'ajoute QUE les NC non déjà présentes (déjà analysées = ignorées).
                 var cur = appData.rows || [], existing = {};
@@ -1181,9 +1183,9 @@
                 EgaliserHauteursExtraction();
 
                 // Pas de popup de résultat en cas de succès ; alerte seulement si aucune NC analysée.
-                if (nbElig === 0) alert("Extraction terminée, mais aucune NC analysée.\n\n" + DiagnostiquerNCTexte());
+                if (nbElig === 0 && !useExportFiles) alert("Extraction terminée, mais aucune NC analysée.\n\n" + DiagnostiquerNCTexte());
             } catch (e) {
-                AfficherErreur("Erreur de lecture : " + e.message);
+                AlerteExtract("Erreur de lecture : " + e.message);
             }
         }
 
@@ -1338,8 +1340,8 @@
                     RenderOFCombined();
                     InvalidateDash();   // données OF modifiées -> dashboard à recalculer
                     if (document.getElementById('dashSubOF') && document.getElementById('dashSubOF').style.display === 'block') RenderDashboardOF();
-                    if (errs.length) AfficherErreur("Extraction OF partielle :\n" + errs.join("\n"));
-                } catch (e) { AfficherErreur("Erreur : " + e.message); }
+                    if (errs.length) AlerteExtract("Extraction OF partielle :\n" + errs.join("\n"));
+                } catch (e) { AlerteExtract("Erreur : " + e.message); }
                 if (btn) { btn.innerHTML = "Extract OF"; }
                 UpdateOFExtractButton();   // rétablit l'état actif/grisé selon les équipes
             }, 80);
@@ -1497,7 +1499,7 @@
         function LireIC(path) {
             try {
                 var fso = new ActiveXObject("Scripting.FileSystemObject");
-                if (!fso.FileExists(path)) { AfficherErreur("Fichier introuvable :\n" + path); return; }
+                if (!fso.FileExists(path)) { AlerteExtract("Fichier introuvable :\n" + path); return; }
                 var ts = fso.OpenTextFile(path, 1, false, 0); var content = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close();
                 var data = ParseIC(content);
                 var cur = appData.icRows || [], seen = {};
@@ -1509,8 +1511,8 @@
                 RenderICTable();
                 InvalidateDash();
                 if (document.getElementById('dashSubIC') && document.getElementById('dashSubIC').style.display === 'block') RenderDashboardIC();
-                if (!data.length) alert("Extraction terminée, mais aucune IC exploitable détectée (format inattendu ?).");
-            } catch (e) { AfficherErreur("Erreur de lecture IC : " + e.message); }
+                if (!data.length && !useExportFiles) alert("Extraction terminée, mais aucune IC exploitable détectée (format inattendu ?).");
+            } catch (e) { AlerteExtract("Erreur de lecture IC : " + e.message); }
         }
         function LancerExtractIC() {
             if (!hasAnyTeamMember()) return;   // sécurité : bouton grisé sans équipe
@@ -1530,7 +1532,7 @@
                         var res = VBS_ExtractIC(d1, d2);
                         if (res && res.indexOf("ERREUR") === -1) LireIC(pathIC); else AfficherErreur(res || "Erreur inconnue lors de l'extraction IC.");
                     }
-                } catch (e) { AfficherErreur("Erreur : " + e.message); }
+                } catch (e) { AlerteExtract("Erreur : " + e.message); }
                 if (btn) { btn.innerHTML = "Extract IC"; }
                 UpdateExtractButtons();   // rétablit l'état actif/grisé selon les équipes
             }, 80);
@@ -1975,8 +1977,8 @@
         }
         // Réinitialise complètement l'application : efface la base APP_DATA.txt et redémarre à vide.
         function ReinitialiserApplication() {
-            if (!confirm("Réinitialiser l'application ?\n\nToutes les données seront EFFACÉES : NC, OF, IC, commentaires et paramètres.\nCette action est IRRÉVERSIBLE.")) return;
-            if (!confirm("Confirmer la réinitialisation ?\nL'application va redémarrer à vide.")) return;
+            if (!confirm("Réinitialiser l'application ? Toutes les données seront EFFACÉES.\n\nCette action est IRRÉVERSIBLE.")) return;
+            if (!confirm("Confirmer la réinitialisation ?\n\nL'application va redémarrer à vide.")) return;
             try {
                 var fso = new ActiveXObject("Scripting.FileSystemObject");
                 var path = getAppDataFilePath();
