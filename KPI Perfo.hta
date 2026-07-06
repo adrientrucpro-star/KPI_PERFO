@@ -2935,6 +2935,13 @@
             msnSortKeys(buckets);
             return { buckets: buckets, cats: buckets.slice(0), perUserSum: perUserSum, perUserCnt: perUserCnt };
         }
+        // Max de l'axe Y des graphiques IC : au moins +2 h au-dessus de 0 (zone "retard" toujours visible),
+        // sinon le max réel des données (arrondi à l'heure sup.). points = tableau de {y,...} ou null.
+        function icYAxisMax(points) {
+            var mx = 0;
+            for (var i = 0; i < points.length; i++) { var p = points[i]; if (p && p.y != null && p.y > mx) mx = p.y; }
+            return Math.max(2, Math.ceil(mx));
+        }
         function hcICUserChart(id, teamRows, nomMap) {
             var cont = document.getElementById(id); if (!cont) return;
             if (!Object.keys(nomMap).length) { hcDestroy(id); cont.innerHTML = "<div style='height:100%; min-height:120px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
@@ -2942,6 +2949,7 @@
             var b = icEcartBuckets(teamRows), series = [], hMs = 3600000, icHasData = false;
             for (var kt in b.perUserCnt) { if (b.perUserCnt.hasOwnProperty(kt)) { icHasData = true; break; } }
             if (!icHasData) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
+            var allPts = [];
             for (var u in nomMap) {
                 if (!nomMap.hasOwnProperty(u)) continue;
                 var data = [];
@@ -2951,13 +2959,15 @@
                     else data.push(null);
                 }
                 series.push({ name: nomMap[u], data: data });
+                allPts = allPts.concat(data);
             }
+            var icMax = icYAxisMax(allPts);
             try {
                 hcDraw(id, {
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: null }, allowDecimals: false, softMax: 2, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    yAxis: { title: { text: null }, allowDecimals: false, max: icMax, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.x + ' : ' + fmtEcartSigned(this.point.ms) + ' &middot; ' + this.point.n + ' IC'; } },
                     plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
                     series: series
@@ -3008,13 +3018,14 @@
                 else data.push(null);
             }
             if (!icTotHasData) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
+            var icMax = icYAxisMax(data);
             try {
                 hcDraw(id, {
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false },
                     legend: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: null }, allowDecimals: false, softMax: 2, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    yAxis: { title: { text: null }, allowDecimals: false, max: icMax, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.x + '</b><br/>Temps de clôture moyen : ' + fmtEcartSigned(this.point.ms) + '<br/>' + this.point.n + ' IC'; } },
                     plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 }, color: '#dc2626', negativeColor: '#16a34a' }, series: { connectNulls: true } },
                     series: [ { name: 'Temps de clôture moyen', data: data, color: '#dc2626', negativeColor: '#16a34a' } ]
