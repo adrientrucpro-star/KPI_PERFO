@@ -1778,6 +1778,21 @@
             if (Math.round(Math.abs(ms) / 60000) === 0) return "à l'heure";
             return (ms < 0 ? "− " : "+ ") + fmtDHM(Math.abs(ms));
         }
+        // Étiquette d'axe Y (durée d'IC) : la valeur de graduation est en JOURS -> libellé signé compact (j / h / min),
+        // en s'adaptant à l'échelle (heures/minutes si petit, jours si grand).
+        function icAxisLabel(days) {
+            var ms = Math.round(days * dayMs()), min = Math.round(ms / 60000);
+            if (min === 0) return "0";
+            var neg = min < 0, a = Math.abs(min);
+            var dayMin = 1440, hMin = 60;
+            var d = Math.floor(a / dayMin); a -= d * dayMin;
+            var h = Math.floor(a / hMin); var m = a - h * hMin;
+            var s;
+            if (d > 0) s = d + " j" + (h > 0 ? " " + h + " h" : "");       // >= 1 jour : j (+ h)
+            else if (h > 0) s = h + " h" + (m > 0 ? " " + m + " min" : ""); // < 1 jour : h (+ min)
+            else s = m + " min";                                            // < 1 heure : min
+            return (neg ? "−" : "+") + s;
+        }
 
     // ==========================================================
     // PAGE : PARAMÈTRES (4 tableaux)
@@ -2878,7 +2893,7 @@
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: null }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    yAxis: { title: { text: null }, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.x + ' : ' + fmtEcartSigned(this.point.ms) + ' &middot; ' + this.point.n + ' IC'; } },
                     plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
                     series: series
@@ -2933,7 +2948,7 @@
                     title: { text: null }, credits: { enabled: false },
                     legend: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: null }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    yAxis: { title: { text: null }, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.x + '</b><br/>Temps de clôture moyen : ' + fmtEcartSigned(this.point.ms) + '<br/>' + this.point.n + ' IC'; } },
                     plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 }, color: '#dc2626', negativeColor: '#16a34a' }, series: { connectNulls: true } },
                     series: [ { name: 'Temps de clôture moyen', data: data, color: '#dc2626', negativeColor: '#16a34a' } ]
