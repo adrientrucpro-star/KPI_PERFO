@@ -2957,7 +2957,7 @@
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: null }, allowDecimals: false, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    yAxis: { title: { text: null }, allowDecimals: false, softMax: 2, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.x + ' : ' + fmtEcartSigned(this.point.ms) + ' &middot; ' + this.point.n + ' IC'; } },
                     plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
                     series: series
@@ -3014,7 +3014,7 @@
                     title: { text: null }, credits: { enabled: false },
                     legend: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: null }, allowDecimals: false, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    yAxis: { title: { text: null }, allowDecimals: false, softMax: 2, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.x + '</b><br/>Temps de clôture moyen : ' + fmtEcartSigned(this.point.ms) + '<br/>' + this.point.n + ' IC'; } },
                     plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 }, color: '#dc2626', negativeColor: '#16a34a' }, series: { connectNulls: true } },
                     series: [ { name: 'Temps de clôture moyen', data: data, color: '#dc2626', negativeColor: '#16a34a' } ]
