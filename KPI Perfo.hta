@@ -1069,26 +1069,41 @@
     //  Avis | Statut | Description | Respons. | Code | Désignation | Terminé par
     //      | Date(créé le) | Heure(créé à) | Terminé le | Terminé à | Nº
     // ==========================================================
-        // Lance l'extraction SAP QM13 puis analyse le fichier généré.
+        // MODE TEST TEMPORAIRE (non sauvegardé, revient à SAP au redémarrage) : true = lire les EXPORT_*.txt
+        // déjà présents dans le dossier de données au lieu de lancer SAP PEA.
+        var useExportFiles = false;
+        function ToggleExportMode() {
+            useExportFiles = !useExportFiles;
+            var sw = document.getElementById('exportModeSwitch');
+            if (sw) sw.className = 'nc-switch' + (useExportFiles ? '' : ' off');
+            var lbl = document.getElementById('exportModeLabel');
+            if (lbl) lbl.innerText = useExportFiles ? "Source : Fichiers d'export (test)" : "Source : SAP PEA";
+        }
+        // Lance l'extraction SAP QM13 puis analyse le fichier généré (ou lit directement le fichier en mode test).
         function LancerExtractionSAP() {
             if (!hasAnyTeamMember()) return;   // sécurité : bouton grisé sans équipe
             var btn = document.getElementById('btnExtract');
             var dateVal = NettoyerChaine(document.getElementById('extractDate').value);
             var dateFin = NettoyerChaine(document.getElementById('extractDateFin').value);
-            if (!dateVal || !dateFin) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
+            if (!useExportFiles && (!dateVal || !dateFin)) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
             var dateSAP = dateVal.replace(/\//g, '.');          // JJ/MM/AAAA -> JJ.MM.AAAA
             var dateSAPFin = dateFin.replace(/\//g, '.');
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
             setTimeout(function () {
                 try {
-                    var res = VBS_ExtractQM13(dateSAP, dateSAPFin);
-                    if (res && res.indexOf("ERREUR") === -1) {
-                        var sh = new ActiveXObject("WScript.Shell");
-                        ChargerMSN(dateSAP, dateSAPFin, sh);   // 2e extract QM11 (LAROCHE_NC2) : mappe le MSN à chaque NC (best-effort)
-                        var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_NC.txt";
-                        LireEtAnalyser(path);   // parse + sauvegarde + recalcul + rendu liste + MsgBox résultat
+                    var sh = new ActiveXObject("WScript.Shell");
+                    var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_NC.txt";
+                    if (useExportFiles) {                       // mode test : lecture directe des fichiers
+                        ChargerMSNDepuisFichier();
+                        LireEtAnalyser(path);
                     } else {
-                        AfficherErreur(res || "Erreur inconnue lors de l'extraction.");
+                        var res = VBS_ExtractQM13(dateSAP, dateSAPFin);
+                        if (res && res.indexOf("ERREUR") === -1) {
+                            ChargerMSN(dateSAP, dateSAPFin, sh);   // 2e extract QM11 (LAROCHE_NC2) : mappe le MSN à chaque NC (best-effort)
+                            LireEtAnalyser(path);   // parse + sauvegarde + recalcul + rendu liste + MsgBox résultat
+                        } else {
+                            AfficherErreur(res || "Erreur inconnue lors de l'extraction.");
+                        }
                     }
                 } catch (e) {
                     AfficherErreur("Erreur : " + e.message);
@@ -1283,7 +1298,7 @@
             if (!teamHasMembers(appData.teamST) && !teamHasMembers(appData.teamIQ)) return;   // sécurité : bouton grisé sans équipe
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('ofDateFin').value).replace(/\//g, '.');
-            if (!d1 || !d2) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
+            if (!useExportFiles && (!d1 || !d2)) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
             var btn = document.getElementById('btnOF');
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
             setTimeout(function () {
@@ -1291,13 +1306,20 @@
                     var sh = new ActiveXObject("WScript.Shell");
                     var folder = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\";
                     var errs = [];
-                    var r1 = VBS_ExtractOFCree(d1, d2);
-                    if (r1 && r1.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("Création : " + (r1 || "erreur inconnue"));
-                    var r2 = VBS_ExtractOFClot(d1, d2);
-                    if (r2 && r2.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("Clôture : " + (r2 || "erreur inconnue"));
-                    // 3e extract : MSN des OF clôturés (variante IQ2) -> rattaché aux lignes ofClot (best-effort).
-                    var r3 = VBS_ExtractOFClotMSN(d1, d2);
-                    if (r3 && r3.indexOf("ERREUR") === -1) MergeOFClotMSN(folder + "EXPORT_IQ2.txt"); else if (r3) errs.push("MSN clôture : " + r3);
+                    if (useExportFiles) {                       // mode test : lecture directe des fichiers
+                        var fsoT = new ActiveXObject("Scripting.FileSystemObject");
+                        if (fsoT.FileExists(folder + "EXPORT_ST.txt")) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("EXPORT_ST.txt introuvable");
+                        if (fsoT.FileExists(folder + "EXPORT_IQ.txt")) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("EXPORT_IQ.txt introuvable");
+                        if (fsoT.FileExists(folder + "EXPORT_IQ2.txt")) MergeOFClotMSN(folder + "EXPORT_IQ2.txt");
+                    } else {
+                        var r1 = VBS_ExtractOFCree(d1, d2);
+                        if (r1 && r1.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("Création : " + (r1 || "erreur inconnue"));
+                        var r2 = VBS_ExtractOFClot(d1, d2);
+                        if (r2 && r2.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("Clôture : " + (r2 || "erreur inconnue"));
+                        // 3e extract : MSN des OF clôturés (variante IQ2) -> rattaché aux lignes ofClot (best-effort).
+                        var r3 = VBS_ExtractOFClotMSN(d1, d2);
+                        if (r3 && r3.indexOf("ERREUR") === -1) MergeOFClotMSN(folder + "EXPORT_IQ2.txt"); else if (r3) errs.push("MSN clôture : " + r3);
+                    }
                     appData.lastOFImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
                     SaveData();
                     RenderOFCombined();
@@ -1481,16 +1503,19 @@
             if (!hasAnyTeamMember()) return;   // sécurité : bouton grisé sans équipe
             var d1 = NettoyerChaine(document.getElementById('icDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('icDateFin').value).replace(/\//g, '.');
-            if (!d1 || !d2) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
+            if (!useExportFiles && (!d1 || !d2)) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
             var btn = document.getElementById('btnICExtract');
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
             setTimeout(function () {
                 try {
-                    var res = VBS_ExtractIC(d1, d2);
-                    if (res && res.indexOf("ERREUR") === -1) {
-                        var sh = new ActiveXObject("WScript.Shell");
-                        LireIC(sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_IC.txt");
-                    } else { AfficherErreur(res || "Erreur inconnue lors de l'extraction IC."); }
+                    var sh = new ActiveXObject("WScript.Shell");
+                    var pathIC = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_IC.txt";
+                    if (useExportFiles) {                       // mode test : lecture directe du fichier
+                        LireIC(pathIC);
+                    } else {
+                        var res = VBS_ExtractIC(d1, d2);
+                        if (res && res.indexOf("ERREUR") === -1) LireIC(pathIC); else AfficherErreur(res || "Erreur inconnue lors de l'extraction IC.");
+                    }
                 } catch (e) { AfficherErreur("Erreur : " + e.message); }
                 if (btn) { btn.innerHTML = "Extract IC"; }
                 UpdateExtractButtons();   // rétablit l'état actif/grisé selon les équipes
@@ -3786,6 +3811,10 @@
                     <button id="subtabNC" class="subtab active" onclick="ShowExtractSub('NC')">Non-conformité</button>
                     <button id="subtabOF" class="subtab" onclick="ShowExtractSub('OF')">Ordre de Fabrication</button>
                     <button id="subtabIC" class="subtab" onclick="ShowExtractSub('IC')">Intervention Card</button>
+                    <span style="float:right; margin-top:6px;" title="Temporaire : lit les fichiers EXPORT_*.txt du dossier de données au lieu de lancer SAP PEA. Revient à SAP au redémarrage.">
+                        <span id="exportModeLabel" style="font-size:12px; font-weight:600; color:#64748b; vertical-align:middle; margin-right:8px;">Source : SAP PEA</span>
+                        <span id="exportModeSwitch" class="nc-switch off" onclick="ToggleExportMode()"><span class="knob"></span></span>
+                    </span>
                 </div>
 
                 <div id="extractSubNC">
