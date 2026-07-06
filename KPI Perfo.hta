@@ -3032,10 +3032,12 @@
         }
         // Max de l'axe Y des graphiques IC : au moins +2 h au-dessus de 0 (zone "retard" toujours visible),
         // sinon le max réel des données (arrondi à l'heure sup.). points = tableau de {y,...} ou null.
-        function icYAxisMax(points) {
-            var mx = 0;
-            for (var i = 0; i < points.length; i++) { var p = points[i]; if (p && p.y != null && p.y > mx) mx = p.y; }
-            return Math.max(2, Math.ceil(mx));
+        // Bornes de l'axe Y des graphiques IC : min toujours ≤ 0 (ligne "à l'heure" toujours visible, même avec 1 seul point),
+        // max toujours ≥ +2 h (zone "retard" visible), sinon min/max réels des données.
+        function icYAxisBounds(points) {
+            var mx = 0, mn = 0;
+            for (var i = 0; i < points.length; i++) { var p = points[i]; if (p && p.y != null) { if (p.y > mx) mx = p.y; if (p.y < mn) mn = p.y; } }
+            return { min: Math.min(0, Math.floor(mn)), max: Math.max(2, Math.ceil(mx)) };
         }
         function hcICUserChart(id, teamRows, nomMap) {
             var cont = document.getElementById(id); if (!cont) return;
@@ -3056,13 +3058,13 @@
                 series.push({ name: nomMap[u], data: data });
                 allPts = allPts.concat(data);
             }
-            var icMax = icYAxisMax(allPts);
+            var icB = icYAxisBounds(allPts);
             try {
                 hcDraw(id, {
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: null }, allowDecimals: false, max: icMax, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    yAxis: { title: { text: null }, allowDecimals: false, min: icB.min, max: icB.max, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.series.name + '</b><br/>' + this.x + ' : ' + fmtEcartSigned(this.point.ms) + ' &middot; ' + this.point.n + ' IC'; } },
                     plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
                     series: series
@@ -3112,14 +3114,14 @@
                 else data.push(null);
             }
             if (!icTotHasData) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
-            var icMax = icYAxisMax(data);
+            var icB = icYAxisBounds(data);
             try {
                 hcDraw(id, {
                     chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
                     title: { text: null }, credits: { enabled: false },
                     legend: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
-                    yAxis: { title: { text: null }, allowDecimals: false, max: icMax, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    yAxis: { title: { text: null }, allowDecimals: false, min: icB.min, max: icB.max, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
                     tooltip: { useHTML: true, formatter: function () { return '<b>' + this.x + '</b><br/>Temps de clôture moyen : ' + fmtEcartSigned(this.point.ms) + '<br/>' + this.point.n + ' IC'; } },
                     plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 }, color: '#dc2626', negativeColor: '#16a34a' }, series: { connectNulls: true } },
                     series: [ { name: 'Temps de clôture moyen', data: data, color: '#dc2626', negativeColor: '#16a34a' } ]
