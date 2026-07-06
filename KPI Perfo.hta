@@ -3620,7 +3620,26 @@
                 + "<div class='rpt-stats'>Traitement global moyen : <b>" + (avgG == null ? "-" : fmtDHM(avgG)) + "</b> &nbsp;|&nbsp; Traitement équipe moyen : <b>" + (avgT == null ? "-" : fmtDHM(avgT)) + "</b></div>"
                 + "</div>" + body + "</body></html>";
         }
-        // Imprime un rapport HTML via une iframe cachée (l'utilisateur choisit "Microsoft Print to PDF").
+        // Vide les en-têtes/pieds de page IE (titre, n° de page, URL) avant impression ; renvoie de quoi restaurer.
+        function stripPrintHeaders() {
+            var base = "HKEY_CURRENT_USER\\Software\\Microsoft\\Internet Explorer\\PageSetup\\";
+            var st = { sh: null, hKey: base + "header", fKey: base + "footer", hOld: "", fOld: "", hHad: false, fHad: false };
+            try {
+                st.sh = new ActiveXObject("WScript.Shell");
+                try { st.hOld = st.sh.RegRead(st.hKey); st.hHad = true; } catch (e) {}
+                try { st.fOld = st.sh.RegRead(st.fKey); st.fHad = true; } catch (e) {}
+                st.sh.RegWrite(st.hKey, "", "REG_SZ");
+                st.sh.RegWrite(st.fKey, "", "REG_SZ");
+            } catch (e2) {}
+            return st;
+        }
+        // Restaure les réglages d'en-tête/pied de page IE (valeur précédente, ou suppression si elle n'existait pas).
+        function restorePrintHeaders(st) {
+            if (!st || !st.sh) return;
+            try { if (st.hHad) st.sh.RegWrite(st.hKey, st.hOld, "REG_SZ"); else st.sh.RegDelete(st.hKey); } catch (e) {}
+            try { if (st.fHad) st.sh.RegWrite(st.fKey, st.fOld, "REG_SZ"); else st.sh.RegDelete(st.fKey); } catch (e2) {}
+        }
+        // Imprime un rapport HTML via une iframe cachée (l'utilisateur choisit "Microsoft Print to PDF"), sans en-tête/pied IE.
         function PrintHtmlReport(html) {
             var old = document.getElementById('printFrame'); if (old && old.parentNode) old.parentNode.removeChild(old);
             var ifr = document.createElement('iframe');
@@ -3630,7 +3649,11 @@
             try {
                 var doc = ifr.contentWindow.document;
                 doc.open(); doc.write(html); doc.close();
-                setTimeout(function () { try { ifr.contentWindow.focus(); ifr.contentWindow.print(); } catch (e) { AfficherErreur("Impression impossible : " + e.message); } }, 250);
+                setTimeout(function () {
+                    var st = stripPrintHeaders();
+                    try { ifr.contentWindow.focus(); ifr.contentWindow.print(); } catch (e) { AfficherErreur("Impression impossible : " + e.message); }
+                    restorePrintHeaders(st);   // print() est bloquant jusqu'à la boîte de dialogue -> restauration sûre
+                }, 250);
             } catch (e2) { AfficherErreur("Erreur lors de la génération du rapport : " + e2.message); }
         }
         function SetNCComment(avis, val) {
