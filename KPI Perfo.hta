@@ -1540,7 +1540,10 @@
                     var va, vb;
                     if (sc === 'date') { va = dateToNum(a.date) || 0; vb = dateToNum(b.date) || 0; }
                     else { va = NettoyerChaine(a[sc]).toUpperCase(); vb = NettoyerChaine(b[sc]).toUpperCase(); }
-                    return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
+                    var c = (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
+                    if (c !== 0) return c;
+                    var ha = NettoyerChaine(a.heure).toUpperCase(), hb = NettoyerChaine(b.heure).toUpperCase();   // départage : heure décroissante
+                    return (ha < hb ? 1 : (ha > hb ? -1 : 0));
                 });
             }
             var cap = extractCap('nbLignesOF'), totalRows = data.length;
@@ -1566,7 +1569,7 @@
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
-        var ofSort = { col: 'date', dir: -1 };   // tri par défaut : date décroissante
+        var ofSort = { col: 'date', dir: -1 };   // tri par défaut : date décroissante (puis heure décroissante en départage)
         function ofTh(col, label, w) {
             var arrow = (ofSort.col === col) ? (ofSort.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
             var wAttr = w ? (" width='" + w + "'") : "";   // w vide = colonne élastique (absorbe l'espace restant)
@@ -1661,7 +1664,7 @@
                 UpdateExtractButtons();   // rétablit l'état actif/grisé selon les équipes
             }, 80);
         }
-        var icSort = { col: null, dir: 1 };
+        var icSort = { col: 'dfa', dir: -1 };   // tri par défaut : date fin autorisée décroissante (puis heure fin autorisée décroissante)
         function icTh(col, label, w) {
             var arrow = (icSort.col === col) ? (icSort.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
             var wAttr = w ? (" width='" + w + "'") : "";   // w vide = colonne élastique (absorbe l'espace restant)
@@ -1704,7 +1707,10 @@
                 data.sort(function (a, b) {
                     var va = (sc === 'dfa' || sc === 'dc') ? (dateToNum(a[sc]) || 0) : NettoyerChaine(a[sc]).toUpperCase();
                     var vb = (sc === 'dfa' || sc === 'dc') ? (dateToNum(b[sc]) || 0) : NettoyerChaine(b[sc]).toUpperCase();
-                    return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
+                    var c = (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
+                    if (c !== 0) return c;
+                    var ha = NettoyerChaine(a.hfa).toUpperCase(), hb = NettoyerChaine(b.hfa).toUpperCase();   // départage : heure fin autorisée décroissante
+                    return (ha < hb ? 1 : (ha > hb ? -1 : 0));
                 });
             }
             var cap = extractCap('nbLignesIC'), totalRows = data.length;
