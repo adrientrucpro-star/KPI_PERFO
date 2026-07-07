@@ -1047,14 +1047,26 @@
         }
         // Plafond de lignes affichées dans les tableaux d'extraction : au-delà, IE10 rame à l'affichage
         // d'un très gros tableau (bascule d'onglet lente). Les lignes sont triées AVANT -> on garde les N premières.
-        var EXTRACT_ROW_CAP = 500;
-        function extractCapNotice(total) {
-            if (total <= EXTRACT_ROW_CAP) return "";
-            return "<div style='padding:7px 12px; margin-bottom:8px; background:#fff7ed; border:1px solid #fed7aa; border-radius:6px; color:#9a3412; font-size:12px; font-weight:600;'>"
-                + total + " lignes trouvées — affichage limité aux " + EXTRACT_ROW_CAP + " premières (selon le tri). Affine les filtres (dates / recherche) pour réduire la liste.</div>";
+        var EXTRACT_ROW_CAP = 500;   // valeur par défaut si la case "Lignes" est vide ou invalide
+        // Nombre max de lignes à afficher = ce qui est saisi dans la case "Lignes" du sous-onglet (défaut 500).
+        function extractCap(id) {
+            var el = document.getElementById(id);
+            var n = el ? parseInt(NettoyerChaine(el.value), 10) : NaN;
+            return (isNaN(n) || n < 1) ? EXTRACT_ROW_CAP : n;
         }
-        // Met à jour la case "Lignes" (nombre de lignes filtrées) d'un sous-onglet d'extraction.
-        function SetNbLignes(id, n) { var el = document.getElementById(id); if (el) el.innerText = "" + n; }
+        function extractCapNotice(total, cap) {
+            if (total <= cap) return "";
+            return "<div style='padding:7px 12px; margin-bottom:8px; background:#fff7ed; border:1px solid #fed7aa; border-radius:6px; color:#9a3412; font-size:12px; font-weight:600;'>"
+                + total + " lignes trouvées — affichage limité aux " + cap + " premières (selon le tri). Affine les filtres ou augmente la case « Lignes ».</div>";
+        }
+        // Masque le bouton "×" des champs de date quand ils sont vides (affiché seulement si une date est saisie).
+        function RefreshDateClearButtons() {
+            var wraps = document.querySelectorAll('.date-wrap');
+            for (var i = 0; i < wraps.length; i++) {
+                var inp = wraps[i].getElementsByTagName('input')[0], b = wraps[i].getElementsByTagName('button')[0];
+                if (inp && b) b.style.display = NettoyerChaine(inp.value) ? '' : 'none';
+            }
+        }
         // Pré-rend en arrière-plan les sous-onglets d'extraction non encore rendus (construit le HTML dans les conteneurs
         // masqués), pour que le changement d'onglet soit instantané (le coût du rendu est déplacé hors du clic).
         function PrerenderExtractSubs() {
@@ -1082,7 +1094,7 @@
             if (skipRender) return;
             if (id === "pageParametres") { if (!pageValid.parametres) RenderParametres(); }
             if (id === "pageDashboard") RenderDashIfNeeded();
-            if (id === "pageAnalyse") { RenderActiveExtractSub(); EgaliserHauteursExtraction(); AjusterHauteurTables(); ResetTblScroll(); PrerenderExtractSubs(); }
+            if (id === "pageAnalyse") { RenderActiveExtractSub(); EgaliserHauteursExtraction(); AjusterHauteurTables(); ResetTblScroll(); PrerenderExtractSubs(); RefreshDateClearButtons(); }
             if (id === "pageParcours") {
                 if (!pageValid.parcours) RenderParcours();
                 var pc = document.getElementById('parcoursContainer'); if (pc) pc.scrollTop = 0;   // liste tout en haut
@@ -1165,6 +1177,7 @@
                 var df = dpInput.getAttribute('data-filter');
                 if (df === 'of') RenderOFAll(); else if (df === 'ic') RenderICTable(); else RenderListe();
             }
+            RefreshDateClearButtons();
         }
         // Paires de dates (du, au) : la date "à partir du" ne doit pas dépasser "jusqu'au".
         var DATE_PAIRS = [['extractDate', 'extractDateFin'], ['filtreDateDebut', 'filtreDateFin'], ['ofDateDebut', 'ofDateFin'], ['ofFiltreDateDebut', 'ofFiltreDateFin'], ['icDateDebut', 'icDateFin'], ['icFiltreDateDebut', 'icFiltreDateFin']];
@@ -1194,6 +1207,7 @@
         // Efface une date (bouton ×) et rafraîchit le rendu si c'est un filtre.
         function clearDate(id, event) {
             var el = document.getElementById(id); if (el) el.value = "";
+            RefreshDateClearButtons();
             var f = el ? el.getAttribute('data-filter') : null;
             if (f === 'of') RenderOFAll(); else if (f) RenderListe();
             if (event && event.stopPropagation) event.stopPropagation();
@@ -1516,7 +1530,6 @@
                 }
                 data = keep;
             }
-            SetNbLignes('nbLignesOF', data.length);
             if (!data.length) {
                 if (totalOF) showEmptyExtract('ofTable', "Aucun OF ne correspond aux filtres.", "Modifie ou réinitialise les filtres.");
                 else showEmptyExtract('ofTable', "Aucune extraction réalisée", "Lance une extraction des ordres de fabrication ci-dessus.");
@@ -1531,8 +1544,8 @@
                     return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
                 });
             }
-            var totalRows = data.length;
-            if (totalRows > EXTRACT_ROW_CAP) data = data.slice(0, EXTRACT_ROW_CAP);
+            var cap = extractCap('nbLignesOF'), totalRows = data.length;
+            if (totalRows > cap) data = data.slice(0, cap);
             var rows = "";
             for (var i = 0; i < data.length; i++) {
                 var r = data[i];
@@ -1547,7 +1560,7 @@
                     + "<td style='text-align:center;'>" + escapeHtml(r.heure) + "</td>"
                     + "<td style='text-align:center;'>" + badge + "</td></tr>";
             }
-            cont.innerHTML = extractCapNotice(totalRows) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
+            cont.innerHTML = extractCapNotice(totalRows, cap) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
                 + "<table class='data-table'><thead><tr><th width='4%'></th>"
                 + ofTh('of', 'Ordre de Fabrication', '16%') + ofTh('msn', 'MSN', '16%') + ofTh('user', 'User', '16%')
                 + ofTh('date', 'Date', '16%') + ofTh('heure', 'Heure', '16%') + ofTh('type', 'Type', '')
@@ -1568,6 +1581,7 @@
         function ResetOFFiltres() {
             var ids = ['ofFiltreDateDebut', 'ofFiltreDateFin', 'ofFiltreRecherche'];
             for (var i = 0; i < ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ""; }
+            RefreshDateClearButtons();
             RenderOFAll();
         }
 
@@ -1658,6 +1672,7 @@
         function ResetICFiltres() {
             var ids = ['icFiltreDateDebut', 'icFiltreDateFin', 'icFiltreRecherche'];
             for (var i = 0; i < ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ""; }
+            RefreshDateClearButtons();
             RenderICTable();
         }
         function RenderICTable() {
@@ -1680,7 +1695,6 @@
                 }
                 data = keep;
             }
-            SetNbLignes('nbLignesIC', data.length);
             if (!data.length) {
                 if (totalIC) showEmptyExtract('icTable', "Aucune IC ne correspond aux filtres.", "Modifie ou réinitialise les filtres.");
                 else showEmptyExtract('icTable', "Aucune extraction réalisée", "Lance une extraction des Interventions Cards ci-dessus.");
@@ -1694,8 +1708,8 @@
                     return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
                 });
             }
-            var totalRows = data.length;
-            if (totalRows > EXTRACT_ROW_CAP) data = data.slice(0, EXTRACT_ROW_CAP);
+            var cap = extractCap('nbLignesIC'), totalRows = data.length;
+            if (totalRows > cap) data = data.slice(0, cap);
             var rows = "";
             for (var i = 0; i < data.length; i++) {
                 var r = data[i], late = isICLate(r), lateSt = late ? " color:#b91c1c; font-weight:700;" : "";
@@ -1709,7 +1723,7 @@
                     + "<td style='text-align:center;" + lateSt + "'>" + escapeHtml(r.hc) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(r.user) + "</td></tr>";
             }
-            cont.innerHTML = extractCapNotice(totalRows) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
+            cont.innerHTML = extractCapNotice(totalRows, cap) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
                 + "<table class='data-table'><thead><tr><th width='4%'></th>"
                 + icTh('ic', 'Numéro IC', '13%') + icTh('msn', 'MSN', '13%')
                 + icTh('dfa', 'Date fin autorisée', '14%') + icTh('hfa', 'Heure fin autorisée', '14%')
@@ -3305,6 +3319,7 @@
             setDateIfEmpty('ofDateFin', today);
             setDateIfEmpty('icDateDebut', lastIC);
             setDateIfEmpty('icDateFin', today);
+            RefreshDateClearButtons();
         }
         function RenderListe() {
             extractValid.NC = true;   // rendu à jour (cache)
@@ -3312,7 +3327,7 @@
             if (lbl) lbl.innerText = appData.lastImport ? appData.lastImport : "Jamais";
             PrefillExtractDates();
             var cont = document.getElementById('listeContainer');
-            if (!ncList.length) { SetNbLignes('nbLignesNC', 0); showEmptyExtract('listeContainer', "Aucune extraction réalisée", "Lance une extraction QM13 ci-dessus pour afficher les non-conformités."); return; }
+            if (!ncList.length) { showEmptyExtract('listeContainer', "Aucune extraction réalisée", "Lance une extraction QM13 ci-dessus pour afficher les non-conformités."); return; }
 
             var d1 = parseFilterDate(document.getElementById('filtreDateDebut').value);
             var d2 = parseFilterDate(document.getElementById('filtreDateFin').value);
@@ -3331,14 +3346,13 @@
                 }
                 filtered.push(ncf);
             }
-            SetNbLignes('nbLignesNC', filtered.length);
             if (!filtered.length) { showEmptyExtract('listeContainer', "Aucune NC ne correspond aux filtres.", "Modifie ou réinitialise les filtres."); return; }
             if (listeSort.col) {
                 var sc = listeSort.col, sd = listeSort.dir;
                 filtered.sort(function (a, b) { var va = listeSortVal(a, sc), vb = listeSortVal(b, sc); return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd; });
             }
-            var totalRows = filtered.length;
-            var shown = (totalRows > EXTRACT_ROW_CAP) ? filtered.slice(0, EXTRACT_ROW_CAP) : filtered;
+            var cap = extractCap('nbLignesNC'), totalRows = filtered.length;
+            var shown = (totalRows > cap) ? filtered.slice(0, cap) : filtered;
             var rows = "";
             for (var fi = 0; fi < shown.length; fi++) {
                 var nc = shown[fi];
@@ -3354,7 +3368,7 @@
                     + "<td>" + escapeHtml(cmt) + "</td>"
                     + "</tr>";
             }
-            cont.innerHTML = extractCapNotice(totalRows) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'><table class='data-table'><thead><tr>"
+            cont.innerHTML = extractCapNotice(totalRows, cap) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'><table class='data-table'><thead><tr>"
                 + "<th width='4%'></th>"
                 + listeTh('avis', 'Avis', "width='8%'")
                 + listeTh('msn', 'MSN', "width='6%'")
@@ -3421,6 +3435,7 @@
             document.getElementById('filtreDateDebut').value = "";
             document.getElementById('filtreDateFin').value = "";
             document.getElementById('filtreRecherche').value = "";
+            RefreshDateClearButtons();
             RenderListe();
         }
 
@@ -4130,7 +4145,7 @@
                                 </td>
                                 <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Lignes</label>
-                                    <div id="nbLignesNC" style="height:38px; line-height:38px; min-width:64px; padding:0 12px; border:1px solid #c5d5de; border-radius:6px; background:#f1f5f9; color:#0C447C; font-weight:700; font-size:13px; text-align:center; box-sizing:border-box;">0</div>
+                                    <input type="text" id="nbLignesNC" value="500" onkeyup="DebounceExtractSearch(RenderListe)" title="Nombre de lignes à afficher" style="width:72px; height:38px; padding:0 8px; border:1px solid #c5d5de; border-radius:6px; background:#fff; color:#0C447C; font-weight:700; font-size:13px; text-align:center; box-sizing:border-box;">
                                 </td>
                             </tr></table>
                         </div>
@@ -4182,7 +4197,7 @@
                                     </td>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Lignes</label>
-                                        <div id="nbLignesOF" style="height:38px; line-height:38px; min-width:64px; padding:0 12px; border:1px solid #c5d5de; border-radius:6px; background:#f1f5f9; color:#0C447C; font-weight:700; font-size:13px; text-align:center; box-sizing:border-box;">0</div>
+                                        <input type="text" id="nbLignesOF" value="500" onkeyup="DebounceExtractSearch(RenderOFAll)" title="Nombre de lignes à afficher" style="width:72px; height:38px; padding:0 8px; border:1px solid #c5d5de; border-radius:6px; background:#fff; color:#0C447C; font-weight:700; font-size:13px; text-align:center; box-sizing:border-box;">
                                     </td>
                                 </tr></table>
                             </div>
@@ -4233,7 +4248,7 @@
                                     </td>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Lignes</label>
-                                        <div id="nbLignesIC" style="height:38px; line-height:38px; min-width:64px; padding:0 12px; border:1px solid #c5d5de; border-radius:6px; background:#f1f5f9; color:#0C447C; font-weight:700; font-size:13px; text-align:center; box-sizing:border-box;">0</div>
+                                        <input type="text" id="nbLignesIC" value="500" onkeyup="DebounceExtractSearch(RenderICTable)" title="Nombre de lignes à afficher" style="width:72px; height:38px; padding:0 8px; border:1px solid #c5d5de; border-radius:6px; background:#fff; color:#0C447C; font-weight:700; font-size:13px; text-align:center; box-sizing:border-box;">
                                     </td>
                                 </tr></table>
                             </div>
