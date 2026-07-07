@@ -1059,7 +1059,11 @@
             var wraps = document.querySelectorAll('.date-wrap');
             for (var i = 0; i < wraps.length; i++) {
                 var inp = wraps[i].getElementsByTagName('input')[0], b = wraps[i].getElementsByTagName('button')[0];
-                if (inp && b) b.style.display = NettoyerChaine(inp.value) ? '' : 'none';
+                if (inp && b) {
+                    var has = NettoyerChaine(inp.value) !== "";
+                    b.style.display = has ? '' : 'none';
+                    inp.style.paddingRight = has ? '' : '12px';   // pas de × quand vide -> pas d'espace réservé -> placeholder "JJ/MM/AAAA" non tronqué
+                }
             }
         }
         // Pré-rend en arrière-plan les sous-onglets d'extraction non encore rendus (construit le HTML dans les conteneurs
@@ -4126,11 +4130,11 @@
                             <table style="border:none; width:100%;"><tr>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
-                                    <span class="date-wrap"><input type="text" id="filtreDateDebut" data-filter="1" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateDebut', event)" title="Effacer">&times;</button></span>
+                                    <span class="date-wrap"><input type="text" id="filtreDateDebut" data-filter="1" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateDebut', event)" title="Effacer">&times;</button></span>
                                 </td>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
-                                    <span class="date-wrap"><input type="text" id="filtreDateFin" data-filter="1" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateFin', event)" title="Effacer">&times;</button></span>
+                                    <span class="date-wrap"><input type="text" id="filtreDateFin" data-filter="1" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateFin', event)" title="Effacer">&times;</button></span>
                                 </td>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
@@ -4178,11 +4182,11 @@
                                 <table style="border:none; width:100%;"><tr>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
-                                        <span class="date-wrap"><input type="text" id="ofFiltreDateDebut" data-filter="of" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateDebut', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="ofFiltreDateDebut" data-filter="of" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateDebut', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
-                                        <span class="date-wrap"><input type="text" id="ofFiltreDateFin" data-filter="of" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateFin', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="ofFiltreDateFin" data-filter="of" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateFin', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
@@ -4229,11 +4233,11 @@
                                 <table style="border:none; width:100%;"><tr>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
-                                        <span class="date-wrap"><input type="text" id="icFiltreDateDebut" data-filter="ic" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateDebut', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="icFiltreDateDebut" data-filter="ic" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateDebut', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
-                                        <span class="date-wrap"><input type="text" id="icFiltreDateFin" data-filter="ic" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateFin', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="icFiltreDateFin" data-filter="ic" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateFin', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
