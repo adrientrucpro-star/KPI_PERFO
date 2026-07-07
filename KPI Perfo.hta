@@ -585,10 +585,13 @@
         var CLOTURE_RESP = "70005848";                   // Responsable qualité dont l'APQ0 marque la clôture
         var DECISION_CODE = "DEC0";                      // défaut : code SAP de la décision technique
         var DECISION_RESP = "70009001;70005847";         // défaut : Responsables CT (décision)
-        // Base partagée (commentaires + sélection "Départ") via Gist privé. ID = identifiant (pas un secret) ;
-        // le TOKEN d'écriture est saisi par poste (Paramètres) et stocké en local -> jamais dans le code.
+        // Base partagée (commentaires + sélection "Départ") via Gist privé. ID = identifiant (pas un secret).
         var SHARE_GIST_ID = "8a40ac55fc606b8ad0358b7b3e3c396a";
         var SHARE_FILE = "KPI_PERFO_DATA.json";
+        // >>> TOKEN partagé (portée gist) <<< : À LAISSER VIDE dans la version poussée sur GitHub (sinon exposé publiquement).
+        // Pour distribuer aux collègues sans config par poste : mettre le token ICI dans la copie distribuée
+        // (par mail/lecteur partagé, PAS via l'URL publique). Prioritaire ; sinon on prend le token saisi dans les Paramètres.
+        var SHARE_TOKEN = "";
         // Valeur de configuration éditable (Paramètres), repli sur la constante par défaut.
         function cfgVal(k, def) { return (appData.cfg && NettoyerChaine(appData.cfg[k]) !== "") ? NettoyerChaine(appData.cfg[k]) : def; }
         var LIEN_CONFIG_APP = "https://gist.githubusercontent.com/adrientrucexternal/9006613d5966adaa40d408cdb3bd1068/raw";
@@ -737,7 +740,8 @@
     // BASE PARTAGÉE : commentaires + sélection "Départ" via un Gist privé.
     // Token saisi par poste (Paramètres, stocké en local) ; ID du Gist en dur (SHARE_GIST_ID).
     // ==========================================================
-        function shareToken() { return (appData.share && NettoyerChaine(appData.share.token)) || ""; }
+        // Priorité au token EN DUR de la copie distribuée (SHARE_TOKEN), sinon celui saisi par poste (Paramètres).
+        function shareToken() { return NettoyerChaine(SHARE_TOKEN) || (appData.share && NettoyerChaine(appData.share.token)) || ""; }
         function shareConfigured() { return shareToken() !== "" && SHARE_GIST_ID !== ""; }
         // Lit le Gist partagé -> { comments, selLine } via callback (null si non configuré / échec).
         function shareRead(cb) {
@@ -2015,9 +2019,13 @@
             RenderCalcMode();
             RenderRolesTable();
             RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
-            var sti = document.getElementById('shareTokenInput'); if (sti) sti.value = shareToken();
+            var sti = document.getElementById('shareTokenInput'); if (sti) sti.value = (appData.share && appData.share.token) || "";   // champ = token PAR POSTE uniquement (pas le token en dur)
             var sst = document.getElementById('shareStatus');
-            if (sst) { if (shareConfigured()) { sst.style.color = "#166534"; sst.innerText = "Partage actif."; } else { sst.style.color = "#94a3b8"; sst.innerText = "Partage désactivé (token vide)."; } }
+            if (sst) {
+                if (NettoyerChaine(SHARE_TOKEN) !== "") { sst.style.color = "#166534"; sst.innerText = "Partage actif (token intégré à cette version)."; }
+                else if (shareConfigured()) { sst.style.color = "#166534"; sst.innerText = "Partage actif."; }
+                else { sst.style.color = "#94a3b8"; sst.innerText = "Partage désactivé (token vide)."; }
+            }
         }
         // Panneau "Mode de calcul des durées" (toujours actif, indépendant du mode édition).
         function RenderCalcMode() {
