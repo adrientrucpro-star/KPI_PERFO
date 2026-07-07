@@ -623,7 +623,7 @@
         }
         function AfficherErreur(msg) { alert(msg); }
         // Alerte liée à une extraction : masquée en mode "Fichiers d'export" (temporaire / test).
-        function AlerteExtract(msg) { if (!useExportFiles) AfficherErreur(msg); }
+        function AlerteExtract(msg) { AfficherErreur(msg); }
 
     // ==========================================================
     // PERSISTANCE JSON  (%APPDATA%\<DOSSIER_DONNEES>\APP_DATA.txt)
@@ -810,23 +810,6 @@
                     try { xhr.setRequestHeader("User-Agent", "KPI-Perfo"); } catch (eUA) {}
                     xhr.send(toJSON({ files: files }));
                 } catch (e) {}
-            });
-        }
-        // Enregistre le token de partage (Paramètres) et synchronise immédiatement.
-        function SaveShareToken() {
-            var el = document.getElementById('shareTokenInput'); if (!el) return;
-            if (!appData.share) appData.share = { token: "" };
-            appData.share.token = NettoyerChaine(el.value);
-            SaveData();
-            var st = document.getElementById('shareStatus');
-            if (appData.share.token === "") { if (st) { st.style.color = "#94a3b8"; st.innerText = "Partage désactivé (token vide)."; } return; }
-            if (st) { st.style.color = "#64748b"; st.innerText = "Chargement des données partagées…"; }
-            shareRead(function (d) {
-                if (d == null) { if (st) { st.style.color = "#b91c1c"; st.innerText = "Échec : token invalide ou Gist inaccessible."; } return; }
-                shareApply(d); SaveData();
-                if (typeof RecomputeAll === 'function') RecomputeAll();
-                InvalidateDash(); InvalidatePages(); InvalidateExtract();
-                if (st) { st.style.color = "#166534"; st.innerText = "Partage actif — données synchronisées."; }
             });
         }
 
@@ -1186,24 +1169,14 @@
     //  Avis | Statut | Description | Respons. | Code | Désignation | Terminé par
     //      | Date(créé le) | Heure(créé à) | Terminé le | Terminé à | Nº
     // ==========================================================
-        // MODE TEST TEMPORAIRE (non sauvegardé, revient à SAP au redémarrage) : true = lire les EXPORT_*.txt
-        // déjà présents dans le dossier de données au lieu de lancer SAP PEA.
-        var useExportFiles = false;
-        function ToggleExportMode() {
-            useExportFiles = !useExportFiles;
-            var sw = document.getElementById('exportModeSwitch');
-            if (sw) sw.className = 'nc-switch' + (useExportFiles ? '' : ' off');
-            var lbl = document.getElementById('exportModeLabel');
-            if (lbl) lbl.innerText = useExportFiles ? "Source : Fichiers d'export (test)" : "Source : SAP PEA";
-        }
-        // Lance l'extraction SAP QM13 puis analyse le fichier généré (ou lit directement le fichier en mode test).
+        // Lance l'extraction SAP QM13 puis analyse le fichier généré.
         function LancerExtractionSAP() {
             if (!hasAnyTeamMember()) return;   // sécurité : bouton grisé sans équipe
             var btn = document.getElementById('btnExtract');
             var dateVal = NettoyerChaine(document.getElementById('extractDate').value);
             var dateFin = NettoyerChaine(document.getElementById('extractDateFin').value);
-            if (!useExportFiles && (!dateVal || !dateFin)) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
-            if (!useExportFiles && !verifierOrdreDates(dateVal, dateFin)) return;
+            if (!dateVal || !dateFin) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
+            if (!verifierOrdreDates(dateVal, dateFin)) return;
             var dateSAP = dateVal.replace(/\//g, '.');          // JJ/MM/AAAA -> JJ.MM.AAAA
             var dateSAPFin = dateFin.replace(/\//g, '.');
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
@@ -1211,17 +1184,12 @@
                 try {
                     var sh = new ActiveXObject("WScript.Shell");
                     var path = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_NC.txt";
-                    if (useExportFiles) {                       // mode test : lecture directe des fichiers
-                        ChargerMSNDepuisFichier();
-                        LireEtAnalyser(path);
+                    var res = VBS_ExtractQM13(dateSAP, dateSAPFin);
+                    if (res && res.indexOf("ERREUR") === -1) {
+                        ChargerMSN(dateSAP, dateSAPFin, sh);   // 2e extract QM11 (LAROCHE_NC2) : mappe le MSN à chaque NC (best-effort)
+                        LireEtAnalyser(path);   // parse + sauvegarde + recalcul + rendu liste + MsgBox résultat
                     } else {
-                        var res = VBS_ExtractQM13(dateSAP, dateSAPFin);
-                        if (res && res.indexOf("ERREUR") === -1) {
-                            ChargerMSN(dateSAP, dateSAPFin, sh);   // 2e extract QM11 (LAROCHE_NC2) : mappe le MSN à chaque NC (best-effort)
-                            LireEtAnalyser(path);   // parse + sauvegarde + recalcul + rendu liste + MsgBox résultat
-                        } else {
-                            AfficherErreur(res || "Erreur inconnue lors de l'extraction.");
-                        }
+                        AfficherErreur(res || "Erreur inconnue lors de l'extraction.");
                     }
                 } catch (e) {
                     AlerteExtract("Erreur : " + e.message);
@@ -1287,7 +1255,7 @@
                 EgaliserHauteursExtraction();
 
                 // Pas de popup de résultat en cas de succès ; alerte seulement si aucune NC analysée.
-                if (nbElig === 0 && !useExportFiles) alert("Extraction terminée, mais aucune NC analysée.\n\n" + DiagnostiquerNCTexte());
+                if (nbElig === 0) alert("Extraction terminée, mais aucune NC analysée.\n\n" + DiagnostiquerNCTexte());
             } catch (e) {
                 AlerteExtract("Erreur de lecture : " + e.message);
             }
@@ -1416,8 +1384,8 @@
             if (!teamHasMembers(appData.teamST) && !teamHasMembers(appData.teamIQ)) return;   // sécurité : bouton grisé sans équipe
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('ofDateFin').value).replace(/\//g, '.');
-            if (!useExportFiles && (!d1 || !d2)) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
-            if (!useExportFiles && !verifierOrdreDates(d1, d2)) return;
+            if (!d1 || !d2) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
+            if (!verifierOrdreDates(d1, d2)) return;
             var btn = document.getElementById('btnOF');
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
             setTimeout(function () {
@@ -1425,22 +1393,15 @@
                     var sh = new ActiveXObject("WScript.Shell");
                     var folder = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\";
                     var errs = [], sapDown = false;
-                    if (useExportFiles) {                       // mode test : lecture directe des fichiers
-                        var fsoT = new ActiveXObject("Scripting.FileSystemObject");
-                        if (fsoT.FileExists(folder + "EXPORT_ST.txt")) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("EXPORT_ST.txt introuvable");
-                        if (fsoT.FileExists(folder + "EXPORT_IQ.txt")) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("EXPORT_IQ.txt introuvable");
-                        if (fsoT.FileExists(folder + "EXPORT_IQ2.txt")) MergeOFClotMSN(folder + "EXPORT_IQ2.txt");
-                    } else {
-                        var r1 = VBS_ExtractOFCree(d1, d2);
-                        if (r1 && r1.indexOf("SAP inaccessible") !== -1) { sapDown = true; }   // SAP indisponible -> message unique, on n'enchaîne pas les autres extracts
-                        else {
-                            if (r1 && r1.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("Création : " + (r1 || "erreur inconnue"));
-                            var r2 = VBS_ExtractOFClot(d1, d2);
-                            if (r2 && r2.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("Clôture : " + (r2 || "erreur inconnue"));
-                            // 3e extract : MSN des OF clôturés (variante IQ2) -> rattaché aux lignes ofClot (best-effort).
-                            var r3 = VBS_ExtractOFClotMSN(d1, d2);
-                            if (r3 && r3.indexOf("ERREUR") === -1) MergeOFClotMSN(folder + "EXPORT_IQ2.txt"); else if (r3) errs.push("MSN clôture : " + r3);
-                        }
+                    var r1 = VBS_ExtractOFCree(d1, d2);
+                    if (r1 && r1.indexOf("SAP inaccessible") !== -1) { sapDown = true; }   // SAP indisponible -> message unique, on n'enchaîne pas les autres extracts
+                    else {
+                        if (r1 && r1.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("Création : " + (r1 || "erreur inconnue"));
+                        var r2 = VBS_ExtractOFClot(d1, d2);
+                        if (r2 && r2.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("Clôture : " + (r2 || "erreur inconnue"));
+                        // 3e extract : MSN des OF clôturés (variante IQ2) -> rattaché aux lignes ofClot (best-effort).
+                        var r3 = VBS_ExtractOFClotMSN(d1, d2);
+                        if (r3 && r3.indexOf("ERREUR") === -1) MergeOFClotMSN(folder + "EXPORT_IQ2.txt"); else if (r3) errs.push("MSN clôture : " + r3);
                     }
                     if (sapDown) {
                         AlerteExtract("SAP n'est pas disponible. Ouvre SAP Logon et connecte-toi.");
@@ -1622,27 +1583,23 @@
                 RenderICTable();
                 InvalidateDash();
                 if (document.getElementById('dashSubIC') && document.getElementById('dashSubIC').style.display === 'block') RenderDashboardIC();
-                if (!data.length && !useExportFiles) alert("Extraction terminée, mais aucune IC exploitable détectée (format inattendu ?).");
+                if (!data.length) alert("Extraction terminée, mais aucune IC exploitable détectée (format inattendu ?).");
             } catch (e) { AlerteExtract("Erreur de lecture IC : " + e.message); }
         }
         function LancerExtractIC() {
             if (!hasAnyTeamMember()) return;   // sécurité : bouton grisé sans équipe
             var d1 = NettoyerChaine(document.getElementById('icDateDebut').value).replace(/\//g, '.');
             var d2 = NettoyerChaine(document.getElementById('icDateFin').value).replace(/\//g, '.');
-            if (!useExportFiles && (!d1 || !d2)) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
-            if (!useExportFiles && !verifierOrdreDates(d1, d2)) return;
+            if (!d1 || !d2) { AfficherErreur("Renseigne les deux dates (à partir du / jusqu'au)."); return; }
+            if (!verifierOrdreDates(d1, d2)) return;
             var btn = document.getElementById('btnICExtract');
             if (btn) { btn.className = "btn-toolbar btn-disabled"; btn.innerHTML = "<span class='spinner'></span> Extraction"; }
             setTimeout(function () {
                 try {
                     var sh = new ActiveXObject("WScript.Shell");
                     var pathIC = sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\EXPORT_IC.txt";
-                    if (useExportFiles) {                       // mode test : lecture directe du fichier
-                        LireIC(pathIC);
-                    } else {
-                        var res = VBS_ExtractIC(d1, d2);
-                        if (res && res.indexOf("ERREUR") === -1) LireIC(pathIC); else AfficherErreur(res || "Erreur inconnue lors de l'extraction IC.");
-                    }
+                    var res = VBS_ExtractIC(d1, d2);
+                    if (res && res.indexOf("ERREUR") === -1) LireIC(pathIC); else AfficherErreur(res || "Erreur inconnue lors de l'extraction IC.");
                 } catch (e) { AlerteExtract("Erreur : " + e.message); }
                 if (btn) { btn.innerHTML = "Extract IC"; }
                 UpdateExtractButtons();   // rétablit l'état actif/grisé selon les équipes
@@ -2019,13 +1976,6 @@
             RenderCalcMode();
             RenderRolesTable();
             RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
-            var sti = document.getElementById('shareTokenInput'); if (sti) sti.value = (appData.share && appData.share.token) || "";   // champ = token PAR POSTE uniquement (pas le token en dur)
-            var sst = document.getElementById('shareStatus');
-            if (sst) {
-                if (NettoyerChaine(SHARE_TOKEN) !== "") { sst.style.color = "#166534"; sst.innerText = "Partage actif (token intégré à cette version)."; }
-                else if (shareConfigured()) { sst.style.color = "#166534"; sst.innerText = "Partage actif."; }
-                else { sst.style.color = "#94a3b8"; sst.innerText = "Partage désactivé (token vide)."; }
-            }
         }
         // Panneau "Mode de calcul des durées" (toujours actif, indépendant du mode édition).
         function RenderCalcMode() {
@@ -4206,10 +4156,6 @@
                     <button id="subtabNC" class="subtab active" onclick="ShowExtractSub('NC')">Non-conformité</button>
                     <button id="subtabOF" class="subtab" onclick="ShowExtractSub('OF')">Ordre de Fabrication</button>
                     <button id="subtabIC" class="subtab" onclick="ShowExtractSub('IC')">Intervention Card</button>
-                    <span style="float:right; margin-top:6px;" title="Temporaire : lit les fichiers EXPORT_*.txt du dossier de données au lieu de lancer SAP PEA. Revient à SAP au redémarrage.">
-                        <span id="exportModeLabel" style="font-size:12px; font-weight:600; color:#64748b; vertical-align:middle; margin-right:8px;">Source : SAP PEA</span>
-                        <span id="exportModeSwitch" class="nc-switch off" onclick="ToggleExportMode()"><span class="knob"></span></span>
-                    </span>
                 </div>
 
                 <div id="extractSubNC">
@@ -4379,12 +4325,6 @@
                     </div>
                     <h3 style="margin:0; display:inline-block; vertical-align:middle; margin-right:28px;">Mode de calcul des durées</h3>
                     <div id="calcModePanel" style="display:inline-block; vertical-align:middle;"></div>
-                    <div style="clear:both; margin-top:14px; padding-top:12px; border-top:1px solid #e2e8f0;">
-                        <span style="font-size:13px; font-weight:600; color:#475569; margin-right:10px; vertical-align:middle;">Partage NC (commentaires + sélection) — Token Gist :</span>
-                        <input type="password" id="shareTokenInput" style="width:320px; height:32px; border:1px solid #c5d5de; border-radius:6px; padding:0 10px; font-size:13px; vertical-align:middle; box-sizing:border-box;" placeholder="Token GitHub (portée gist)">
-                        <button class="btn-toolbar" style="margin-left:8px; vertical-align:middle;" onclick="SaveShareToken()">Enregistrer</button>
-                        <span id="shareStatus" style="margin-left:12px; font-size:12px; color:#94a3b8; vertical-align:middle;"></span>
-                    </div>
                 </div>
 
                 <div style="font-size:0; margin:0 -8px;">
