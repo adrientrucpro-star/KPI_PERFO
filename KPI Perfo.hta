@@ -1726,6 +1726,9 @@
         // Durée d'une tâche = écart entre sa RÉCEPTION (fin de la tâche précédente, ou création NC
         // pour la 1re) et son PASSAGE (sa propre fin "Terminé"). Tâches triées par Nº (dernière
         // colonne de l'extract). Un écart négatif est ignoré (null).
+        // Écarts d'une NC mis en cache sur l'objet (nc.lines ne change pas après import ; ncList reconstruit par RecomputeAll).
+        // Évite de recalculer stepGaps pour chaque NC à chaque rendu du dashboard (RenderDashResp + RenderDashTeams + boucle d'ajustement).
+        function ncGaps(nc) { if (!nc._gaps) nc._gaps = stepGaps(nc.lines); return nc._gaps; }
         function stepGaps(lines) {
             var arr = lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
             var creation = null;
@@ -1792,8 +1795,8 @@
                     var role = roleByID[L.r] || roleByID[L.tp];
                     if (role) roles[role] = true;
                 }
-                // Étapes triées par Nº ; durée = écart réception -> passage.
-                var gaps = stepGaps(nc.lines);
+                // Étapes triées par Nº ; durée = écart réception -> passage. (met en cache nc._gaps pour les rendus du dashboard)
+                var gaps = ncGaps(nc);
                 var chezMs = 0, hasCT = false, hasClot = false, hasOri0Q = false, clot = null;
                 for (var gi = 0; gi < gaps.length; gi++) {
                     var g = gaps[gi], rU = (g.r || "").toUpperCase(), tpU = (g.tp || "").toUpperCase(), cU = (g.code || "").toUpperCase();
@@ -2144,7 +2147,7 @@
             }
             var elig = [];
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible) elig.push(ncList[i]); }
-            var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
+            if (!isRetry) { var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar(); }
 
             if (elig.length === 0) {
                 var empNC = document.getElementById('dashEmpty');
@@ -2183,9 +2186,9 @@
             var lastCard = document.getElementById('hcTeamST') ? document.getElementById('hcTeamST').parentNode : null;
             if (contentEl && lastCard) {
                 var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
-                if (Math.abs(gap) > 4 && dashFitTries < 12) {
+                if (Math.abs(gap) > 4 && dashFitTries < 8) {
                     dashFitTries++;
-                    dashHeightCorrection -= Math.round(gap / 3);
+                    dashHeightCorrection -= Math.round(gap / 2);
                     RenderDashboard(true);
                     return;
                 }
@@ -2241,7 +2244,7 @@
                 if (hc) {
                     var nh = hc.offsetHeight + extra1;
                     hc.style.height = nh + "px";
-                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); window.hcWeeksChart.reflow(); } } catch (e) {}
+                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); } } catch (e) {}
                 }
             }
             if (target - row2H > 1) {
@@ -2251,7 +2254,7 @@
                     el2.parentNode.style.height = target + "px";
                     var newH2 = el2.offsetHeight + extra2;
                     el2.style.height = newH2 + "px";
-                    try { if (window.hcRespChartRefs && window.hcRespChartRefs[ids2[j]]) { window.hcRespChartRefs[ids2[j]].setSize(el2.offsetWidth, newH2, false); window.hcRespChartRefs[ids2[j]].reflow(); } } catch (e) {}
+                    try { if (window.hcRespChartRefs && window.hcRespChartRefs[ids2[j]]) { window.hcRespChartRefs[ids2[j]].setSize(el2.offsetWidth, newH2, false); } } catch (e) {}
                 }
             }
             if (target - row3H > 1) {
@@ -2261,7 +2264,7 @@
                     el.parentNode.style.height = target + "px";
                     var newH = el.offsetHeight + extra3;
                     el.style.height = newH + "px";
-                    try { if (window.hcTeamChartRefs && window.hcTeamChartRefs[ids3[i]]) { window.hcTeamChartRefs[ids3[i]].setSize(el.offsetWidth, newH, false); window.hcTeamChartRefs[ids3[i]].reflow(); } } catch (e) {}
+                    try { if (window.hcTeamChartRefs && window.hcTeamChartRefs[ids3[i]]) { window.hcTeamChartRefs[ids3[i]].setSize(el.offsetWidth, newH, false); } } catch (e) {}
                 }
             }
         }
@@ -2283,7 +2286,7 @@
                 if (hc) {
                     var nh = hc.offsetHeight + extra2;
                     hc.style.height = nh + "px";
-                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); window.hcWeeksChart.reflow(); } } catch (e) {}
+                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); } } catch (e) {}
                 }
             }
         }
@@ -2735,21 +2738,39 @@
             if (p) { if (p.style.display === 'block') p.style.display = 'none'; else showMsnPanel(); }
             if (ev && ev.stopPropagation) ev.stopPropagation();
         }
+        // Met à jour uniquement le libellé du bouton MSN (sans re-rendre le dashboard).
+        function updateMsnBtnLabel() {
+            var btn = document.getElementById('msnBtn'); if (!btn) return;
+            var tous = !dashFilter.msnSel, selCount = 0;
+            if (!tous) { for (var kk in dashFilter.msnSel) { if (dashFilter.msnSel.hasOwnProperty(kk) && dashFilter.msnSel[kk]) selCount++; } }
+            btn.innerHTML = escapeHtml(tous ? "Tous les MSN" : (selCount + " MSN sélectionné" + (selCount > 1 ? "s" : ""))) + " &#9662;";
+        }
+        // Re-rendu du dashboard temporisé : les cochages rapides du multi-select MSN ne déclenchent qu'UN seul re-rendu.
+        var msnRerenderTimer = null;
+        function scheduleDashRerender() {
+            if (msnRerenderTimer) clearTimeout(msnRerenderTimer);
+            msnRerenderTimer = setTimeout(function () {
+                msnRerenderTimer = null;
+                var p = document.getElementById('msnPanel'), wasOpen = !!(p && p.style.display === 'block');
+                InvalidateDash(); RenderActiveDashboardSub();
+                if (wasOpen) showMsnPanel();   // ne rouvre le panneau que s'il était ouvert
+            }, 350);
+        }
         function SetAllMsn(on, ev) {
             if (ev && ev.stopPropagation) ev.stopPropagation();   // le clic ne remonte pas -> ne ferme pas le panneau
             dashFilter.msnSel = on ? null : {};   // null = tous ; {} = aucun
-            InvalidateDash(); RenderActiveDashboardSub();
-            showMsnPanel();   // garde le panneau ouvert
+            InvalidateDash(); RenderActiveDashboardSub(); showMsnPanel();   // 1 seul clic -> immédiat (met à jour toutes les cases)
         }
         function ToggleMsnKey(key, checked, ev) {
             if (ev && ev.stopPropagation) ev.stopPropagation();   // le clic ne remonte pas -> ne ferme pas le panneau
-            if (!dashFilter.msnSel) { dashFilter.msnSel = {}; var a0 = dashAllMSN(); for (var i = 0; i < a0.length; i++) dashFilter.msnSel[a0[i]] = true; }
+            var all = dashAllMSN();   // calculé une seule fois
+            if (!dashFilter.msnSel) { dashFilter.msnSel = {}; for (var i = 0; i < all.length; i++) dashFilter.msnSel[all[i]] = true; }
             if (checked) dashFilter.msnSel[key] = true; else delete dashFilter.msnSel[key];
-            var a1 = dashAllMSN(), allOn = true;
-            for (var j = 0; j < a1.length; j++) { if (!dashFilter.msnSel[a1[j]]) { allOn = false; break; } }
+            var allOn = true;
+            for (var j = 0; j < all.length; j++) { if (!dashFilter.msnSel[all[j]]) { allOn = false; break; } }
             if (allOn) dashFilter.msnSel = null;   // tout coché -> repasse en "Tous"
-            InvalidateDash(); RenderActiveDashboardSub();
-            showMsnPanel();   // garde le panneau ouvert
+            updateMsnBtnLabel();   // libellé mis à jour tout de suite
+            scheduleDashRerender();   // dashboard re-rendu une fois les cochages terminés (débounce)
         }
         // Ferme le panneau MSN quand on clique en dehors (ni sur le bouton ni dans le panneau).
         function DocClickCloseMsn(e) {
@@ -2833,7 +2854,7 @@
                 var _ch = document.getElementById('content') ? document.getElementById('content').clientHeight : 0;
                 if (_ch !== ofLastH) { ofHeightCorrection = 0; ofLastH = _ch; }
             }
-            var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
+            if (!isRetry) { var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar(); }
             var rows = getOFTeamRows('cree').concat(getOFTeamRows('clot'));
             if (!rows.length) {
                 var empOF = document.getElementById('dashOFEmpty');
@@ -2862,7 +2883,7 @@
             var lastCard = document.getElementById('hcOFClotUser') ? document.getElementById('hcOFClotUser').parentNode : null;
             if (contentEl && lastCard) {
                 var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
-                if (Math.abs(gap) > 4 && ofFitTries < 12) {
+                if (Math.abs(gap) > 4 && ofFitTries < 8) {
                     ofFitTries++;
                     ofHeightCorrection -= Math.round(gap / 2);
                     RenderDashboardOF(true);
@@ -2996,7 +3017,7 @@
                 var _ch = document.getElementById('content') ? document.getElementById('content').clientHeight : 0;
                 if (_ch !== icLastH) { icHeightCorrection = 0; icLastH = _ch; }
             }
-            var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
+            if (!isRetry) { var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar(); }
             if (!(appData.icRows && appData.icRows.length)) {
                 var emp = document.getElementById('dashICEmpty');
                 emp.style.display = "block";
@@ -3020,7 +3041,7 @@
             var lastCard = document.getElementById('hcICTL') ? document.getElementById('hcICTL').parentNode : null;   // bas de la 2e ligne
             if (contentEl && lastCard) {
                 var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
-                if (Math.abs(gap) > 4 && icFitTries < 12) { icFitTries++; icHeightCorrection -= Math.round(gap / 2); RenderDashboardIC(true); return; }
+                if (Math.abs(gap) > 4 && icFitTries < 8) { icFitTries++; icHeightCorrection -= Math.round(gap / 2); RenderDashboardIC(true); return; }
             }
             dashValid.IC = true;
         }
@@ -3187,7 +3208,7 @@
             }
             var agg = {};
             for (var e = 0; e < elig.length; e++) {
-                var gaps = stepGaps(elig[e].lines);
+                var gaps = ncGaps(elig[e]);
                 for (var j = 0; j < gaps.length; j++) {
                     if (gaps[j].gap == null) continue;
                     var r = (gaps[j].r || "").toUpperCase();
@@ -3238,7 +3259,7 @@
                 if (byMSN) { wts = msnBucketKey(nc.msn); if (!msnSelected(wts)) continue; }
                 else wts = bucketTsForMode(nc.end, mode);
                 weekSet[wts] = true;
-                var gaps = stepGaps(nc.lines);
+                var gaps = ncGaps(nc);
                 for (var j = 0; j < gaps.length; j++) {
                     if (gaps[j].gap == null) continue;
                     var uu = (gaps[j].tp || "").toUpperCase();
