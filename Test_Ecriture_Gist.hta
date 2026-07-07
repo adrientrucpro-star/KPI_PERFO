@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="x-ua-compatible" content="IE=10">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<hta:application id="app" applicationname="TestEcritureGist" border="thin" innerborder="no" maximizebutton="yes" minimizebutton="yes" scroll="auto" singleinstance="yes" />
+<title>Test écriture Gist - KPI Perfo</title>
+<style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 24px; font-size: 14px; background: #f8fafc; }
+    h2 { color: #0C447C; margin: 0 0 12px 0; }
+    ol { line-height: 1.7; color: #334155; }
+    code { background: #e6f1fb; padding: 1px 6px; border-radius: 4px; }
+    .row { margin: 14px 0; }
+    input[type=password] { width: 480px; height: 30px; border: 1px solid #c5d5de; border-radius: 6px; padding: 0 10px; font-size: 14px; }
+    button { height: 34px; padding: 0 18px; border: none; border-radius: 6px; background: #0C447C; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; }
+    button:hover { background: #00557f; }
+    pre#out { background: #fff; border: 1px solid #c5d5de; border-radius: 8px; padding: 14px; min-height: 140px; white-space: pre-wrap; word-break: break-word; font-size: 13px; color: #334155; }
+    .ok { color: #166534; font-weight: 700; }
+    .ko { color: #b91c1c; font-weight: 700; }
+</style>
+</head>
+<body>
+    <h2>Test d'écriture GitHub Gist (API) — KPI Perfo</h2>
+    <ol>
+        <li>Sur <b>github.com</b> : <i>Settings → Developer settings → Personal access tokens → <b>Tokens (classic)</b> → Generate new token (classic)</i>.</li>
+        <li>Coche <b>uniquement</b> la portée <code>gist</code>. Génère et copie le token.</li>
+        <li>Colle-le ci-dessous et clique <b>Tester l'écriture</b>.</li>
+    </ol>
+    <div class="row">
+        <input type="password" id="tok" placeholder="Token GitHub (portée gist)">
+        <button onclick="testerEcriture()">Tester l'écriture</button>
+    </div>
+    <pre id="out">En attente…</pre>
+
+    <script language="javascript" type="text/javascript">
+        function ecrire(s, cls) {
+            var out = document.getElementById('out');
+            if (cls) { out.innerHTML += "<span class='" + cls + "'>" + s + "</span>\n"; }
+            else { out.appendChild(document.createTextNode(s + "\n")); }
+        }
+        function testerEcriture() {
+            document.getElementById('out').innerHTML = "";
+            var tok = (document.getElementById('tok').value || "").replace(/^\s+|\s+$/g, "");
+            if (!tok) { ecrire("Colle d'abord un token."); return; }
+
+            // Corps : petit Gist PRIVÉ de test.
+            var body = '{"description":"KPI Perfo - test ecriture (supprimable)","public":false,"files":{"kpi_test.txt":{"content":"test ' + new Date().getTime() + '"}}}';
+
+            try {
+                var xhr = new ActiveXObject("MSXML2.XMLHTTP.6.0");   // même composant que l'appli (via WinINET/proxy)
+                xhr.open("POST", "https://api.github.com/gists", false);   // synchrone (test)
+                xhr.setRequestHeader("Authorization", "token " + tok);
+                xhr.setRequestHeader("Accept", "application/vnd.github+json");
+                xhr.setRequestHeader("Content-Type", "application/json");
+                try { xhr.setRequestHeader("User-Agent", "KPI-Perfo-Test"); } catch (eUA) {}
+                ecrire("Envoi POST vers https://api.github.com/gists …");
+                xhr.send(body);
+
+                var st = xhr.status;
+                ecrire("Statut HTTP : " + st + " " + (xhr.statusText || ""));
+
+                if (st === 201) {
+                    ecrire("ECRITURE AUTORISEE : le Gist a ete cree.", "ok");
+                    try {
+                        var j = JSON.parse(xhr.responseText);
+                        ecrire("URL   : " + j.html_url);
+                        ecrire("ID    : " + j.id + "  (tu peux le supprimer sur github.com)");
+                    } catch (eP) {}
+                    ecrire("=> On peut construire le partage commentaires/selection via Gist.", "ok");
+                } else if (st === 401) {
+                    ecrire("Token invalide ou refuse (401). Verifie la portee 'gist' et le token.", "ko");
+                } else if (st === 403 || st === 404) {
+                    ecrire("Interdit (" + st + "). Ecriture bloquee (proxy Airbus) ou token sans portee gist.", "ko");
+                } else if (st === 0) {
+                    ecrire("Aucune reponse (statut 0) : connexion bloquee par le reseau/proxy Airbus.", "ko");
+                } else {
+                    ecrire("Reponse : " + (xhr.responseText || "").substring(0, 600));
+                }
+            } catch (e) {
+                ecrire("Exception : " + e.message, "ko");
+                ecrire("(le plus souvent = requete d'ecriture bloquee par le proxy/reseau Airbus)", "ko");
+            }
+        }
+    </script>
+</body>
+</html>
