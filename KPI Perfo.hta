@@ -2243,7 +2243,9 @@
             if (rh.row1 < 150) rh.row1 = 150; if (rh.row2 < 120) rh.row2 = 120; if (rh.row3 < 150) rh.row3 = 150;
             dashRow1Height = rh.row1;
             var ri = document.getElementById('hcRespInt'), re = document.getElementById('hcRespExt');
+            var si = document.getElementById('hcSeuilInt'), se = document.getElementById('hcSeuilExt');
             if (ri) ri.style.height = rh.row2 + "px"; if (re) re.style.height = rh.row2 + "px";
+            if (si) si.style.height = rh.row2 + "px"; if (se) se.style.height = rh.row2 + "px";
             var tst = document.getElementById('hcTeamST'), ttl = document.getElementById('hcTeamTL'), tiq = document.getElementById('hcTeamIQ');
             if (tst) tst.style.height = rh.row3 + "px"; if (ttl) ttl.style.height = rh.row3 + "px"; if (tiq) tiq.style.height = rh.row3 + "px";
 
@@ -2325,7 +2327,7 @@
                 }
             }
             if (target - row2H > 1) {
-                var extra2 = target - row2H, ids2 = ['hcRespInt', 'hcRespExt'];
+                var extra2 = target - row2H, ids2 = ['hcRespInt', 'hcRespExt', 'hcSeuilInt', 'hcSeuilExt'];
                 for (var j = 0; j < ids2.length; j++) {
                     var el2 = document.getElementById(ids2[j]); if (!el2) continue;
                     el2.parentNode.style.height = target + "px";
@@ -3296,6 +3298,47 @@
             }
             hcRespPie('hcRespInt', intNom, agg);
             hcRespPie('hcRespExt', extNom, agg);
+            // Camemberts "Clôture <=/> 2 j" : chaque NC est classée interne/externe selon le responsable
+            // où elle a passé le plus de temps (goulot), puis répartie selon sa durée globale (nc.durMs).
+            var seuil = { int: { le: 0, gt: 0 }, ext: { le: 0, gt: 0 } }, TWO_D = 2 * dayMs();
+            for (var s = 0; s < elig.length; s++) {
+                var nc = elig[s]; if (nc.durMs == null) continue;
+                var ty = ncBottleneckType(nc, intNom, extNom); if (!ty) continue;
+                if (nc.durMs <= TWO_D) seuil[ty].le++; else seuil[ty].gt++;
+            }
+            hcSeuilPie('hcSeuilInt', seuil.int);
+            hcSeuilPie('hcSeuilExt', seuil.ext);
+        }
+        // Type (int/ext) du responsable où la NC a passé le plus de temps (goulot). null si aucun resp classé.
+        function ncBottleneckType(nc, intNom, extNom) {
+            var gaps = ncGaps(nc), best = -1, ty = null;
+            for (var j = 0; j < gaps.length; j++) {
+                if (gaps[j].gap == null) continue;
+                var r = (gaps[j].r || "").toUpperCase();
+                var t = intNom[r] ? 'int' : (extNom[r] ? 'ext' : null);
+                if (t && gaps[j].gap > best) { best = gaps[j].gap; ty = t; }
+            }
+            return ty;
+        }
+        // Camembert 2 parts : NC clôturées <= 2 j (vert) vs > 2 j (rouge). s = { le, gt } (comptes).
+        function hcSeuilPie(id, s) {
+            var cont = document.getElementById(id); if (!cont) return;
+            var total = s.le + s.gt;
+            if (!total) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
+            var data = [];
+            if (s.le) data.push({ name: '≤ 2 jours', y: s.le, color: '#16a34a' });
+            if (s.gt) data.push({ name: '> 2 jours', y: s.gt, color: '#dc2626' });
+            try {
+                window.hcRespChartRefs = window.hcRespChartRefs || {};
+                window.hcRespChartRefs[id] = hcDraw(id, {
+                    chart: { type: 'pie', backgroundColor: 'transparent', spacing: [4, 2, 4, 2], style: { fontFamily: 'inherit' } },
+                    title: { text: null }, credits: { enabled: false },
+                    tooltip: { useHTML: true, formatter: function () { return '<b>' + this.point.name + '</b><br/>' + this.point.y + ' NC<br/>' + Highcharts.numberFormat(this.percentage, 0) + '%'; } },
+                    legend: { align: 'left', verticalAlign: 'middle', layout: 'vertical', itemMarginBottom: 5, useHTML: true, itemStyle: { fontWeight: 'normal', fontSize: '12px', color: '#334155' }, labelFormatter: function () { return this.name + ' <span style="color:#94a3b8">&middot; ' + this.y + ' NC</span>'; } },
+                    plotOptions: { pie: { animation: false, showInLegend: true, size: '92%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -26, style: { color: '#ffffff', fontSize: '12px', fontWeight: 'bold', textOutline: 'none' } } } },
+                    series: [{ name: 'NC', data: data }]
+                });
+            } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
         // Camembert Highcharts de la durée moyenne par responsable (part = part de la durée moyenne).
         function hcRespPie(id, nomMap, agg) {
@@ -4035,16 +4078,28 @@
                         </div>
                     </div>
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
-                        <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                        <div style="display:table-cell; width:25%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
                             <div class="card dashEqRow2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 14px 0;">Durée moyenne - Responsables internes</h3>
+                                <h3 style="margin:0 0 14px 0;">Durée moyenne - Resp. internes</h3>
                                 <div id="hcRespInt" style="width:100%; height:200px;"></div>
                             </div>
                         </div>
-                        <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                        <div style="display:table-cell; width:25%; padding:0 8px; box-sizing:border-box; vertical-align:top;">
                             <div class="card dashEqRow2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 14px 0;">Durée moyenne - Responsables externes</h3>
+                                <h3 style="margin:0 0 14px 0;">Durée moyenne - Resp. externes</h3>
                                 <div id="hcRespExt" style="width:100%; height:200px;"></div>
+                            </div>
+                        </div>
+                        <div style="display:table-cell; width:25%; padding:0 8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card dashEqRow2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <h3 style="margin:0 0 14px 0;">Clôture &le;/&gt; 2 j - Resp. internes</h3>
+                                <div id="hcSeuilInt" style="width:100%; height:200px;"></div>
+                            </div>
+                        </div>
+                        <div style="display:table-cell; width:25%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card dashEqRow2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <h3 style="margin:0 0 14px 0;">Clôture &le;/&gt; 2 j - Resp. externes</h3>
+                                <div id="hcSeuilExt" style="width:100%; height:200px;"></div>
                             </div>
                         </div>
                     </div>
