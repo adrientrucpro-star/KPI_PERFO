@@ -2186,9 +2186,9 @@
             var lastCard = document.getElementById('hcTeamST') ? document.getElementById('hcTeamST').parentNode : null;
             if (contentEl && lastCard) {
                 var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
-                if (Math.abs(gap) > 4 && dashFitTries < 8) {
+                if (Math.abs(gap) > 4 && dashFitTries < 12) {
                     dashFitTries++;
-                    dashHeightCorrection -= Math.round(gap / 2);
+                    dashHeightCorrection -= Math.round(gap / 3);   // 3 lignes -> le bas bouge de ~3x : pas = gap/3 (sinon oscillation)
                     RenderDashboard(true);
                     return;
                 }
@@ -2883,7 +2883,7 @@
             var lastCard = document.getElementById('hcOFClotUser') ? document.getElementById('hcOFClotUser').parentNode : null;
             if (contentEl && lastCard) {
                 var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
-                if (Math.abs(gap) > 4 && ofFitTries < 8) {
+                if (Math.abs(gap) > 4 && ofFitTries < 12) {
                     ofFitTries++;
                     ofHeightCorrection -= Math.round(gap / 2);
                     RenderDashboardOF(true);
@@ -3041,7 +3041,7 @@
             var lastCard = document.getElementById('hcICTL') ? document.getElementById('hcICTL').parentNode : null;   // bas de la 2e ligne
             if (contentEl && lastCard) {
                 var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
-                if (Math.abs(gap) > 4 && icFitTries < 8) { icFitTries++; icHeightCorrection -= Math.round(gap / 2); RenderDashboardIC(true); return; }
+                if (Math.abs(gap) > 4 && icFitTries < 12) { icFitTries++; icHeightCorrection -= Math.round(gap / 2); RenderDashboardIC(true); return; }
             }
             dashValid.IC = true;
         }
