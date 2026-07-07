@@ -2294,7 +2294,7 @@
                 if (hc) {
                     var nh = hc.offsetHeight + extra1;
                     hc.style.height = nh + "px";
-                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); } } catch (e) {}
+                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); window.hcWeeksChart.reflow(); } } catch (e) {}
                 }
             }
             if (target - row2H > 1) {
@@ -2304,7 +2304,7 @@
                     el2.parentNode.style.height = target + "px";
                     var newH2 = el2.offsetHeight + extra2;
                     el2.style.height = newH2 + "px";
-                    try { if (window.hcRespChartRefs && window.hcRespChartRefs[ids2[j]]) { window.hcRespChartRefs[ids2[j]].setSize(el2.offsetWidth, newH2, false); } } catch (e) {}
+                    try { if (window.hcRespChartRefs && window.hcRespChartRefs[ids2[j]]) { window.hcRespChartRefs[ids2[j]].setSize(el2.offsetWidth, newH2, false); window.hcRespChartRefs[ids2[j]].reflow(); } } catch (e) {}
                 }
             }
             if (target - row3H > 1) {
@@ -2314,7 +2314,7 @@
                     el.parentNode.style.height = target + "px";
                     var newH = el.offsetHeight + extra3;
                     el.style.height = newH + "px";
-                    try { if (window.hcTeamChartRefs && window.hcTeamChartRefs[ids3[i]]) { window.hcTeamChartRefs[ids3[i]].setSize(el.offsetWidth, newH, false); } } catch (e) {}
+                    try { if (window.hcTeamChartRefs && window.hcTeamChartRefs[ids3[i]]) { window.hcTeamChartRefs[ids3[i]].setSize(el.offsetWidth, newH, false); window.hcTeamChartRefs[ids3[i]].reflow(); } } catch (e) {}
                 }
             }
         }
@@ -2336,7 +2336,7 @@
                 if (hc) {
                     var nh = hc.offsetHeight + extra2;
                     hc.style.height = nh + "px";
-                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); } } catch (e) {}
+                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); window.hcWeeksChart.reflow(); } } catch (e) {}
                 }
             }
         }
