@@ -45,7 +45,7 @@
         .subtab.active { color: #006698; border-bottom-color: #006698; }
         .nav-item:hover { background-color: rgba(0,102,152,0.25); color: #ffffff; border-left-color: #006698; }
         .nav-item.active { background-color: #006698; color: #ffffff; font-weight: 600; border-left-color: #E4342D; }
-        #sidebar-footer { position: absolute; bottom: 0; left: 0; width: 100%; padding: 18px 20px; font-size: 13px; color: #7aafc7; text-align: center; border-top: 1px solid rgba(255,255,255,0.08); font-weight: 500; }
+        #sidebar-footer { position: absolute; bottom: 0; left: 0; width: 100%; padding: 16px 20px; font-size: 13px; color: #7aafc7; text-align: center; font-weight: 500; }
 
         /* ====================== CONTENU ====================== */
         #content { margin-left: 260px; padding: 25px 35px; overflow-y: auto; height: 100vh; }
@@ -780,12 +780,12 @@
         function UpdateSyncIndicator() {
             var el = document.getElementById('sidebar-footer'); if (!el) return;
             var color, label;
-            if (!shareConfigured()) { color = "#64748b"; label = "Synchro inactive"; }
-            else if (syncState === 'error') { color = "#f59e0b"; label = "Synchro : erreur"; }
-            else { color = "#22c55e"; label = "Synchro active"; }
-            el.innerHTML = "<span style='display:inline-block; width:8px; height:8px; border-radius:50%; background:" + color + "; margin-right:7px; vertical-align:middle;'></span>"
-                + "<span style='vertical-align:middle;'>" + label + "</span>"
-                + "<div style='margin-top:4px; font-size:12px; color:#5f95af;'>v" + VERSION_ACTUELLE + " - © Adrien Truc</div>";
+            if (!shareConfigured()) { color = "#64748b"; label = "Synchronisation inactive"; }
+            else if (syncState === 'error') { color = "#f59e0b"; label = "Synchronisation : erreur"; }
+            else { color = "#22c55e"; label = "Synchronisation active"; }
+            el.innerHTML = "<div style='padding-bottom:12px;'><span style='display:inline-block; width:8px; height:8px; border-radius:50%; background:" + color + "; margin-right:7px; vertical-align:middle;'></span>"
+                + "<span style='vertical-align:middle;'>" + label + "</span></div>"
+                + "<div style='border-top:1px solid rgba(255,255,255,0.08); padding-top:12px; font-size:12px; color:#5f95af;'>v" + VERSION_ACTUELLE + " - © Adrien Truc</div>";
         }
         function shareLoad() {
             shareRead(function (d) {
