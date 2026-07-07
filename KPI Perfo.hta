@@ -4,7 +4,6 @@
     <meta http-equiv="x-ua-compatible" content="IE=10">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>KPI Perfo</title>
-    <!-- Highcharts v6.2.0 : compatible IE10. Repli sur SVG fait-main si non chargé (hors-ligne). -->
     <script src="https://cdn.jsdelivr.net/npm/highcharts@6.2.0/highcharts.js"></script>
     <hta:application id="oApp" applicationname="KPIPerfo" border="thin" maximizebutton="yes" minimizebutton="yes" scroll="no" windowstate="maximize" />
 
@@ -54,11 +53,9 @@
         h2 { font-size: 22px; margin-top: 0; color: #002d45; margin-bottom: 24px; font-weight: 700; }
         .card { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,45,69,0.08); border: 1px solid #dde6ec; margin-bottom: 20px; padding: 20px 25px; }
         .card h3 { margin: 0 0 16px 0; font-size: 15px; color: #334155; font-weight: 700; }
-        /* Tableau de bord : cartes de graphiques dimensionnées à la fenêtre (Highcharts remplit son conteneur, hauteur injectée par SetDashCardHeight). */
         .dashCardNC, .dashCardOF, .dashCardIC { box-sizing: border-box; overflow: hidden; margin-bottom: 0; height: 300px; }
         .dashCardNC > h3, .dashCardOF > h3, .dashCardIC > h3 { height: 32px; line-height: 16px; margin: 0 0 8px 0; font-size: 14px; color: #334155; font-weight: 700; overflow: hidden; }
         .dashChartNC, .dashChartOF, .dashChartIC { width: 100%; height: calc(100% - 40px); }
-        /* Bouton "voir" des tableaux d'extraction : icône oeil en CSS (au lieu d'un SVG inline répété à chaque ligne -> HTML des tableaux plus léger). */
         .btn-view { width: 28px; height: 26px; padding: 0; border: none; border-radius: 5px; cursor: pointer; vertical-align: middle; background-color: #0C447C; background-repeat: no-repeat; background-position: center; background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNCIgaGVpZ2h0PSIxNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMiI+PHBhdGggZD0iTTEgMTJzNC03IDExLTcgMTEgNyAxMSA3LTQgNy0xMSA3LTExLTctMTEtN3oiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIzIi8+PC9zdmc+"); }
         .btn-view:hover { background-color: #0a3a6a; }
 
@@ -87,7 +84,6 @@
         .msg-error { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: bold; }
         .msg-info { background-color: #ffffff; color: #64748b; border: 1px dashed #c5d5de; text-align: center; font-style: italic; }
 
-        /* Bouton "remonter en haut" (flottant) */
         #btnScrollTop { position: fixed; bottom: 28px; right: 34px; width: 46px; height: 46px; border-radius: 50%; background: #006698; color: #ffffff; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(0,45,69,0.4); display: none; z-index: 500; font-size: 24px; font-weight: 700; line-height: 44px; text-align: center; padding: 0; }
         #btnScrollTop:hover { background: #00557f; }
 
@@ -101,19 +97,14 @@
         table.data-table tr:hover td { background-color: #f5f9fb; }
         .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-right: 3px; }
 
-        /* Champs style tableur (comme IC Manager) : sans bordure, transparents, remplissent la cellule */
         table.data-table td.cell-input { padding: 0 !important; height: 38px; }
         .cell-wrap { position: relative; width: 100%; height: 36px; }   /* conteneur relatif (IE ne gère pas position:relative sur td) */
         .excel-input { width: 100%; height: 36px; padding: 0 10px; line-height: 36px; border: none; background: transparent; font-family: inherit; font-size: 13px; color: #1e293b; box-sizing: border-box; }
         .excel-input:focus { outline: none; }   /* pas de surbrillance de focus sur les cases (selects) des Paramètres */
-        /* IE affiche la valeur d'un <select> focalisé avec la surbrillance système (bande bleue, surtout si vide) : on la neutralise */
         select.excel-input::-ms-value { background: transparent; color: #1e293b; }
-        /* Masque le bouton "effacer" (X) natif d'IE qui apparaît quand le champ a du texte */
         input::-ms-clear { display: none; width: 0; height: 0; }
         select.excel-input::-ms-expand { display: none; }   /* masque la flèche : clic dans la case ouvre la liste */
-        /* Couleur grise du texte d'invite (placeholder) */
         input:-ms-input-placeholder, textarea:-ms-input-placeholder { color: #94a3b8; }
-        /* Bande titre de carte façon IC Manager : séparateur pleine largeur (bord à bord) */
         .card-title { padding: 13px 15px; border-bottom: 1px solid #eef2f5; }
         .param-ttl { font-size: 16px; font-weight: 700; text-align: center; }
 
@@ -136,7 +127,6 @@
         ' ==========================================================
         Dim oSession   ' session SAP GUI active
 
-        ' Pause sans CPU ni processus réseau (compatible antivirus) via SAPI (silence).
         Sub PauseVBS(secondes)
             On Error Resume Next
             Dim oVoice, oStream
@@ -149,7 +139,6 @@
             On Error GoTo 0
         End Sub
 
-        ' Récupère la session SAP GUI active (Nothing si SAP fermé / scripting désactivé).
         Function GetSAPSession()
             On Error Resume Next
             Set GetSAPSession = Nothing
@@ -163,7 +152,6 @@
             Set GetSAPSession = conn.Children(0)
         End Function
 
-        ' Attend qu'un élément SAP existe (max N secondes). True si trouvé.
         Function AttendreElementSAP(cheminID, maxSecondes)
             Dim tentatives, obj
             tentatives = 0 : AttendreElementSAP = False
@@ -177,10 +165,6 @@
             On Error GoTo 0
         End Function
 
-        ' ----------------------------------------------------------
-        ' Ouvre un avis qualité dans SAP via QM03 (affichage). strAvis = n° d'avis.
-        ' Renvoie "OK" ou "ERREUR : ...".
-        ' ----------------------------------------------------------
         Function VBS_OuvrirQM03(strAvis)
             On Error Resume Next
             Set oSession = GetSAPSession()
@@ -189,7 +173,6 @@
                 Exit Function
             End If
             oSession.FindById("wnd[0]").Maximize
-            ' /n = bascule sur QM03 depuis n'importe quel écran.
             oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "/nqm03"
             oSession.FindById("wnd[0]").SendVKey 0
             If Not AttendreElementSAP("wnd[0]/usr/ctxtRIWO00-QMNUM", 8) Then
@@ -202,7 +185,6 @@
                 VBS_OuvrirQM03 = "ERREUR : impossible d'ouvrir l'avis " & strAvis & "."
                 Exit Function
             End If
-            ' Amène la fenêtre SAP au premier plan.
             oSession.FindById("wnd[0]").Maximize
             Dim wshAct
             Set wshAct = CreateObject("WScript.Shell")
@@ -211,10 +193,6 @@
             On Error GoTo 0
         End Function
 
-        ' ----------------------------------------------------------
-        ' Ouvre un ordre de fabrication dans SAP via CO03 (affichage). strOF = n° d'ordre.
-        ' Renvoie "OK" ou "ERREUR : ...".
-        ' ----------------------------------------------------------
         Function VBS_OuvrirCO03(strOF)
             On Error Resume Next
             Set oSession = GetSAPSession()
@@ -223,7 +201,6 @@
                 Exit Function
             End If
             oSession.FindById("wnd[0]").Maximize
-            ' /n = bascule sur CO03 depuis n'importe quel écran.
             oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "/nco03"
             oSession.FindById("wnd[0]").SendVKey 0
             If Not AttendreElementSAP("wnd[0]/usr/ctxtCAUFVD-AUFNR", 8) Then
@@ -236,7 +213,6 @@
                 VBS_OuvrirCO03 = "ERREUR : impossible d'ouvrir l'ordre " & strOF & "."
                 Exit Function
             End If
-            ' Amène la fenêtre SAP au premier plan.
             oSession.FindById("wnd[0]").Maximize
             Dim wshActOF
             Set wshActOF = CreateObject("WScript.Shell")
@@ -245,10 +221,6 @@
             On Error GoTo 0
         End Function
 
-        ' ----------------------------------------------------------
-        ' Extraction QM13 -> EXPORT_NC.txt (variante d'affichage LAROCHE_NC).
-        ' strDateLow = date de début au format JJ.MM.AAAA. Renvoie "OK" ou "ERREUR : ...".
-        ' ----------------------------------------------------------
         Function VBS_ExtractQM13(strDateLow, strDateHigh)
             On Error Resume Next
             Dim wsh, fso, folderPath, exportPath, popupCheck, maxRetries, currentRetry, fileReady
@@ -267,7 +239,6 @@
             End If
 
             oSession.FindById("wnd[0]").Maximize
-            ' /n = termine la transaction en cours et bascule sur QM13 depuis n'importe quel écran.
             oSession.FindById("wnd[0]/tbar[0]/okcd").Text = "/nqm13"
             oSession.FindById("wnd[0]").SendVKey 0
             If Not AttendreElementSAP("wnd[0]/tbar[1]/btn[17]", 8) Then
@@ -275,7 +246,6 @@
                 Exit Function
             End If
 
-            ' Variante d'affichage LAROCHE_NC (+ effacement du filtre auteur ENAME)
             oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
             If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
                 oSession.FindById("wnd[1]/usr/txtV-LOW").Text = "LAROCHE_NC"
@@ -283,7 +253,6 @@
                 oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
             End If
 
-            ' Date de début + exécution
             If Not AttendreElementSAP("wnd[0]/usr/ctxtQMDAT-LOW", 5) Then
                 VBS_ExtractQM13 = "ERREUR : champ date introuvable."
                 Exit Function
@@ -292,7 +261,6 @@
             If strDateHigh <> "" Then oSession.FindById("wnd[0]/usr/ctxtQMDAT-HIGH").Text = strDateHigh
             oSession.FindById("wnd[0]/tbar[1]/btn[8]").Press
 
-            ' Export de la liste -> fichier local
             oSession.FindById("wnd[0]/mbar/menu[0]/menu[3]/menu[2]").Select
             Set popupCheck = oSession.FindById("wnd[1]", False)
             If popupCheck Is Nothing Then
@@ -305,7 +273,6 @@
             oSession.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = "EXPORT_NC.txt"
             oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
 
-            ' Attente de la génération du fichier
             maxRetries = 40 : currentRetry = 0 : fileReady = False
             Do While Not fileReady And currentRetry < maxRetries
                 If fso.FileExists(exportPath) Then
@@ -326,11 +293,6 @@
             On Error GoTo 0
         End Function
 
-        ' ----------------------------------------------------------
-        ' Extraction des Ordres de Fabrication via COOIS (variante + plage de dates).
-        ' varNom = LAROCHE_ST / LAROCHE_IQ ; dateField = S_ECKST / S_ISTEN ; fileName = EXPORT_ST/IQ.txt.
-        ' doExpand = True pour déplier le profil avant l'export (script IQ). Renvoie "OK" ou "ERREUR : ...".
-        ' ----------------------------------------------------------
         Function VBS_ExtractCOOIS(varNom, dateField, strLow, strHigh, fileName, doExpand)
             On Error Resume Next
             Dim wsh, fso, folderPath, exportPath, shellId, base, maxRetries, currentRetry, fileReady
@@ -353,14 +315,12 @@
                 VBS_ExtractCOOIS = "ERREUR : COOIS n'a pas démarré."
                 Exit Function
             End If
-            ' Variante d'affichage (+ effacement du filtre auteur ENAME)
             oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
             If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
                 oSession.FindById("wnd[1]/usr/txtV-LOW").Text = varNom
                 If Not (oSession.FindById("wnd[1]/usr/txtENAME-LOW", False) Is Nothing) Then oSession.FindById("wnd[1]/usr/txtENAME-LOW").Text = ""
                 oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
             End If
-            ' Plage de dates (dans le tabstrip de sélection)
             base = "wnd[0]/usr/tabsTABSTRIP_SELBLOCK/tabpSEL_00/ssub%_SUBSCREEN_SELBLOCK:PPIO_ENTRY:1200/ctxt" & dateField
             If Not AttendreElementSAP(base & "-LOW", 5) Then
                 VBS_ExtractCOOIS = "ERREUR : champ date introuvable (variante " & varNom & " ?)."
@@ -369,13 +329,11 @@
             oSession.FindById(base & "-LOW").Text = strLow
             oSession.FindById(base & "-HIGH").Text = strHigh
             oSession.FindById("wnd[0]/tbar[1]/btn[8]").Press
-            ' Attente de la liste (grille ALV)
             shellId = "wnd[0]/usr/cntlCUSTOM/shellcont/shell/shellcont/shell"
             If Not AttendreElementSAP(shellId, 8) Then
                 VBS_ExtractCOOIS = "ERREUR : aucun OF pour cette période."
                 Exit Function
             End If
-            ' Export local
             If doExpand Then oSession.FindById(shellId).PressToolbarButton "&NAVIGATION_PROFILE_TOOLBAR_EXPAND"
             oSession.FindById(shellId).PressToolbarContextButton "&MB_EXPORT"
             oSession.FindById(shellId).SelectContextMenuItem "&PC"
@@ -386,7 +344,6 @@
             oSession.FindById("wnd[1]/usr/ctxtDY_PATH").Text = folderPath
             oSession.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = fileName
             oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
-            ' Attente du fichier
             maxRetries = 40 : currentRetry = 0 : fileReady = False
             Do While Not fileReady And currentRetry < maxRetries
                 If fso.FileExists(exportPath) Then
@@ -411,7 +368,6 @@
         Function VBS_ExtractOFClotMSN(strLow, strHigh)   ' MSN des OFs clôturés (variante IQ2, sans dépliage) -> EXPORT_IQ2.txt
             VBS_ExtractOFClotMSN = VBS_ExtractCOOIS("LAROCHE_IQ2", "S_ISTEN", strLow, strHigh, "EXPORT_IQ2.txt", False)
         End Function
-        ' Extraction des Interventions Cards via QM11 (variante LAROCHE_IC2, plage QMDAT) -> EXPORT_IC.txt.
         Function VBS_ExtractIC(strDateLow, strDateHigh)
             On Error Resume Next
             Dim wsh, fso, folderPath, exportPath, popupCheck, maxRetries, currentRetry, fileReady
@@ -434,14 +390,12 @@
                 VBS_ExtractIC = "ERREUR : QM11 n'a pas démarré."
                 Exit Function
             End If
-            ' Variante d'affichage LAROCHE_IC2 (+ effacement du filtre auteur ENAME)
             oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
             If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
                 oSession.FindById("wnd[1]/usr/txtV-LOW").Text = "LAROCHE_IC2"
                 If Not (oSession.FindById("wnd[1]/usr/txtENAME-LOW", False) Is Nothing) Then oSession.FindById("wnd[1]/usr/txtENAME-LOW").Text = ""
                 oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
             End If
-            ' Plage de dates + exécution
             If Not AttendreElementSAP("wnd[0]/usr/ctxtQMDAT-LOW", 5) Then
                 VBS_ExtractIC = "ERREUR : champ date introuvable."
                 Exit Function
@@ -449,7 +403,6 @@
             oSession.FindById("wnd[0]/usr/ctxtQMDAT-LOW").Text = strDateLow
             If strDateHigh <> "" Then oSession.FindById("wnd[0]/usr/ctxtQMDAT-HIGH").Text = strDateHigh
             oSession.FindById("wnd[0]/tbar[1]/btn[8]").Press
-            ' Export de la liste -> fichier local
             oSession.FindById("wnd[0]/mbar/menu[0]/menu[3]/menu[2]").Select
             Set popupCheck = oSession.FindById("wnd[1]", False)
             If popupCheck Is Nothing Then
@@ -461,7 +414,6 @@
             oSession.FindById("wnd[1]/usr/ctxtDY_PATH").Text = folderPath
             oSession.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = "EXPORT_IC.txt"
             oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
-            ' Attente de la génération du fichier
             maxRetries = 40 : currentRetry = 0 : fileReady = False
             Do While Not fileReady And currentRetry < maxRetries
                 If fso.FileExists(exportPath) Then
@@ -478,10 +430,6 @@
             On Error GoTo 0
         End Function
 
-        ' ----------------------------------------------------------
-        ' 2e extract NC via QM11 (variante LAROCHE_NC2) -> EXPORT_NC2.txt : MSN | Avis.
-        ' Permet de rattacher le n° de MSN à chaque NC. Renvoie "OK" ou "ERREUR : ...".
-        ' ----------------------------------------------------------
         Function VBS_ExtractNCMSN(strDateLow, strDateHigh)
             On Error Resume Next
             Dim wsh, fso, folderPath, exportPath, popupCheck, maxRetries, currentRetry, fileReady
@@ -504,14 +452,12 @@
                 VBS_ExtractNCMSN = "ERREUR : QM11 n'a pas démarré."
                 Exit Function
             End If
-            ' Variante d'affichage LAROCHE_NC2 (MSN + Avis) (+ effacement du filtre auteur ENAME)
             oSession.FindById("wnd[0]/tbar[1]/btn[17]").Press
             If AttendreElementSAP("wnd[1]/usr/txtV-LOW", 5) Then
                 oSession.FindById("wnd[1]/usr/txtV-LOW").Text = "LAROCHE_NC2"
                 If Not (oSession.FindById("wnd[1]/usr/txtENAME-LOW", False) Is Nothing) Then oSession.FindById("wnd[1]/usr/txtENAME-LOW").Text = ""
                 oSession.FindById("wnd[1]/tbar[0]/btn[8]").Press
             End If
-            ' Plage de dates + exécution
             If Not AttendreElementSAP("wnd[0]/usr/ctxtQMDAT-LOW", 5) Then
                 VBS_ExtractNCMSN = "ERREUR : champ date introuvable."
                 Exit Function
@@ -519,7 +465,6 @@
             oSession.FindById("wnd[0]/usr/ctxtQMDAT-LOW").Text = strDateLow
             If strDateHigh <> "" Then oSession.FindById("wnd[0]/usr/ctxtQMDAT-HIGH").Text = strDateHigh
             oSession.FindById("wnd[0]/tbar[1]/btn[8]").Press
-            ' Export de la liste -> fichier local
             oSession.FindById("wnd[0]/mbar/menu[0]/menu[3]/menu[2]").Select
             Set popupCheck = oSession.FindById("wnd[1]", False)
             If popupCheck Is Nothing Then
@@ -531,7 +476,6 @@
             oSession.FindById("wnd[1]/usr/ctxtDY_PATH").Text = folderPath
             oSession.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = "EXPORT_NC2.txt"
             oSession.FindById("wnd[1]/tbar[0]/btn[0]").Press
-            ' Attente de la génération du fichier
             maxRetries = 40 : currentRetry = 0 : fileReady = False
             Do While Not fileReady And currentRetry < maxRetries
                 If fso.FileExists(exportPath) Then
@@ -561,14 +505,9 @@
         var CLOTURE_RESP = "70005848";                   // Responsable qualité dont l'APQ0 marque la clôture
         var DECISION_CODE = "DEC0";                      // défaut : code SAP de la décision technique
         var DECISION_RESP = "70009001;70005847";         // défaut : Responsables CT (décision)
-        // Base partagée (commentaires + sélection "Départ") via Gist privé. ID = identifiant (pas un secret).
         var SHARE_GIST_ID = "8a40ac55fc606b8ad0358b7b3e3c396a";
         var SHARE_FILE = "KPI_PERFO_DATA.json";
-        // >>> TOKEN partagé (portée gist) <<< : À LAISSER VIDE dans la version poussée sur GitHub (sinon exposé publiquement).
-        // Pour distribuer aux collègues sans config par poste : mettre le token ICI dans la copie distribuée
-        // (par mail/lecteur partagé, PAS via l'URL publique). Prioritaire ; sinon on prend le token saisi dans les Paramètres.
         var SHARE_TOKEN = "";
-        // Valeur de configuration éditable (Paramètres), repli sur la constante par défaut.
         function cfgVal(k, def) { return (appData.cfg && NettoyerChaine(appData.cfg[k]) !== "") ? NettoyerChaine(appData.cfg[k]) : def; }
         var LIEN_CONFIG_APP = "https://gist.githubusercontent.com/adrientrucexternal/9006613d5966adaa40d408cdb3bd1068/raw";
         var URL_TELECHARGEMENT_APP = "https://github.com/adrientrucpro-star/KPI_PERFO";
@@ -588,7 +527,6 @@
             return 0;
         }
         function NettoyerChaine(s) { return (s == null) ? "" : (""+s).replace(/^\s+|\s+$/g, ""); }
-        // "Prénom Nom" -> "Nom" (tout ce qui suit le 1er mot) ; utilisé pour les légendes des graphiques.
         function nomSeul(full) {
             var s = NettoyerChaine(full); var sp = s.indexOf(' ');
             return sp === -1 ? s : s.substring(sp + 1);
@@ -598,7 +536,6 @@
             return (""+t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
         }
         function AfficherErreur(msg) { alert(msg); }
-        // Alerte liée à une extraction : masquée en mode "Fichiers d'export" (temporaire / test).
         function AlerteExtract(msg) { AfficherErreur(msg); }
 
     // ==========================================================
@@ -644,7 +581,6 @@
             if (!appData.calc) appData.calc = {};           // mode de calcul des durées
             if (!appData.calc.mode) appData.calc.mode = 'cal';      // 'cal' = 7j/7j, 'ouvre' = jours ouvrés (lun-ven)
             if (!appData.share) appData.share = { token: "" };      // base partagée : token GitHub (local, par poste)
-            // Migration tableau 1 vers {resp, nom, type} : anciennes entrées = "int" ; respAutres -> "ext".
             for (var mi = 0; mi < appData.roleDesig.length; mi++) { if (appData.roleDesig[mi].type === undefined) appData.roleDesig[mi].type = "int"; }
             if (appData.respAutres && appData.respAutres.length) {
                 for (var ami = 0; ami < appData.respAutres.length; ami++) {
@@ -654,8 +590,6 @@
             }
             appData.respAutres = [];
         }
-        // Construit l'objet à sauvegarder : uniquement les lignes des NC analysables (eligRaw = avant exclusion
-        // manuelle) + leurs commentaires. MÊME structure pour le fichier LOCAL et la base EN LIGNE.
         function BuildSaveObject() {
             var eligAvis = {};
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligRaw) eligAvis[ncList[i].avis] = true; }
@@ -695,7 +629,6 @@
             } catch (e) { AfficherErreur("Erreur de sauvegarde : " + e.message); }
         }
 
-        // Sérialiseur JSON minimal (JSON.stringify absent en moteur IE ancien).
         function toJSON(v) {
             if (v === null || v === undefined) return "null";
             var t = typeof v;
@@ -716,10 +649,8 @@
     // BASE PARTAGÉE : commentaires + sélection "Départ" via un Gist privé.
     // Token saisi par poste (Paramètres, stocké en local) ; ID du Gist en dur (SHARE_GIST_ID).
     // ==========================================================
-        // Priorité au token EN DUR de la copie distribuée (SHARE_TOKEN), sinon celui saisi par poste (Paramètres).
         function shareToken() { return NettoyerChaine(SHARE_TOKEN) || (appData.share && NettoyerChaine(appData.share.token)) || ""; }
         function shareConfigured() { return shareToken() !== "" && SHARE_GIST_ID !== ""; }
-        // Lit le Gist partagé -> { comments, selLine } via callback (null si non configuré / échec).
         function shareRead(cb) {
             if (!shareConfigured()) { if (cb) cb(null); return; }
             try {
@@ -741,7 +672,6 @@
                 xhr.send();
             } catch (e) { if (cb) cb(null); }
         }
-        // Fusionne les données partagées dans appData ; renvoie true si au moins une valeur a CHANGÉ.
         function shareApply(d) {
             if (!d) return false;
             var changed = false, a;
@@ -749,8 +679,6 @@
             if (d.selLine) { if (!appData.selLine) appData.selLine = {}; for (a in d.selLine) { if (d.selLine.hasOwnProperty(a) && appData.selLine[a] !== d.selLine[a]) { appData.selLine[a] = d.selLine[a]; changed = true; } } }
             return changed;
         }
-        // Au démarrage : récupère commentaires + sélections partagés, fusionne et rafraîchit (si changement).
-        // Indicateur de synchronisation (pied de la barre latérale). État : 'off' (non configuré), 'ok', 'error'.
         var syncState = 'off', syncRefreshing = false;
         function setSyncState(s) { syncState = s; UpdateSyncIndicator(); }
         function UpdateSyncIndicator() {
@@ -766,7 +694,6 @@
                 + "<span style='margin-left:8px; vertical-align:middle; font-size:15px; font-weight:700;'>&#x21BB;</span></div>"
                 + "<div style='border-top:1px solid rgba(255,255,255,0.08); padding-top:12px; font-size:12px; color:#5f95af;'>v" + VERSION_ACTUELLE + " - © Adrien Truc</div>";
         }
-        // Actualise depuis le Gist SANS redémarrer : config (équipes/responsables/version) + données partagées (commentaires/sélection).
         function RafraichirGist() {
             syncRefreshing = true; UpdateSyncIndicator();
             setTimeout(function () { syncRefreshing = false; UpdateSyncIndicator(); }, 1500);
@@ -800,7 +727,6 @@
                 if (pd && pd.className.indexOf('active') !== -1) RenderDashIfNeeded();
             });
         }
-        // Écriture différée en read-merge-write : ne réécrit QUE les clés modifiées -> pas d'écrasement des collègues.
         var pendingShare = { comments: {}, selLine: {} }, shareWriteTimer = null;
         function shareQueueComment(avis, val) { if (!shareConfigured()) return; pendingShare.comments[avis] = val; shareScheduleFlush(); }
         function shareQueueSel(avis, val) { if (!shareConfigured()) return; pendingShare.selLine[avis] = val; shareScheduleFlush(); }
@@ -837,8 +763,6 @@
     // ==========================================================
     // CONNEXION : whitelist GitHub + blocage de version
     // ==========================================================
-        // Analyse le fichier Gist à sections : VERSION / USER / DATA_EQUIPE (team;user;nom) / DATA_RESP (code;nom).
-        // Rétrocompatible avec l'ancien format (ligne 1 = version, lignes suivantes = logins).
         function ParseGistConfig(txt) {
             var lines = NettoyerChaine(txt).split(/\r?\n/);
             var cfg = { version: "", users: [], equipe: [], resp: [] };
@@ -872,7 +796,6 @@
             }
             return cfg;
         }
-        // Cache local de la dernière config Gist VALIDE (fichier séparé d'APP_DATA -> aucun risque d'écraser les NC).
         function getGistCachePath() {
             try { var sh = new ActiveXObject("WScript.Shell"); return sh.ExpandEnvironmentStrings("%APPDATA%") + "\\" + DOSSIER_DONNEES + "\\GIST_CACHE.txt"; } catch (e) { return ""; }
         }
@@ -894,7 +817,6 @@
                 return c;
             } catch (e) { return ""; }
         }
-        // Applique une config Gist (texte brut) : parse + whitelist + contrôle de version. Retourne true si accès accordé.
         function AppliquerConfigGist(text, idWindows) {
             var cfg = ParseGistConfig(text);
             if (cfg.version === "" && cfg.users.length === 0) { AfficherErreurLogin("Erreur de configuration", "Le fichier de configuration est vide ou mal format&eacute;."); return false; }
@@ -916,8 +838,6 @@
             }
             return true;
         }
-        // Repli quand GitHub est injoignable / limite le débit (429) : dernière config valide mise en cache localement.
-        // Retourne true si un cache exploitable a été appliqué (accès accordé OU refusé, affichage géré).
         function UtiliserConfigCache(idWindows) {
             var text = LoadGistCache();
             if (NettoyerChaine(text) === "") return false;
@@ -934,8 +854,6 @@
                 statusMsg.innerText = "Vérification des droits pour : " + idWindows.toUpperCase();
 
                 var xhr = new ActiveXObject("MSXML2.XMLHTTP.6.0");
-                // Cache-buster par TRANCHE DE 5 MIN (et non à la milliseconde) : les lancements rapprochés réutilisent
-                // la même URL -> servie par le cache local IE / le CDN GitHub, sans retaper l'origine (limite le rate limit).
                 var url = LIEN_CONFIG_APP + "?t=" + Math.floor(new Date().getTime() / 300000);
                 var timedOut = false;
                 var to = setTimeout(function () { timedOut = true; try { xhr.abort(); } catch (e) {}
@@ -969,8 +887,6 @@
         }
 
         function MaximiserFenetre() {
-            // Vraie maximisation Windows (état "maximisé" : bords au ras de l'écran, coins droits),
-            // impossible via resizeTo (qui ne donne qu'une fenêtre "restaurée" à la taille de l'écran, coins arrondis).
             try {
                 window.focus();
                 var sh = new ActiveXObject("WScript.Shell");
@@ -983,23 +899,17 @@
         }
 
         function EntrerApplication() {
-            // Le bouton passe en mode chargement ; l'écran de connexion RESTE affiché (il couvre l'app pendant le rendu).
             var btn = document.getElementById("btnEntrer");
             if (btn) { btn.disabled = true; btn.style.opacity = "0.85"; btn.style.cursor = "default"; btn.innerHTML = "<span class='spinner'></span> Chargement&hellip;"; }
-            // mainApp affiché DERRIÈRE l'écran de connexion (opaque, z-index 9999) pour permettre les mesures/rendu.
             document.getElementById("mainApp").style.display = "block";
             if (appData.rows && appData.rows.length) RecomputeAll();
             shareLoad();   // récupère commentaires + sélections partagés (asynchrone, rafraîchit si changement)
             PrefillExtractDates();
             dashSuppressLaunchResize = true;
             ShowPage("pageDashboard", true);   // affiche la page SANS rendre les graphiques
-            // La fenêtre est déjà maximisée (windowstate natif) : le setTimeout laisse le spinner "Chargement…" s'afficher,
-            // puis on rend les graphiques derrière l'écran de connexion avant de le masquer.
             setTimeout(RevelerDashboard, 60);
         }
         function RevelerDashboard() {
-            // La fenêtre est déjà maximisée (depuis window.onload) : on rend les graphiques DERRIÈRE l'écran de connexion,
-            // puis on masque celui-ci une fois les graphiques affichés -> le tableau de bord apparaît déjà complet.
             LancerRenduDashboard(0, -1);
         }
         function LancerRenduDashboard(tries, lastH) {
@@ -1008,7 +918,6 @@
             if ((h > 200 && h === lastH) || tries >= 16) {   // 2 mesures identiques = taille finale atteinte ; garde-fou ~400 ms
                 dashSuppressLaunchResize = false;
                 RenderDashboard();   // rendu UNIQUE, à la taille finale (l'écran de connexion couvre encore)
-                // Graphiques affichés -> on masque l'écran de connexion pour révéler le tableau de bord déjà complet.
                 setTimeout(function () { document.getElementById("loginScreen").style.display = "none"; }, 30);
                 return;
             }
@@ -1020,8 +929,6 @@
     // NAVIGATION
     // ==========================================================
         var PAGES = ["pageDashboard", "pageAnalyse", "pageParcours", "pageParametres"];
-        // Cache de rendu (comme dashValid) : les pages masquées gardent leur DOM, donc on ne re-rend
-        // Analyse NC / Paramètres et les sous-onglets d'extraction que si leurs données ont changé.
         var pageValid = { parcours: false, parametres: false };
         var extractValid = { NC: false, OF: false, IC: false };
         function InvalidatePages() { pageValid.parcours = false; pageValid.parametres = false; }
@@ -1036,25 +943,18 @@
             else if (s === 'IC') { RenderICTable(); }
             else { RenderListe(); }
         }
-        // Rend le sous-onglet d'extraction visible UNIQUEMENT s'il a été invalidé.
         function RenderActiveExtractSub() { var s = activeExtractSub(); if (!extractValid[s]) RenderExtractSub(s); UpdateExtractButtons(); }
-        // Anti-rebond de la recherche : ne reconstruit le tableau qu'après ~250 ms sans frappe
-        // (au lieu d'un rebuild complet à CHAQUE touche -> latence sur les gros extracts).
         var extractSearchTimer = null;
         function DebounceExtractSearch(fn) {
             if (extractSearchTimer) clearTimeout(extractSearchTimer);
             extractSearchTimer = setTimeout(fn, 250);
         }
-        // Plafond de lignes affichées dans les tableaux d'extraction : au-delà, IE10 rame à l'affichage
-        // d'un très gros tableau (bascule d'onglet lente). Les lignes sont triées AVANT -> on garde les N premières.
         var EXTRACT_ROW_CAP = 500;   // valeur par défaut si la case "Lignes" est vide ou invalide
-        // Nombre max de lignes à afficher = ce qui est saisi dans la case "Lignes" du sous-onglet (défaut 500).
         function extractCap(id) {
             var el = document.getElementById(id);
             var n = el ? parseInt(NettoyerChaine(el.value), 10) : NaN;
             return (isNaN(n) || n < 1) ? EXTRACT_ROW_CAP : n;
         }
-        // Masque le bouton "×" des champs de date quand ils sont vides (affiché seulement si une date est saisie).
         function RefreshDateClearButtons() {
             var wraps = document.querySelectorAll('.date-wrap');
             for (var i = 0; i < wraps.length; i++) {
@@ -1066,8 +966,6 @@
                 }
             }
         }
-        // Pré-rend en arrière-plan les sous-onglets d'extraction non encore rendus (construit le HTML dans les conteneurs
-        // masqués), pour que le changement d'onglet soit instantané (le coût du rendu est déplacé hors du clic).
         function PrerenderExtractSubs() {
             setTimeout(function () {
                 if (!extractValid.NC) RenderListe();
@@ -1075,8 +973,6 @@
                 if (!extractValid.IC) RenderICTable();
             }, 60);
         }
-        // skipRender=true : affiche la page sans rendre son contenu (utilisé au lancement pour ne rendre
-        // le dashboard qu'UNE fois, après la maximisation de la fenêtre, au lieu d'avant ET après).
         function ShowPage(id, skipRender) {
             for (var i = 0; i < PAGES.length; i++) {
                 var sfx = PAGES[i].substring(4);
@@ -1087,8 +983,6 @@
             var pageEl = document.getElementById(id); if (pageEl) pageEl.className = "page active";
             var navEl = document.getElementById("nav" + sfx2); if (navEl) navEl.className = "nav-item active";
             ScrollContentTop();   // remet le scroll à zéro AVANT le rendu (mesures de hauteur fiables)
-            // Le tableau de bord est calibré pour remplir l'écran sans défilement -> on interdit tout scroll vertical
-            // (un éventuel ajustement de quelques px est masqué au lieu d'afficher une barre). Les autres pages défilent.
             var ct = document.getElementById('content'); if (ct) ct.style.overflowY = (id === 'pageDashboard') ? 'hidden' : 'auto';
             if (skipRender) return;
             if (id === "pageParametres") { if (!pageValid.parametres) RenderParametres(); }
@@ -1106,25 +1000,21 @@
             var b = document.getElementById('btnScrollTop');
             if (b) b.style.display = 'none';
         }
-        // Défilement À L'INTÉRIEUR des tableaux (.tbl-scroll) : affiche le bouton "remonter" quand on défile.
         function tblScrollHandler() {
             var b = document.getElementById('btnScrollTop');
             if (b) b.style.display = (this.scrollTop > 200) ? 'block' : 'none';
         }
-        // Le conteneur de tableau actuellement visible (les autres sous-onglets sont masqués).
         function visibleTblScroll() {
             var boxes = document.querySelectorAll('.tbl-scroll');
             for (var i = 0; i < boxes.length; i++) { if (boxes[i].offsetHeight > 0 && boxes[i].offsetParent) return boxes[i]; }
             return null;
         }
-        // Clic sur le bouton : remonte le tableau visible ET la page en haut.
         function ScrollHautTableau() {
             var c = document.getElementById('content'); if (c) c.scrollTop = 0;
             var t = visibleTblScroll(); if (t) t.scrollTop = 0;
             var p = document.getElementById('parcoursContainer'); if (p) p.scrollTop = 0;   // liste des NC (Analyse NC)
             var b = document.getElementById('btnScrollTop'); if (b) b.style.display = 'none';
         }
-        // Remet tous les tableaux tout en haut (à l'entrée d'un onglet).
         function ResetTblScroll() {
             var boxes = document.querySelectorAll('.tbl-scroll');
             for (var i = 0; i < boxes.length; i++) boxes[i].scrollTop = 0;
@@ -1178,7 +1068,6 @@
             }
             RefreshDateClearButtons();
         }
-        // Paires de dates (du, au) : la date "à partir du" ne doit pas dépasser "jusqu'au".
         var DATE_PAIRS = [['extractDate', 'extractDateFin'], ['filtreDateDebut', 'filtreDateFin'], ['ofDateDebut', 'ofDateFin'], ['ofFiltreDateDebut', 'ofFiltreDateFin'], ['icDateDebut', 'icDateFin'], ['icFiltreDateDebut', 'icFiltreDateFin']];
         function validateDatePair(id) {
             for (var i = 0; i < DATE_PAIRS.length; i++) {
@@ -1194,7 +1083,6 @@
             }
             return true;
         }
-        // Contrôle de l'ordre d'une paire de dates au LANCEMENT d'une extraction (NC/OF/IC). Affiche l'alerte et renvoie false si "du" > "au".
         function verifierOrdreDates(loVal, hiVal) {
             var nlo = dateToNum(loVal), nhi = dateToNum(hiVal);
             if (nlo != null && nhi != null && nlo > nhi) {
@@ -1203,7 +1091,6 @@
             }
             return true;
         }
-        // Efface une date (bouton ×) et rafraîchit le rendu si c'est un filtre.
         function clearDate(id, event) {
             var el = document.getElementById(id); if (el) el.value = "";
             RefreshDateClearButtons();
@@ -1223,7 +1110,6 @@
     //  Avis | Statut | Description | Respons. | Code | Désignation | Terminé par
     //      | Date(créé le) | Heure(créé à) | Terminé le | Terminé à | Nº
     // ==========================================================
-        // Lance l'extraction SAP QM13 puis analyse le fichier généré.
         function LancerExtractionSAP() {
             if (!hasAnyTeamMember()) return;   // sécurité : bouton grisé sans équipe
             var btn = document.getElementById('btnExtract');
@@ -1252,8 +1138,6 @@
                 UpdateExtractButtons();   // rétablit l'état actif/grisé selon les équipes
             }, 80);
         }
-        // Lit EXPORT_NC2.txt (dossier de données) s'il est présent et fusionne les MSN dans appData.msnByAvis.
-        // Renvoie true si des correspondances ont été chargées. Best-effort (jamais d'exception remontée).
         function ChargerMSNDepuisFichier() {
             try {
                 var sh = new ActiveXObject("WScript.Shell");
@@ -1268,8 +1152,6 @@
                 return n > 0;
             } catch (e) { return false; }
         }
-        // 2e extract QM11 (variante LAROCHE_NC2) -> EXPORT_NC2.txt : met à jour appData.msnByAvis (map avis -> MSN).
-        // Best-effort : un échec (SAP, aucune donnée...) n'interrompt PAS l'import NC ; on conserve les MSN déjà connus.
         function ChargerMSN(dateSAP, dateSAPFin, sh) {
             try {
                 var res = VBS_ExtractNCMSN(dateSAP, dateSAPFin);
@@ -1286,7 +1168,6 @@
                 var rows = ParseExport(content);
                 if (rows.length === 0) { AlerteExtract("Aucune ligne exploitable détectée (format inattendu)."); return; }
 
-                // Fusion avec l'historique : on n'ajoute QUE les NC non déjà présentes (déjà analysées = ignorées).
                 var cur = appData.rows || [], existing = {};
                 for (var x = 0; x < cur.length; x++) existing[cur[x].a] = true;
                 var addedAvis = {}, skippedAvis = {};
@@ -1307,7 +1188,6 @@
                 RenderListe();
                 EgaliserHauteursExtraction();
 
-                // Pas de popup de résultat en cas de succès ; alerte seulement si aucune NC analysée.
                 if (nbElig === 0) alert("Extraction terminée, mais aucune NC analysée.\n\n" + DiagnostiquerNCTexte());
             } catch (e) {
                 AlerteExtract("Erreur de lecture : " + e.message);
@@ -1315,7 +1195,6 @@
         }
 
         // ======================= ORDRES DE FABRICATION (OF) =======================
-        // Bascule entre les sous-onglets "Non-conformité" et "Ordre de Fabrication".
         function ShowExtractSub(s) {
             var subs = { NC: 'extractSubNC', OF: 'extractSubOF', IC: 'extractSubIC' };
             var tabs = { NC: 'subtabNC', OF: 'subtabOF', IC: 'subtabIC' };
@@ -1330,8 +1209,6 @@
             AjusterHauteurTables();
             ResetTblScroll();   // le tableau du sous-onglet s'affiche tout en haut
         }
-        // Parse EXPORT_ST / EXPORT_IQ : colonnes Ordre de Fabrication, User, Date, Heure (tabulé, ANSI).
-        // MSN = les 3 chiffres juste après "MSV-000". Ex : "MSV-000846/WG000" -> "846".
         function msnFromOTP(s) {
             s = NettoyerChaine(s);
             var m = s.match(/MSV-000(\d{3})/i);
@@ -1339,9 +1216,6 @@
             var m2 = s.match(/MSV[-\s_]*0*(\d+)/i);   // repli si le préfixe/nb de zéros diffère
             return m2 ? m2[1] : "";
         }
-        // Parse un export OF. Détecte automatiquement la disposition des colonnes :
-        //   - ST (créés)    : Ordre | Élément d'OTP (MSN) | User | Date | Heure
-        //   - IQ (clôturés) : Ordre | User | Date | Heure | Jalon  (pas de MSN ici -> via EXPORT_IQ2)
         function ParseOF(content) {
             var lines = content.split(/\r?\n/), out = [];
             for (var i = 0; i < lines.length; i++) {
@@ -1360,9 +1234,6 @@
             }
             return out;
         }
-        // Lit le fichier d'export OF, stocke, sauvegarde et affiche le tableau. type = 'cree' | 'clot'.
-        // Lit un export OF (ST/IQ), fusionne dans ofCree/ofClot (dédoublonnage par n° d'OF, SANS rendu ni sauvegarde).
-        // Renvoie le nb d'OF ajoutés, ou -1 si le fichier est absent.
         function MergeOFFile(path, type) {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             if (!fso.FileExists(path)) return -1;
@@ -1376,7 +1247,6 @@
             if (type === 'cree') appData.ofCree = cur; else appData.ofClot = cur;
             return added;
         }
-        // EXPORT_IQ2.txt (variante LAROCHE_IQ2) : Ordre | Élément d'OTP -> map { of : MSN }.
         function ParseOFMSN(content) {
             var lines = content.split(/\r?\n/), map = {};
             for (var i = 0; i < lines.length; i++) {
@@ -1391,7 +1261,6 @@
             }
             return map;
         }
-        // Rattache le MSN (depuis EXPORT_IQ2.txt) aux lignes des OF clôturés. Best-effort.
         function MergeOFClotMSN(path) {
             try {
                 var fso = new ActiveXObject("Scripting.FileSystemObject");
@@ -1402,18 +1271,14 @@
                 return n;
             } catch (e) { return 0; }
         }
-        // Extraction OF combinée : lance les DEUX extractions SAP (création + clôture) puis affiche le tableau unique.
-        // true si l'équipe contient au moins un membre (user renseigné).
         function teamHasMembers(arr) {
             arr = arr || [];
             for (var i = 0; i < arr.length; i++) { if (NettoyerChaine(arr[i].user) !== "") return true; }
             return false;
         }
-        // Au moins un membre d'équipe sélectionné (ST, TL ou IQ) ?
         function hasAnyTeamMember() {
             return teamHasMembers(appData.teamST) || teamHasMembers(appData.teamTL) || teamHasMembers(appData.teamIQ);
         }
-        // Active/grise un bouton d'export selon 'ok' (fond gris + curseur interdit + infobulle si grisé).
         function setExtractBtnDisabled(id, ok, tip) {
             var btn = document.getElementById(id); if (!btn) return;
             btn.disabled = !ok;
@@ -1423,15 +1288,12 @@
             btn.style.cursor = ok ? "" : "not-allowed";
             btn.title = ok ? "" : (tip || "");
         }
-        // Grise les 3 boutons d'export tant qu'aucune équipe n'est sélectionnée (les extracts sont filtrés par équipe).
-        // OF reste plus strict : il lui faut ST ou IQ (créés = ST, clôturés = IQ).
         function UpdateExtractButtons() {
             var any = hasAnyTeamMember(), tip = "Sélectionne au moins une équipe (ST, TL ou IQ) dans les Paramètres.";
             setExtractBtnDisabled('btnExtract', any, tip);      // Extract NC
             setExtractBtnDisabled('btnICExtract', any, tip);    // Extract IC
             setExtractBtnDisabled('btnOF', teamHasMembers(appData.teamST) || teamHasMembers(appData.teamIQ), "Renseigne au moins une équipe (ST ou IQ) dans les Paramètres.");   // Extract OF
         }
-        // Conservé pour compat : met à jour l'ensemble des boutons d'export.
         function LancerExtractOFTout() {
             if (!teamHasMembers(appData.teamST) && !teamHasMembers(appData.teamIQ)) return;   // sécurité : bouton grisé sans équipe
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
@@ -1451,7 +1313,6 @@
                         if (r1 && r1.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("Création : " + (r1 || "erreur inconnue"));
                         var r2 = VBS_ExtractOFClot(d1, d2);
                         if (r2 && r2.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_IQ.txt", 'clot'); else errs.push("Clôture : " + (r2 || "erreur inconnue"));
-                        // 3e extract : MSN des OF clôturés (variante IQ2) -> rattaché aux lignes ofClot (best-effort).
                         var r3 = VBS_ExtractOFClotMSN(d1, d2);
                         if (r3 && r3.indexOf("ERREUR") === -1) MergeOFClotMSN(folder + "EXPORT_IQ2.txt"); else if (r3) errs.push("MSN clôture : " + r3);
                     }
@@ -1470,7 +1331,6 @@
                 UpdateExtractButtons();   // rétablit l'état actif/grisé selon les équipes
             }, 80);
         }
-        // Bandeau "aucune donnée" centré et pleine hauteur pour les tableaux d'extraction (cohérent avec le dashboard).
         function emptyExtractHtml(title, subtitle) {
             return "<div class='empty-extract card' style='margin-bottom:0; box-sizing:border-box;'>"
                 + "<div style='display:table; width:100%; height:100%;'><div style='display:table-cell; vertical-align:middle; text-align:center; padding:20px;'>"
@@ -1481,14 +1341,12 @@
                 + "<div style='font-size:13px; color:#64748b;'>" + escapeHtml(subtitle) + "</div>"
                 + "</div></div></div>";
         }
-        // Affiche un bandeau vide dans un conteneur et l'étire jusqu'au bas de la zone visible.
         function showEmptyExtract(contId, title, subtitle) {
             var cont = document.getElementById(contId); if (!cont) return;
             cont.innerHTML = emptyExtractHtml(title, subtitle);
             var av = ComputeAvailHeight(contId);
             if (av != null && cont.firstChild) cont.firstChild.style.height = av + "px";
         }
-        // OF dont le user appartient à l'équipe : ST pour les créés, IQ pour les clôturés.
         function getOFTeamRows(type) {
             var teamArr = (type === 'cree') ? (appData.teamST || []) : (appData.teamIQ || []);
             var teamSet = {};
@@ -1498,8 +1356,6 @@
             for (var d = 0; d < all.length; d++) { if (teamSet[NettoyerChaine(all[d].user).toUpperCase()]) data.push(all[d]); }
             return data;
         }
-        // Jeu combiné pour le tableau unique OF : OF créés (Type=Création) + OF clôturés (Type=Clôture),
-        // filtrés aux membres d'équipe (ST pour les créés, IQ pour les clôturés). msn = "" (absent des exports OF).
         function ofCombinedRows() {
             var out = [], cree = getOFTeamRows('cree'), clot = getOFTeamRows('clot');
             for (var i = 0; i < cree.length; i++) out.push({ of: cree[i].of, msn: cree[i].msn || "", user: cree[i].user, date: cree[i].date, heure: cree[i].heure, type: 'cree' });
@@ -1513,7 +1369,6 @@
             var cont = document.getElementById('ofTable'); if (!cont) return;
             var data = ofCombinedRows();
             var totalOF = data.length;   // nb d'OF AVANT filtres (pour distinguer "aucune extraction" de "aucun résultat filtré")
-            // Filtres OF : plage de dates + recherche (n° d'OF, user, MSN ou type).
             var fE1 = document.getElementById('ofFiltreDateDebut'), fE2 = document.getElementById('ofFiltreDateFin'), fER = document.getElementById('ofFiltreRecherche');
             var nd = fE1 ? dateToNum(fE1.value) : null, nf = fE2 ? dateToNum(fE2.value) : null;
             var fr = fER ? NettoyerChaine(fER.value).toUpperCase() : "";
@@ -1587,20 +1442,14 @@
         }
 
         // ======================= INTERVENTIONS CARDS (IC) =======================
-        // Une IC est "en retard" si sa clôture (date+heure) est postérieure à sa fin autorisée (date+heure).
         function isICLate(r) {
             var fin = parseDT(r.dfa, r.hfa), clo = parseDT(r.dc, r.hc);
             return (fin && clo) ? (clo > fin) : false;
         }
-        // Écart de clôture d'une IC (ms) : clôture réelle − fin autorisée. Positif = en retard, négatif = en avance ; null si dates invalides.
         function icEcartMs(r) {
             var fin = parseDT(r.dfa, r.hfa), clo = parseDT(r.dc, r.hc);
             return (fin && clo) ? (clo.getTime() - fin.getTime()) : null;
         }
-        // Parse EXPORT_IC (QM11, tabulé ANSI). Deux formats gérés selon la variante :
-        //  - 7 colonnes : Avis(=IC), Auteur(=user), Date début(=dfa), H fin au(=hfa), Date réf(=dc), HRéf(=hc), Statut de l'avis
-        //  - 8 colonnes : MSN, Avis, Date, Auteur, Da.deb au, Hr fin au, DateRéfér., HRéf
-        // On repère la colonne Avis (n° d'IC = 6+ chiffres) pour s'adapter automatiquement.
         function ParseIC(content) {
             var lines = content.split(/\r?\n/), out = [];
             for (var i = 0; i < lines.length; i++) {
@@ -1610,8 +1459,6 @@
                 while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
                 var p0 = NettoyerChaine(parts[0]), p1 = NettoyerChaine(parts[1] || "");
                 if (/^\d{6,}$/.test(p0)) {   // colonne 1 = Avis
-                    // Format actuel (8 col) : Avis | MSN | Auteur | Date but auto | Heure fin auto | Date réf | Heure réf | Statut
-                    // (col 2 = MSN = chiffres ou vide ; sinon = ancien format 7 col avec l'Auteur en col 2)
                     var newFmt = (parts.length >= 8) && (p1 === "" || /^\d+$/.test(p1));
                     if (newFmt) {
                         out.push({ ic: p0, msn: p1, user: NettoyerChaine(parts[2]), dfa: NettoyerChaine(parts[3]), hfa: NettoyerChaine(parts[4]), dc: NettoyerChaine(parts[5]), hc: NettoyerChaine(parts[6]), statut: NettoyerChaine(parts[7] || "") });
@@ -1682,7 +1529,6 @@
             var cont = document.getElementById('icTable'); if (!cont) return;
             var data = (appData.icRows || []).slice(0);
             var totalIC = data.length;   // nb d'IC AVANT filtres
-            // Filtres : plage de dates sur la date de CLÔTURE + recherche (n° IC ou user).
             var fE1 = document.getElementById('icFiltreDateDebut'), fE2 = document.getElementById('icFiltreDateFin'), fER = document.getElementById('icFiltreRecherche');
             var nd = fE1 ? dateToNum(fE1.value) : null, nf = fE2 ? dateToNum(fE2.value) : null;
             var fr = fER ? NettoyerChaine(fER.value).toUpperCase() : "";
@@ -1736,8 +1582,6 @@
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
-        // "JJ.MM.AAAA" ou "JJ/MM/AAAA" -> entier AAAAMMJJ (comparable), ou null.
-        // Normalise une date d'export OF (JJ.MM.AAAA, JJ-MM-AAAA…) au format JJ/MM/AAAA.
         function fmtOFDate(s) {
             s = NettoyerChaine(s); if (!s) return "";
             var p = s.split(/[.\/\-]/); if (p.length < 3) return s;
@@ -1762,13 +1606,10 @@
                 var raw = lines[i];
                 if (raw.indexOf("\t") === -1) continue;          // lignes d'en-tête / titres : pas de tab
                 var parts = raw.split("\t");
-                // Retire les champs vides en tête (tabulation initiale).
                 while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
                 if (parts.length < 12) continue;
                 var avis = NettoyerChaine(parts[0]);
                 if (!/^\d{8,}$/.test(avis)) continue;             // 1ère colonne = n° d'avis (8+ chiffres)
-                // Les 6 premières colonnes sont ancrées au début, les 6 dernières à la FIN :
-                // ça absorbe toute colonne vide insérée au milieu (entre Désignation et Terminé par).
                 var nF = parts.length;
                 out.push({
                     a:  avis,
@@ -1787,8 +1628,6 @@
             }
             return out;
         }
-        // EXPORT_NC2.txt (QM11, variante LAROCHE_NC2) : colonnes MSN | Avis (tabulé).
-        // Renvoie une map { avis : msn } pour rattacher le MSN à chaque NC du 1er extract.
         function ParseNCMSN(content) {
             var lines = content.split(/\r?\n/), map = {};
             for (var i = 0; i < lines.length; i++) {
@@ -1814,11 +1653,9 @@
             var dt = new Date(parseInt(dp[2],10), parseInt(dp[1],10)-1, parseInt(dp[0],10),
                               parseInt(tp[0]||0,10), parseInt(tp[1]||0,10), parseInt(tp[2]||0,10));
             if (isNaN(dt.getTime())) return null;
-            // Arrondi à la minute SUPÉRIEURE (on supprime les secondes).
             if (dt.getSeconds() > 0) { dt.setSeconds(0); dt.setMinutes(dt.getMinutes() + 1); }
             return dt;
         }
-        // Heure "HH:MM" d'une date (sans secondes).
         function fmtHM(d) {
             if (!d) return "";
             var h = d.getHours(), m = d.getMinutes();
@@ -1826,14 +1663,10 @@
         }
 
 
-        // Durée entre 2 dates selon le mode choisi (Paramètres) :
-        //  - "cal"   : 7j/7j (calendaire 24/7) = b - a
-        //  - "ouvre" : jours ouvrés = journées complètes lun-ven, samedi/dimanche exclus
         function durBetween(a, b) {
             if (!a || !b || b <= a) return 0;
             var c = appData.calc || {};
             if ((c.mode || 'cal') !== 'ouvre') return b - a;   // 7j/7j (calendaire)
-            // Jours ouvrés : journées complètes du lundi au vendredi (samedi/dimanche exclus).
             var aMs = a.getTime(), bMs = b.getTime(), total = 0;
             var cur = new Date(a.getFullYear(), a.getMonth(), a.getDate());
             while (cur.getTime() <= bMs) {
@@ -1848,11 +1681,6 @@
             return total;
         }
 
-        // Durée d'une tâche = écart entre sa RÉCEPTION (fin de la tâche précédente, ou création NC
-        // pour la 1re) et son PASSAGE (sa propre fin "Terminé"). Tâches triées par Nº (dernière
-        // colonne de l'extract). Un écart négatif est ignoré (null).
-        // Écarts d'une NC mis en cache sur l'objet (nc.lines ne change pas après import ; ncList reconstruit par RecomputeAll).
-        // Évite de recalculer stepGaps pour chaque NC à chaque rendu du dashboard (RenderDashResp + RenderDashTeams + boucle d'ajustement).
         function ncGaps(nc) { if (!nc._gaps) nc._gaps = stepGaps(nc.lines); return nc._gaps; }
         function stepGaps(lines) {
             var arr = lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
@@ -1868,7 +1696,6 @@
             return out;
         }
 
-        // Construit la table identifiant (User) -> rôle à partir des équipes ST/TL/IQ.
         function buildRoleByID() {
             var m = {};
             var teams = [["ST", appData.teamST], ["TL", appData.teamTL], ["IQ", appData.teamIQ]];
@@ -1920,36 +1747,28 @@
                     var role = roleByID[L.r] || roleByID[L.tp];
                     if (role) roles[role] = true;
                 }
-                // Étapes triées par Nº ; durée = écart réception -> passage. (met en cache nc._gaps pour les rendus du dashboard)
                 var gaps = ncGaps(nc);
                 var chezMs = 0, hasCT = false, hasClot = false, hasOri0Q = false, clot = null;
                 for (var gi = 0; gi < gaps.length; gi++) {
                     var g = gaps[gi], rU = (g.r || "").toUpperCase(), tpU = (g.tp || "").toUpperCase(), cU = (g.code || "").toUpperCase();
                     var inTeam = !!userSet[tpU];
-                    // Exclusion : NC avec une tâche ORI0 du responsable 70005848.
                     if (cU === "ORI0" && rU === clotResp) hasOri0Q = true;
-                    // Éligibilité : tâche d'un responsable CT interne (user en équipe).
                     if (decSet[rU] && inTeam) hasCT = true;
-                    // Clôture = APQ0 du responsable qualité (70005848) "Terminé par" un user du tableau IQ.
                     if (cU === clotCode && rU === clotResp && iqSet[tpU]) { hasClot = true; if (g.end && (!clot || g.end > clot)) clot = g.end; }
-                    // Traitement équipe : tâches responsable INTERNE ET "Terminé par" en équipe.
                     if (g.gap != null && t1int[rU] && inTeam) chezMs += g.gap;
                 }
                 nc.start = start; nc.end = clot;
                 nc.msn = (appData.msnByAvis && appData.msnByAvis[key]) ? appData.msnByAvis[key] : "";   // MSN issu du 2e extract (QM11)
                 nc.hasST = !!roles.ST; nc.hasIQ = !!roles.IQ; nc.hasTL = !!roles.TL;
                 nc.hasCT = hasCT; nc.hasClot = hasClot;
-                // Traitement global = création -> dernière fin (1re à dernière date/heure).
                 nc.durMs = (start && maxEnd) ? durBetween(start, maxEnd) : null;
                 nc.chezMs = chezMs;
                 nc.pasMs = (nc.durMs != null) ? Math.max(0, nc.durMs - chezMs) : null;
-                // Override : ligne "Départ" (manuelle sauvegardée, sinon 1re CT+ST par défaut) -> global/équipe = ligne -> APQ0.
                 if (nc.end) {
                     var sl = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
                     var sIdx = effectiveSelIdx(nc.avis, sl);
                     if (sIdx >= 0) { var tt0 = parcoursTotals(nc, sl, sIdx); nc.durMs = tt0.g; nc.chezMs = tt0.e; nc.pasMs = Math.max(0, tt0.g - tt0.e); }
                 }
-                // Analysable si : tâche CT interne (user équipe) ET clôture APQ0 valide, ET PAS d'ORI0 par 70005848.
                 nc.eligRaw = hasCT && hasClot && !hasOri0Q;
                 nc.excluded = !!(appData.excluded && appData.excluded[nc.avis]);   // exclusion manuelle
                 nc.eligible = nc.eligRaw && !nc.excluded;
@@ -1958,7 +1777,6 @@
             ncList.sort(function (a, b) { return parseInt(a.avis,10) - parseInt(b.avis,10); });
         }
 
-        // Explique (texte pour MsgBox) pourquoi 0 NC analysée : conditions CT interne + APQ0 interne.
         function DiagnostiquerNCTexte() {
             var clotCode = cfgVal('clot', CLOTURE_CODE).toUpperCase();
             var total = ncList.length, nCT = 0, nClot = 0;
@@ -1977,8 +1795,6 @@
     // ==========================================================
     // OUTILS D'AFFICHAGE
     // ==========================================================
-        // Format jour / heure / minute (ex : "2 j 5 h 12 min").
-        // Un "jour" = 24h dans les deux modes (les jours ouvrés comptent des journées complètes).
         function dayMs() { return 86400000; }
         function fmtDHM(ms) {
             if (ms == null || isNaN(ms)) return "-";
@@ -1993,14 +1809,11 @@
             if (m > 0 || parts.length === 0) parts.push(m + " min");
             return parts.join(" ");
         }
-        // Formate un écart de clôture SIGNÉ (ms) : "+ 2 j 3 h" (retard) / "− 1 j" (avance) / "à l'heure".
         function fmtEcartSigned(ms) {
             if (ms == null || isNaN(ms)) return "-";
             if (Math.round(Math.abs(ms) / 60000) === 0) return "à l'heure";
             return (ms < 0 ? "− " : "+ ") + fmtDHM(Math.abs(ms));
         }
-        // Étiquette d'axe Y (durée d'IC) : la valeur de graduation est en HEURES -> "1 h", "2 h"… (négatif = avance, "0" à l'origine).
-        // L'axe se cale sur des heures entières (allowDecimals:false) et le pas s'adapte aux données (1 h, 2 h, 5 h…).
         function icAxisLabel(hours) {
             var v = Math.round(hours);
             if (v === 0) return "0";
@@ -2015,7 +1828,6 @@
         var isEditingParams = false;
         var paramsBackup = null;
         var PARAM_EDIT_ROWS = 15;   // nb de lignes (vides) affichées en mode édition (recalculé à l'entrée)
-        // Nombre de lignes pour remplir jusqu'en bas de la page (sans faire apparaître de scrollbar).
         function computeParamRows() {
             var rc = document.getElementById('rolesContainer');
             var clientH = document.documentElement.clientHeight || window.innerHeight || 800;
@@ -2041,7 +1853,6 @@
             RenderRolesTable();
             RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
         }
-        // Panneau "Mode de calcul des durées" (toujours actif, indépendant du mode édition).
         function RenderCalcMode() {
             var cont = document.getElementById('calcModePanel');
             if (!cont) return;
@@ -2058,7 +1869,6 @@
                 + box('cal', '7j/7j', !ouvre)
                 + box('ouvre', 'Jours ouvrés', ouvre);
         }
-        // Modifiable uniquement en mode édition ; appliqué (recalcul + sauvegarde) au clic sur Valider.
         function UpdateCalc(key, val) {
             if (!isEditingParams) return;
             if (!appData.calc) appData.calc = {};
@@ -2110,7 +1920,6 @@
             isEditingParams = false; paramsBackup = null;
             RenderParametres();
         }
-        // Réinitialise complètement l'application : efface la base APP_DATA.txt et redémarre à vide.
         function ReinitialiserApplication() {
             if (!confirm("Réinitialiser l'application ? Toutes les données seront EFFACÉES.\n\nCette action est IRRÉVERSIBLE.")) return;
             if (!confirm("Confirmer la réinitialisation ?\n\nL'application va redémarrer à vide.")) return;
@@ -2122,7 +1931,6 @@
             try { location.reload(); } catch (e2) { location.href = location.href; }
         }
         function cleanRoleDesig(a) {
-            // Conserve une ligne seulement si le responsable ET le type sont renseignés.
             var o = []; for (var i = 0; i < a.length; i++) {
                 if (NettoyerChaine(a[i].resp) !== "" && NettoyerChaine(a[i].type) !== "") o.push(a[i]);
             } return o;
@@ -2133,13 +1941,11 @@
             } return o;
         }
 
-        // Responsables (code -> désignation) : UNIQUEMENT ceux du Gist (section DATA_RESP).
         function gistRespMap() {
             var m = {}, g = (window.gistCfg && gistCfg.resp) || [];
             for (var i = 0; i < g.length; i++) { var gc = NettoyerChaine(g[i].code); if (gc) m[gc] = g[i].nom || m[gc] || ""; }
             return m;
         }
-        // Menu déroulant des responsables : code + désignation (liste = Gist). + la valeur courante si elle n'est plus dans le Gist.
         function respOptionsHtml(selected, selNom) {
             var m = gistRespMap(), codes = [];
             for (var c in m) { if (m.hasOwnProperty(c)) codes.push(c); }
@@ -2153,7 +1959,6 @@
             return h;
         }
 
-        // --- Tableau 1 : Responsable (liste depuis extracts) + Nom (auto) + Type (interne/externe) ---
         function RenderRolesTable() {
             var cont = document.getElementById('rolesContainer');
             var arr = appData.roleDesig || [];
@@ -2191,20 +1996,16 @@
             appData.roleDesig[idx][field] = NettoyerChaine(val);
         }
 
-        // --- Tableaux 2/3/4 : Équipes ST / TL / IQ (User + Nom) ---
         function teamArr(role) {
             if (role === "ST") return appData.teamST;
             if (role === "TL") return appData.teamTL;
             return appData.teamIQ;
         }
-        // Personnes proposées pour une équipe = celles taguées pour ce rôle dans le Gist (DATA_EQUIPE).
         function teamPeopleFor(role) {
             var out = [], eq = (window.gistCfg && gistCfg.equipe) || [];
             for (var i = 0; i < eq.length; i++) { if (eq[i].team === role) out.push(eq[i]); }
             return out;
         }
-        // Options du menu déroulant d'une équipe : uniquement le user (le nom s'affiche dans la colonne Nom à côté).
-        // (+ la valeur courante si elle n'est plus dans le pool Gist).
         function teamOptionsHtml(role, selUser) {
             var ppl = teamPeopleFor(role), h = "<option value=''></option>", seen = {}, found = false;
             for (var i = 0; i < ppl.length; i++) {
@@ -2236,8 +2037,6 @@
             html += "</tbody></table>";
             cont.innerHTML = html;
         }
-        // Efface la sélection de texte parasite laissée par IE après un re-rendu innerHTML pendant qu'un <select> est focalisé
-        // (sinon une bande bleue reste en surbrillance sur la ligne).
         function clearFocusSelection() {
             try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
             try {
@@ -2245,7 +2044,6 @@
                 else if (document.selection && document.selection.empty) document.selection.empty();
             } catch (e2) {}
         }
-        // Sélection d'une personne dans le menu déroulant : renseigne user + nom (nom auto depuis le Gist).
         function SetTeamUser(role, idx, user) {
             user = NettoyerChaine(user).toUpperCase();
             var nom = "", ppl = teamPeopleFor(role);
@@ -2276,14 +2074,10 @@
             var dc = document.getElementById('dashCharts'); dc.style.display = "block";
             var ct = document.getElementById('content'); if (ct) ct.style.overflowY = 'hidden';   // dashboard = pas de scrollbar (au démarrage, RenderDashboard est appelé hors ShowPage)
 
-            // Hauteur des cartes de graphiques dérivée de la fenêtre en CSS (calc/vh) : les 3 lignes remplissent
-            // l'écran sans boucle d'ajustement. Highcharts remplit son conteneur (aucune hauteur fixée en JS) ;
-            // #content est en overflow:hidden sur le dashboard -> aucune scrollbar (au pire quelques px rognés).
             SetDashCardHeight('dashRowStyleNC', 'dashCardNC', 3, dc.getBoundingClientRect().top);
             var d3w = document.getElementById('dash3weeks');
             dashRow1Height = (d3w && d3w.clientHeight > 120) ? d3w.clientHeight : 220;   // hauteur réelle d'un conteneur (widget SVG "3 semaines")
 
-            // Filtre période (haut de page) appliqué à TOUS les graphiques du tableau de bord.
             var eligF = [];
             for (var f = 0; f < elig.length; f++) { if (inSelectedPeriod(elig[f].end)) eligF.push(elig[f]); }
 
@@ -2294,9 +2088,6 @@
             ReflowDashCharts(['hcWeeks', 'hcRespInt', 'hcRespExt', 'hcSeuilEquipe', 'hcSeuilGlobal', 'hcTeamST', 'hcTeamTL', 'hcTeamIQ']);
             dashValid.NC = true;       // rendu à jour : pas de re-rendu au retour sur l'onglet tant que rien ne change
         }
-        // Injecte/actualise une règle CSS donnant aux cartes de graphiques (cardClass) une hauteur = (fenêtre - décalage)/rows.
-        // topPx = décalage (px) entre le haut de la fenêtre et le haut de la zone des graphiques ; rows = nb de lignes.
-        // #content est en overflow:hidden sur le dashboard -> aucune scrollbar (au pire quelques px rognés).
         function SetDashCardHeight(styleId, cardClass, rows, topPx) {
             var st = document.getElementById(styleId);
             if (!st) { st = document.createElement('style'); st.id = styleId; (document.getElementsByTagName('head')[0] || document.documentElement).appendChild(st); }
@@ -2305,14 +2096,10 @@
             if (st.styleSheet) st.styleSheet.cssText = rule;   // IE
             else st.innerHTML = rule;
         }
-        // Recale une liste de graphiques Highcharts à la taille (CSS) de leur conteneur.
         function ReflowDashCharts(ids) {
             for (var i = 0; i < ids.length; i++) { var c = window.hcRefs[ids[i]]; if (c) { try { c.reflow(); } catch (e) {} } }
         }
-        // Hauteur de référence (px) de la 1ère ligne (Évolution), utilisée par renderWeeksLineChart. 280 = repli par défaut.
         var dashRow1Height = 280;
-        // Hauteur visible (px) entre le haut d'un conteneur et le bas de #content (même marge basse : 20px),
-        // PARTAGÉE entre les sous-onglets NC et OF pour garantir une marge basse strictement identique.
         function ComputeAvailHeight(containerId) {
             var charts = document.getElementById(containerId), contentEl = document.getElementById('content');
             if (!charts || !contentEl) return null;
@@ -2323,13 +2110,11 @@
         }
 
         function fmtDDMM(d) { var dd = d.getDate(), mm = d.getMonth() + 1; return (dd < 10 ? '0' + dd : '' + dd) + '/' + (mm < 10 ? '0' + mm : '' + mm); }
-        // Lundi de la semaine ISO (year, week).
         function isoWeekMonday(year, week) {
             var jan4 = new Date(year, 0, 4), jan4Day = (jan4.getDay() + 6) % 7;   // lundi = 0
             var w1Mon = new Date(year, 0, 4 - jan4Day);                            // lundi de la semaine 1
             return new Date(w1Mon.getFullYear(), w1Mon.getMonth(), w1Mon.getDate() + (week - 1) * 7);
         }
-        // Les 7 jours (ts) de la semaine sélectionnée dans le filtre.
         function selectedWeekDays() {
             var mon = isoWeekMonday(dashFilter.year, dashFilter.week), out = [];
             var nb = ((appData.calc && appData.calc.mode) === 'ouvre') ? 5 : 7;   // jours ouvrés : lun-ven
@@ -2347,26 +2132,22 @@
             return keys;
         }
         var MOIS_COURTS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-        // Granularité des buckets temporels selon le filtre : 'day' (mode Semaine), 'week' (mode Mois), 'month' (mode Année).
         function granBucketMode() {
             if (dashFilter.gran === 'week') return 'day';
             if (dashFilter.gran === 'year') return 'month';
             return 'week';
         }
-        // Libellé "par jour/semaine/mois/MSN" pour les titres de graphiques.
         function granAxisNoun() {
             if (dashFilter.gran === 'msn') return "par MSN";
             if (dashFilter.gran === 'week') return "par jour";
             if (dashFilter.gran === 'year') return "par mois";
             return "par semaine";
         }
-        // Clé (ts) du bucket temporel d'une date selon le mode.
         function bucketTsForMode(d, mode) {
             if (mode === 'day') return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
             if (mode === 'month') return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
             return getWeekStart(d).getTime();
         }
-        // Liste ordonnée des buckets de l'axe X : jours de la semaine / semaines présentes / 12 mois de l'année.
         function bucketKeysForMode(mode, presentSet) {
             if (mode === 'day') return selectedWeekDays();
             if (mode === 'month') {
@@ -2377,16 +2158,13 @@
             }
             var keys = []; for (var w in presentSet) { if (presentSet.hasOwnProperty(w)) keys.push(parseInt(w, 10)); } keys.sort(function (a, b) { return a - b; }); return keys;
         }
-        // Libellé d'un bucket temporel selon le mode.
         function bucketLabelForMode(ts, mode) {
             var dd = new Date(ts);
             if (mode === 'day') return fmtDDMM(dd);
             if (mode === 'month') return MOIS_COURTS[dd.getMonth()];
             return "S" + isoWeek(dd);
         }
-        // Sélection MSN (mode MSN) : dashFilter.msnSel = null -> tous ; sinon objet { <clé MSN> : true }.
         function msnSelected(key) { return !dashFilter.msnSel || dashFilter.msnSel[key]; }
-        // Tous les MSN présents dans les données (NC éligibles + OF des équipes + IC), triés.
         function dashAllMSN() {
             var set = {}, i;
             for (i = 0; i < ncList.length; i++) { if (ncList[i].eligible && ncList[i].end) set[msnBucketKey(ncList[i].msn)] = true; }
@@ -2397,7 +2175,6 @@
             var out = []; for (var mm in set) { if (set.hasOwnProperty(mm)) out.push(mm); }
             return msnSortKeys(out);
         }
-        // Agrégation NC par MSN -> points { week/label = MSN, n, g, t }.
         function computeMSNPts(elig) {
             var agg = {};
             for (var i = 0; i < elig.length; i++) {
@@ -2415,13 +2192,10 @@
             for (var m = 0; m < keys.length; m++) { var a = agg[keys[m]]; pts.push({ week: keys[m], label: keys[m], n: a.n, g: a.ng ? a.sg / a.ng : null, t: a.nt ? a.st / a.nt : null }); }
             return pts;
         }
-        // Dispatcher : par MSN (mode MSN) ou par jour/semaine/mois (modes Semaine/Mois/Année).
         function computeWeekPts(elig) {
             if (dashFilter.gran === 'msn') return computeMSNPts(elig);
             return computeTimePts(elig, granBucketMode());
         }
-        // Agrégation par jour/semaine/mois (selon 'mode') de clôture -> points { week, label, n, g, t }, triés.
-        // Les buckets vides restent affichés (g/t = null -> trou dans la courbe).
         function computeTimePts(elig, mode) {
             var agg = {};
             for (var i = 0; i < elig.length; i++) {
@@ -2440,14 +2214,12 @@
             }
             return pts;
         }
-        // Résumé "3 dernières semaines" : TOUJOURS sur les NC non filtrées (3 dernières semaines réelles).
         function RenderDash3Weeks(eligAll) {
             var pts = computeTimePts(eligAll, 'week');   // TOUJOURS par semaine (indépendant du mode/granularité)
             if (!pts.length) { document.getElementById('dash3weeks').innerHTML = "<div class='msg-box msg-info'>Aucune donnée.</div>"; return; }
             document.getElementById('dash3weeks').innerHTML = build3WeekSummary(pts.slice(Math.max(0, pts.length - 3)), dashRow1Height);
             EgaliserCards(document.querySelectorAll('#dash3weeks .wkbox'));   // les 3 cases (1 par semaine) à la même hauteur
         }
-        // Graphique d'évolution par semaine : sur les NC filtrées par la période choisie.
         function RenderWeeksChart(elig) {
             var wt = document.getElementById('dashWeeksTitle');
             if (wt) wt.innerHTML = "Évolution du traitement " + granAxisNoun();
@@ -2457,18 +2229,14 @@
             if (!hasData) { hcDestroy('hcWeeks'); document.getElementById('dashWeeks').innerHTML = emptyChartHtml(dashRow1Height); return; }
             renderWeeksLineChart(pts);
         }
-        // Résumé : amélioration (durée en baisse) ou dégradation entre les 2 semaines les plus récentes.
-        // Panneau 3 semaines : L1 numéros de semaine, L2 cases (NC/global/équipe), L3 évolutions entre semaines.
         function build3WeekSummary(wk, targetHeight) {
             if (!wk.length) return "<div class='msg-box msg-info'>Aucune donnée.</div>";
             var n = wk.length, cw = 100 / n, colW = cw.toFixed(2);
-            // Ligne 1 : numéros de semaine
             var l1 = "<div style='font-size:0;'>";
             for (var i = 0; i < n; i++) {
                 l1 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 5px; text-align:center; font-size:14px; font-weight:700; color:#334155;'>Semaine " + wk[i].week + "</div>";
             }
             l1 += "</div>";
-            // Ligne 2 : une case par semaine (NC, global, équipe)
             var l2 = "<div style='font-size:0;'>";
             for (var j = 0; j < n; j++) {
                 l2 += "<div style='display:inline-block; vertical-align:top; width:" + colW + "%; box-sizing:border-box; padding:0 5px;'>"
@@ -2478,7 +2246,6 @@
                     + "</div></div>";
             }
             l2 += "</div>";
-            // Ligne 3 : évolution entre semaines consécutives (centrée entre les 2 colonnes concernées)
             var l3 = "";
             if (n >= 2) {
                 l3 = "<div style='font-size:0;'>";
@@ -2490,15 +2257,10 @@
                 }
                 l3 += "</div>";
             }
-            // Conteneur flex : remplit exactement targetHeight, répartit l'espace EXTRA entre les 3 blocs
-            // (au lieu de marges fixes) → la carte s'adapte à la hauteur calculée pour la ligne 1.
-            // Syntaxe flexbox IE10 (-ms-) ET standard, le HTA forçant le moteur IE10 (x-ua-compatible).
             var h = targetHeight ? ("height:" + targetHeight + "px; ") : "";
             return "<div style='" + h + "display:-ms-flexbox; display:flex; -ms-flex-direction:column; flex-direction:column; -ms-flex-pack:justify; justify-content:space-between; box-sizing:border-box;'>" + l1 + l2 + l3 + "</div>";
         }
         function evoBox(a, b) {
-            // Couleur du CADRE entier (basée sur l'évolution du traitement global) :
-            // amélioration (durée en baisse) = vert pâle ; dégradation (durée en hausse) = rouge pâle ; stable = gris.
             var dGlobal = b.g - a.g, boxAmelio = dGlobal < 0, boxDegr = dGlobal > 0;
             var boxBg = boxAmelio ? "#dcfce3" : (boxDegr ? "#fee2e2" : "#f8fafc");
             var boxBorder = boxAmelio ? "#86efac" : (boxDegr ? "#fca5a5" : "#e2e8f0");
@@ -2514,38 +2276,30 @@
                 + line("Global", a.g, b.g, false) + line("Équipe", a.t, b.t, true)
                 + "</div>";
         }
-        // Un badge par semaine : nombre de NC + traitement global + traitement équipe.
-        // Registre des graphiques Highcharts (par id de conteneur). On crée le graphique au 1er rendu,
-        // puis on MET À JOUR les données (chart.update) au lieu de tout recréer -> changement de filtre quasi instantané.
         window.hcRefs = window.hcRefs || {};
         function hcDraw(id, config) {
             var el = document.getElementById(id);
             if (!el) return null;
             var ch = window.hcRefs[id];
             if (ch && ch.renderTo === el && ch.series) {
-                // mise à jour rapide (oneToOne) ; reflow() ne redessine que si le conteneur a changé de taille.
                 try { ch.update(config, true, true); try { ch.reflow(); } catch (e3) {} return ch; }
                 catch (e) { try { ch.destroy(); } catch (e2) {} window.hcRefs[id] = null; }
             }
             window.hcRefs[id] = Highcharts.chart(id, config);
             return window.hcRefs[id];
         }
-        // Détruit le graphique d'un conteneur (avant d'y mettre un message "Aucune donnée") pour éviter un ref orphelin.
         function hcDestroy(id) {
             if (window.hcRefs[id]) { try { window.hcRefs[id].destroy(); } catch (e) {} window.hcRefs[id] = null; }
         }
-        // Cadre "Aucune donnée" homogène pour un graphique vide (remplit la hauteur du conteneur si h fourni).
         function emptyChartHtml(h) {
             var hs = h ? ("height:" + h + "px;") : "height:100%; min-height:120px;";
             return "<div style='" + hs + " margin:0; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucune donnée</span></div>";
         }
-        // Rendu du graphique d'évolution : Highcharts si dispo, sinon repli SVG fait-main.
         function renderWeeksLineChart(pts) {
             var cont = document.getElementById('dashWeeks');
             if (typeof Highcharts === 'undefined') { cont.innerHTML = buildWeeksLine(pts); return; }
             var hc = document.getElementById('hcWeeks');
             if (!hc) { cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:100%;'></div>"; }
-            // sinon : #hcWeeks est déjà en height:100% -> il suit la hauteur CSS de #dashWeeks (reflow via ReflowDashCharts)
             var dMs = dayMs(), cats = [], gData = [], tData = [];
             for (var i = 0; i < pts.length; i++) {
                 cats.push(pts[i].label);
@@ -2575,7 +2329,6 @@
                 });
             } catch (e) { cont.innerHTML = buildWeeksLine(pts); }
         }
-        // Graphique en courbes (repli) : x = semaines, y = temps de traitement (global bleu / équipe vert).
         function buildWeeksLine(pts) {
             var W = 760, H = 320, mL = 52, mR = 18, mT = 16, mB = 52;
             var plotW = W - mL - mR, plotH = H - mT - mB, n = pts.length;
@@ -2594,7 +2347,6 @@
                 svg += "<line x1='" + mL + "' y1='" + yy + "' x2='" + (W - mR) + "' y2='" + yy + "' stroke='#e2e8f0' stroke-width='1'/>";
                 svg += "<text x='" + (mL - 8) + "' y='" + (yy + 4) + "' text-anchor='end' font-size='11' fill='#64748b'>" + d + " j</text>";
             }
-            // Ligne rouge "objectif" à 2 jours.
             if (2 * dMs <= maxScale) {
                 var yRed = y(2 * dMs);
                 svg += "<line x1='" + mL + "' y1='" + yRed + "' x2='" + (W - mR) + "' y2='" + yRed + "' stroke='#dc2626' stroke-width='1.5' stroke-dasharray='5 4'/>";
@@ -2621,9 +2373,6 @@
             return "<div style='position:relative; width:100%; height:0; padding-bottom:" + (H / W * 100).toFixed(1) + "%;'>" + svg + "</div>" + legend;
         }
 
-        // 2) Durée moyenne par responsable du tableau 1.
-        // Filtre commun aux DEUX sous-onglets du dashboard (Non-conformité ET Ordre de Fabrication).
-        // gran = 'month' | 'week' | 'msn' ; mois/semaine dépendent de l'année ; MSN filtre par mois. Par défaut = mois en cours.
         var dashFilter = { gran: 'month', year: new Date().getFullYear(), month: new Date().getMonth(), week: null, msnSel: null };
         function inSelectedPeriod(d) {
             if (dashFilter.gran === 'all' || dashFilter.gran === 'msn') return true;   // MSN : TOUTES les périodes (regroupement par MSN)
@@ -2633,7 +2382,6 @@
             if (dashFilter.gran === 'week') return isoWeek(d) === dashFilter.week;
             return d.getMonth() === dashFilter.month;   // 'month' : filtre par mois
         }
-        // Dates de référence pour le filtre : NC clôturées (éligibles) + OF (créés/clôturés, équipes) — union des deux sous-onglets.
         function dashAllDates() {
             var out = [];
             for (var i = 0; i < ncList.length; i++) { var nc = ncList[i]; if (nc.eligible && nc.end) out.push(nc.end); }
@@ -2651,7 +2399,6 @@
             if (!out.length) out.push(new Date().getFullYear());
             return out;
         }
-        // Périodes complètes disponibles (année+mois ou année+semaine), triées de la plus récente à la plus ancienne.
         function dashMonthList() {
             var ds = dashAllDates(), seen = {}, out = [];
             for (var i = 0; i < ds.length; i++) { var k = ds[i].getFullYear() + '-' + ds[i].getMonth(); if (!seen[k]) { seen[k] = true; out.push({ year: ds[i].getFullYear(), month: ds[i].getMonth() }); } }
@@ -2665,8 +2412,6 @@
             return out;
         }
         var MOIS_NOMS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-        // État de la période courante selon la granularité : liste triée (récent -> ancien), index sélectionné,
-        // et fonctions valeur/libellé/affectation. Centralise le menu déroulant ET les flèches ◀ ▶.
         function dashPeriodState() {
             var g = dashFilter.gran;
             if (g === 'year') {
@@ -2691,7 +2436,6 @@
             }
             return null;
         }
-        // ◀ / ▶ : période plus ancienne (dir=-1) ou plus récente (dir=+1). Liste triée récent->ancien (idx 0 = plus récent).
         function StepDashPeriod(dir) {
             var s = dashPeriodState(); if (!s || s.idx < 0) return;
             var ni = s.idx - dir;
@@ -2699,7 +2443,6 @@
             s.set(s.items[ni]);
             InvalidateDash(); RenderActiveDashboardSub();
         }
-        // Barre de filtre : granularité segmentée (Tout/Année/Mois/Semaine) + groupe [◀ menu déroulant ▶].
         function dashRespFilterBar() {
             if (dashFilter.gran === 'all') {   // 'all' n'est pas un mode supporté -> repli sur Mois
                 dashFilter.gran = 'month';
@@ -2718,7 +2461,6 @@
             if (dashFilter.gran === 'msn') {
                 right = dashMsnControlHtml();   // multi-sélection des MSN (au lieu du sélecteur de période)
             } else {
-                // Groupe période : ◀  [menu déroulant]  ▶ — fonctionne pour Année / Mois / Semaine.
                 var s = dashPeriodState();
                 if (s.idx < 0 && s.items.length) { s.set(s.items[0]); s.idx = 0; }
                 var opt = "";
@@ -2726,7 +2468,6 @@
                 var atNewest = (s.idx <= 0), atOldest = (s.idx >= s.items.length - 1);
                 var prev = "<button type='button'" + (atOldest ? " disabled" : "") + " onclick=\"StepDashPeriod(-1)\" title='Période précédente' style='" + arw(atOldest) + " border-radius:6px 0 0 6px;'>&#9664;</button>";
                 var next = "<button type='button'" + (atNewest ? " disabled" : "") + " onclick=\"StepDashPeriod(1)\" title='Période suivante' style='" + arw(atNewest) + " border-left:none; border-radius:0 6px 6px 0;'>&#9654;</button>";
-                // IE10 n'honore pas text-align sur la valeur affichée d'un <select> : libellé centré (div) + <select> transparent par-dessus.
                 var curLabel = (s.idx >= 0 && s.items.length) ? s.label(s.items[s.idx]) : "";
                 var ddW = 160;   // largeur constante quel que soit le mode (Année/Mois/Semaine)
                 var dd = "<span style='position:relative; display:inline-block; width:" + ddW + "px; height:34px; vertical-align:middle;'>"
@@ -2737,7 +2478,6 @@
             }
             return "<span style='white-space:nowrap;'>" + seg + "<span style='margin-left:16px; vertical-align:middle;'>" + right + "</span></span>";
         }
-        // Contrôle multi-sélection des MSN (mode MSN) : bouton + panneau de cases à cocher.
         function dashMsnControlHtml() {
             var all = dashAllMSN();
             var selCount = 0, tous = !dashFilter.msnSel;
@@ -2751,11 +2491,9 @@
                 rows += "<label style='display:block; padding:6px 12px; cursor:pointer; white-space:nowrap;'><input type='checkbox'" + (on ? " checked" : "") + " onclick=\"ToggleMsnKey('" + escapeHtml(key) + "', this.checked, event)\" style='margin-right:8px; vertical-align:middle;'>" + escapeHtml(txt) + "</label>";
             }
             if (!all.length) rows += "<div style='padding:10px 12px; color:#94a3b8; font-style:italic;'>Aucun MSN</div>";
-            // position:fixed -> non coupé par l'ancêtre overflow:hidden ; placé sous le bouton à l'ouverture.
             var panel = "<div id='msnPanel' style='display:none; position:fixed; z-index:200; background:#fff; border:1px solid #c5d5de; border-radius:6px; box-shadow:0 6px 16px rgba(0,0,0,0.18); max-height:340px; overflow-y:auto; min-width:180px; text-align:left; font-size:13px; color:#334155;'>" + rows + "</div>";
             return "<span style='position:relative; display:inline-block; vertical-align:middle;'>" + btn + panel + "</span>";
         }
-        // Positionne le panneau MSN sous le bouton (coordonnées viewport, car position:fixed) et l'affiche.
         function showMsnPanel() {
             var p = document.getElementById('msnPanel'), btn = document.getElementById('msnBtn');
             if (!p || !btn) return;
@@ -2769,14 +2507,12 @@
             if (p) { if (p.style.display === 'block') p.style.display = 'none'; else showMsnPanel(); }
             if (ev && ev.stopPropagation) ev.stopPropagation();
         }
-        // Met à jour uniquement le libellé du bouton MSN (sans re-rendre le dashboard).
         function updateMsnBtnLabel() {
             var btn = document.getElementById('msnBtn'); if (!btn) return;
             var tous = !dashFilter.msnSel, selCount = 0;
             if (!tous) { for (var kk in dashFilter.msnSel) { if (dashFilter.msnSel.hasOwnProperty(kk) && dashFilter.msnSel[kk]) selCount++; } }
             btn.innerHTML = escapeHtml(tous ? "Tous les MSN" : (selCount + " MSN sélectionné" + (selCount > 1 ? "s" : ""))) + " &#9662;";
         }
-        // Re-rendu du dashboard temporisé : les cochages rapides du multi-select MSN ne déclenchent qu'UN seul re-rendu.
         var msnRerenderTimer = null;
         function scheduleDashRerender() {
             if (msnRerenderTimer) clearTimeout(msnRerenderTimer);
@@ -2803,7 +2539,6 @@
             updateMsnBtnLabel();   // libellé mis à jour tout de suite
             scheduleDashRerender();   // dashboard re-rendu une fois les cochages terminés (débounce)
         }
-        // Ferme le panneau MSN quand on clique en dehors (ni sur le bouton ni dans le panneau).
         function DocClickCloseMsn(e) {
             var p = document.getElementById('msnPanel');
             if (!p || p.style.display !== 'block') return;
@@ -2811,7 +2546,6 @@
             if ((p.contains && p.contains(t)) || (btn && btn.contains && btn.contains(t))) return;   // clic interne -> on garde ouvert
             p.style.display = 'none';
         }
-        // Changement de granularité : on sélectionne automatiquement la période la plus récente disponible.
         function SetDashGran(g) {
             dashFilter.gran = g;
             if (g === 'year') {
@@ -2828,7 +2562,6 @@
             }
             InvalidateDash(); RenderActiveDashboardSub();   // le filtre est commun aux 2 sous-onglets
         }
-        // Sélection d'une période précise dans le menu déroulant contextuel.
         function SetDashPeriod(val) {
             if (val === '') return;
             if (dashFilter.gran === 'week') { var p2 = val.split('W'); dashFilter.year = parseInt(p2[0], 10); dashFilter.week = parseInt(p2[1], 10); }
@@ -2840,8 +2573,6 @@
         // ==========================================================
         // TABLEAU DE BORD - sous-onglet ORDRE DE FABRICATION (filtre commun avec le sous-onglet NC : dashFilter)
         // ==========================================================
-        // Cache de rendu : les graphiques restent dans le DOM quand on quitte l'onglet (juste masqués).
-        // On ne les recrée que si invalidés (données ou filtre modifiés). Évite la latence au retour sur le dashboard.
         var dashValid = { NC: false, OF: false, IC: false };
         function InvalidateDash() { dashValid.NC = false; dashValid.OF = false; dashValid.IC = false; }
         function activeDashSub() {
@@ -2864,11 +2595,8 @@
             }
             if (!dashValid[s]) RenderDashSub(s);
         }
-        // Re-rend le sous-onglet du dashboard actuellement visible (filtre commun, resize) — force le re-rendu.
         function RenderActiveDashboardSub() { RenderDashSub(activeDashSub()); }
-        // Rend le sous-onglet visible UNIQUEMENT s'il est invalidé (utilisé en arrivant sur l'onglet Tableau de bord).
         function RenderDashIfNeeded() { var s = activeDashSub(); if (!dashValid[s]) RenderDashSub(s); }
-        // "JJ.MM.AAAA" (ou variantes de séparateur) -> objet Date, ou null.
         function parseOFDateObj(s) {
             var p = NettoyerChaine(s).split(/[.\/\-]/); if (p.length < 3) return null;
             var d = parseInt(p[0], 10), m = parseInt(p[1], 10), y = parseInt(p[2], 10);
@@ -2890,7 +2618,6 @@
             document.getElementById('dashOFEmpty').style.display = "none";
             var dc = document.getElementById('dashOFCharts'); dc.style.display = "block";
             var ct = document.getElementById('content'); if (ct) ct.style.overflowY = 'hidden';
-            // Hauteur des cartes dérivée de la fenêtre en CSS (2 lignes) ; Highcharts remplit son conteneur, simple reflow.
             SetDashCardHeight('dashRowStyleOF', 'dashCardOF', 2, dc.getBoundingClientRect().top);
             hcOFLineCharts('cree', '#0C447C');
             hcOFLineCharts('clot', '#16a34a');
@@ -2903,8 +2630,6 @@
             for (i = 0; i < cards.length; i++) { if (cards[i].offsetHeight > max) max = cards[i].offsetHeight; }
             if (max > 0) { for (i = 0; i < cards.length; i++) cards[i].style.height = max + "px"; }
         }
-        // Agrège le nombre d'OF par semaine (ou par jour si filtre semaine), par user ET au total.
-        // Reprend la logique de RenderDashTeams/computeWeekPts pour rester cohérent avec le sous-onglet NC.
         function ofBuckets(rows) {
             if (dashFilter.gran === 'msn') return ofMSNBuckets(rows);
             var mode = granBucketMode();
@@ -2923,7 +2648,6 @@
             var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(bucketLabelForMode(buckets[k], mode));
             return { buckets: buckets, cats: cats, perUser: perUser, total: total };
         }
-        // Mode MSN : nb d'OF par MSN (les OF n'ayant pas de MSN, tout tombe sous "—").
         function ofMSNBuckets(rows) {
             var keySet = {}, perUser = {}, total = {};
             for (var i = 0; i < rows.length; i++) {
@@ -2941,7 +2665,6 @@
             msnSortKeys(buckets);
             return { buckets: buckets, cats: buckets.slice(0), perUser: perUser, total: total };
         }
-        // Construit les deux graphiques (courbe par user + courbe du total) pour un type d'OF (cree/clot).
         function hcOFLineCharts(type, color) {
             var teamArr = (type === 'cree') ? (appData.teamST || []) : (appData.teamIQ || []);
             var nomMap = {}; for (var t = 0; t < teamArr.length; t++) { var tu = NettoyerChaine(teamArr[t].user).toUpperCase(); if (tu) nomMap[tu] = nomSeul(teamArr[t].nom || teamArr[t].user); }
@@ -2949,7 +2672,6 @@
             var ofHasData = false; for (var kk in b.total) { if (b.total.hasOwnProperty(kk)) { ofHasData = true; break; } }
             var userId = (type === 'cree') ? 'hcOFCreeUser' : 'hcOFClotUser';
             var totId = (type === 'cree') ? 'hcOFCreeTotal' : 'hcOFClotTotal';
-            // Courbe par user.
             var contU = document.getElementById(userId);
             if (contU) {
                 if (!Object.keys(nomMap).length) {
@@ -2980,7 +2702,6 @@
                     } catch (e) { contU.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
                 }
             }
-            // Courbe du total (toute l'équipe confondue).
             var contT = document.getElementById(totId);
             if (contT) {
                 if (typeof Highcharts === 'undefined') {
@@ -3017,7 +2738,6 @@
             document.getElementById('dashICEmpty').style.display = "none";
             var dc = document.getElementById('dashICCharts'); dc.style.display = "block";
             var ct = document.getElementById('content'); if (ct) ct.style.overflowY = 'hidden';
-            // Hauteur des cartes dérivée de la fenêtre en CSS (2 lignes) ; Highcharts remplit son conteneur, simple reflow.
             SetDashCardHeight('dashRowStyleIC', 'dashCardIC', 2, dc.getBoundingClientRect().top);
             hcICTotalChart('hcICTotal');
             hcICUserChart('hcICST', getICTeamRows('ST'), teamNomMap('ST'));
@@ -3032,13 +2752,11 @@
             for (var t = 0; t < arr.length; t++) { var tu = NettoyerChaine(arr[t].user).toUpperCase(); if (tu) m[tu] = nomSeul(arr[t].nom || arr[t].user); }
             return m;
         }
-        // Toutes les IC d'une équipe (users du tableau d'équipe), quel que soit leur statut retard/à l'heure.
         function getICTeamRows(team) {
             var m = teamNomMap(team), out = [], all = appData.icRows || [];
             for (var i = 0; i < all.length; i++) { if (m[NettoyerChaine(all[i].user).toUpperCase()]) out.push(all[i]); }
             return out;
         }
-        // Écart de clôture MOYEN par jour/semaine/mois de FIN AUTORISÉE, par user, sur la période choisie. Somme + compte -> moyenne au rendu.
         function icEcartBuckets(rows) {
             if (dashFilter.gran === 'msn') return icEcartMSNBuckets(rows);
             var mode = granBucketMode();
@@ -3057,7 +2775,6 @@
             var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(bucketLabelForMode(buckets[k], mode));
             return { buckets: buckets, cats: cats, perUserSum: perUserSum, perUserCnt: perUserCnt };
         }
-        // Mode MSN : écart de clôture moyen par MSN, par user (période filtrée par le menu).
         function icEcartMSNBuckets(rows) {
             var keySet = {}, perUserSum = {}, perUserCnt = {};
             for (var i = 0; i < rows.length; i++) {
@@ -3075,10 +2792,6 @@
             msnSortKeys(buckets);
             return { buckets: buckets, cats: buckets.slice(0), perUserSum: perUserSum, perUserCnt: perUserCnt };
         }
-        // Max de l'axe Y des graphiques IC : au moins +2 h au-dessus de 0 (zone "retard" toujours visible),
-        // sinon le max réel des données (arrondi à l'heure sup.). points = tableau de {y,...} ou null.
-        // Bornes de l'axe Y des graphiques IC : min toujours ≤ 0 (ligne "à l'heure" toujours visible, même avec 1 seul point),
-        // max toujours ≥ +2 h (zone "retard" visible), sinon min/max réels des données.
         function icYAxisBounds(points) {
             var mx = 0, mn = 0;
             for (var i = 0; i < points.length; i++) { var p = points[i]; if (p && p.y != null) { if (p.y > mx) mx = p.y; if (p.y < mn) mn = p.y; } }
@@ -3116,7 +2829,6 @@
                 });
             } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
-        // Agrège les IC des membres d'équipe ST/TL/IQ par jour/semaine/mois : somme et compte des écarts -> moyenne au rendu.
         function icTotalBuckets() {
             if (dashFilter.gran === 'msn') return icTotalMSNBuckets();
             var mode = granBucketMode();
@@ -3133,7 +2845,6 @@
             var cats = []; for (var k = 0; k < buckets.length; k++) cats.push(bucketLabelForMode(buckets[k], mode));
             return { buckets: buckets, cats: cats, sum: sumB, cnt: cntB };
         }
-        // Mode MSN : écart de clôture moyen par MSN, restreint aux membres d'équipe ST/TL/IQ (période filtrée par le menu).
         function icTotalMSNBuckets() {
             var all = appData.icRows || [], keySet = {}, sumB = {}, cntB = {}, team = teamUserSet();
             for (var i = 0; i < all.length; i++) {
@@ -3192,7 +2903,6 @@
             }
             hcRespPie('hcRespInt', intNom, agg);
             hcRespPie('hcRespExt', extNom, agg);
-            // Camemberts "<=/> 2 j" : % de NC dont le traitement ÉQUIPE (chezMs) / GLOBAL (durMs) est <= 2 j (vert) ou > 2 j (rouge).
             var eq = { le: 0, gt: 0 }, gl = { le: 0, gt: 0 }, TWO_D = 2 * dayMs();
             for (var s = 0; s < elig.length; s++) {
                 var nc = elig[s];
@@ -3202,7 +2912,6 @@
             hcSeuilPie('hcSeuilEquipe', eq);
             hcSeuilPie('hcSeuilGlobal', gl);
         }
-        // Rendu commun d'un camembert Highcharts (fond transparent, sans légende, % dans les parts).
         function hcPie(id, data, tooltipFmt, seriesName, colors) {
             var cont = document.getElementById(id); if (!cont) return;
             if (!data.length) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
@@ -3220,14 +2929,12 @@
                 window.hcRespChartRefs[id] = hcDraw(id, cfg);
             } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         }
-        // Camembert 2 parts : NC clôturées <= 2 j (vert) vs > 2 j (rouge). s = { le, gt } (comptes).
         function hcSeuilPie(id, s) {
             var data = [];
             if (s.le) data.push({ name: '≤ 2 jours', y: s.le, color: '#16a34a' });
             if (s.gt) data.push({ name: '> 2 jours', y: s.gt, color: '#dc2626' });
             hcPie(id, data, function () { return '<b>' + this.point.name + '</b><br/>' + this.point.y + ' NC<br/>' + Highcharts.numberFormat(this.percentage, 0) + '%'; }, 'NC', null);
         }
-        // Camembert Highcharts de la durée moyenne par responsable (part = part de la durée moyenne).
         function hcRespPie(id, nomMap, agg) {
             var data = [];
             for (var r in nomMap) { if (nomMap.hasOwnProperty(r) && agg[r]) data.push({ name: nomMap[r], y: agg[r].sum / agg[r].n / dayMs(), ms: agg[r].sum / agg[r].n, ntasks: agg[r].n }); }
@@ -3235,7 +2942,6 @@
             hcPie(id, data, function () { return '<b>' + this.point.name + '</b><br/>Moy. ' + fmtDHM(this.point.ms) + '<br/>' + Highcharts.numberFormat(this.percentage, 0) + '% &middot; ' + this.point.ntasks + ' tâches'; }, 'Durée moyenne', PIE_COLORS);
         }
         var PIE_COLORS = ['#0C447C', '#0284c7', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#65a30d', '#db2777', '#475569'];
-        // 3) Activité des équipes ST / TL / IQ : nb de tâches + durée moyenne par user.
         function RenderDashTeams(elig) {
             var umap = {};
             var teamDefs = [["ST", appData.teamST], ["TL", appData.teamTL], ["IQ", appData.teamIQ]];
@@ -3243,7 +2949,6 @@
                 var arr = teamDefs[t][1] || [];
                 for (var i = 0; i < arr.length; i++) { var u = NettoyerChaine(arr[i].user).toUpperCase(); if (u) umap[u] = { team: teamDefs[t][0], nom: nomSeul(arr[i].nom || u) }; }
             }
-            // Agrégation : durée moyenne par user ET par jour/semaine/mois (ou MSN en mode MSN) de clôture.
             var byMSN = dashFilter.gran === 'msn';
             var mode = granBucketMode();
             var weekSet = {}, agg = {};   // agg[user][bucket] = { sum, n } ; bucket = ts (temps) ou MSN
@@ -3276,7 +2981,6 @@
                 hcTeamChart('hcTeam' + team, us, umap, weeks, cats, agg);
             }
         }
-        // Graphique courbes : une courbe par user (durée moyenne), abscisse = semaines.
         function hcTeamChart(id, users, umap, weeks, cats, agg) {
             var cont = document.getElementById(id); if (!cont) return;
             if (!users.length) { hcDestroy(id); cont.innerHTML = "<div style='height:100%; min-height:120px; border:2px dashed #cbd5e1; border-radius:8px; background:#f1f5f9; color:#64748b; font-style:italic; text-align:center; display:table; width:100%; box-sizing:border-box;'><span style='display:table-cell; vertical-align:middle;'>Aucun membre dans cette équipe</span></div>"; return; }
@@ -3311,7 +3015,6 @@
     // ==========================================================
         function firstOfMonthStr() { var n = new Date(); return "01/" + (n.getMonth() + 1 < 10 ? "0" : "") + (n.getMonth() + 1) + "/" + n.getFullYear(); }
         function setDateIfEmpty(id, val) { var el = document.getElementById(id); if (el && !NettoyerChaine(el.value)) el.value = val; }
-        // Pré-remplissage : « à partir du » = date de la dernière extraction ; « jusqu'au » = aujourd'hui.
         function PrefillExtractDates() {
             var today = FormatDateString(new Date());
             var lastNC = appData.lastImport ? NettoyerChaine(appData.lastImport).split(' ')[0] : firstOfMonthStr();
@@ -3414,7 +3117,6 @@
             var dt = new Date(parseInt(p[2],10), parseInt(p[1],10)-1, parseInt(p[0],10));
             return isNaN(dt.getTime()) ? null : dt;
         }
-        // Force les cartes "Extraction SAP" et "Filtres" à la même hauteur (la plus grande des deux).
         function EgaliserHauteursExtraction() {
             var c1 = document.getElementById('cardExtraction');
             var c2 = document.getElementById('cardFiltres');
@@ -3423,7 +3125,6 @@
             var h = Math.max(c1.offsetHeight, c2.offsetHeight);
             c1.style.height = h + "px"; c2.style.height = h + "px";
         }
-        // Les zones scrollables (.tbl-scroll) remplissent jusqu'à ~24px du bas de la fenêtre (même espace bas partout).
         function AjusterHauteurTables() {
             var boxes = document.querySelectorAll('.tbl-scroll');
             for (var i = 0; i < boxes.length; i++) {
@@ -3464,7 +3165,6 @@
         function SetParcoursWeek(v) { parcoursWeek = v ? parseInt(v, 10) : null; RenderParcours(); }
         function SetParcoursMsn(v) { parcoursMsn = (v == null) ? "" : ("" + v); RenderParcours(); }
         function SetParcoursMode(m) { if (m !== parcoursMode) { parcoursMode = m; RenderParcours(); } }
-        // Bascule Semaine / MSN (deux boutons collés).
         function parcoursToggleHtml() {
             function b(val, txt, first) {
                 var on = (parcoursMode === val);
@@ -3472,7 +3172,6 @@
             }
             return b('week', 'Semaine', true) + b('msn', 'MSN', false);
         }
-        // Liste des NC de la sélection courante (mêmes filtres que l'affichage : semaine ou MSN), triée par durée décroissante.
         function currentParcoursList() {
             var out = [];
             for (var i = 0; i < ncList.length; i++) {
@@ -3491,7 +3190,6 @@
             var selWeek = document.getElementById('weekSelect');
             var selMsn = document.getElementById('msnSelect');
 
-            // NC analysées (ST + IQ) ET clôturées par la qualité (APQ0 + Responsable du tableau 1).
             var closed = [];
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligRaw && ncList[i].end) closed.push(ncList[i]); }
             var wc = document.getElementById('weekCount');
@@ -3509,7 +3207,6 @@
             if (parcoursMode === 'msn') {
                 if (selWeek) selWeek.style.display = 'none';
                 if (selMsn) selMsn.style.display = '';
-                // Regroupe par MSN (les NC sans MSN sont regroupées sous "").
                 var msnMap = {};
                 for (var im = 0; im < closed.length; im++) { var mk = NettoyerChaine(closed[im].msn || ""); msnMap[mk] = (msnMap[mk] || 0) + 1; }
                 var msnKeys = []; for (var mkk in msnMap) { if (msnMap.hasOwnProperty(mkk)) msnKeys.push(mkk); }
@@ -3531,7 +3228,6 @@
             } else {
                 if (selMsn) selMsn.style.display = 'none';
                 if (selWeek) selWeek.style.display = '';
-                // Regroupe par semaine de clôture (lundi).
                 var weeksMap = {};
                 for (var i2 = 0; i2 < closed.length; i2++) { var ws = getWeekStart(closed[i2].end).getTime(); weeksMap[ws] = (weeksMap[ws] || 0) + 1; }
                 var weeks = []; for (var w in weeksMap) { if (weeksMap.hasOwnProperty(w)) weeks.push(parseInt(w, 10)); }
@@ -3555,8 +3251,6 @@
             cont.innerHTML = html;
             AjusterHauteurParcours();   // la liste des NC défile en interne -> la carte du haut reste fixe
         }
-        // Ajuste la hauteur de la liste des NC (parcoursContainer) pour qu'elle défile en interne
-        // (la carte "Sélection semaine" reste ainsi visible en haut), en remplissant jusqu'au bas de la zone visible.
         function AjusterHauteurParcours() {
             var cont = document.getElementById('parcoursContainer');
             if (!cont) return;
@@ -3567,7 +3261,6 @@
             if (av != null) cont.style.maxHeight = av + 'px';
         }
         function renderParcoursCard(nc) {
-            // Tâches triées par Nº. Durée = écart réception (fin précédente, ou création NC pour la 1re) -> passage (sa fin).
             var lines = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
             var selIdx = effectiveSelIdx(nc.avis, lines);
             var rows = "", prevEnd = nc.start;   // réception de la 1re tâche = création NC
@@ -3610,7 +3303,6 @@
                 + "<table class='data-table'><thead><tr><th width='5%'></th><th width='14%' style='text-align:center;'>Code</th><th width='14%' style='text-align:center;'>Responsable</th><th width='25%'>Désignation</th><th width='14%' style='text-align:center;'>Terminé par</th><th width='14%' style='text-align:center;'>Date et Heure</th><th width='14%' style='text-align:center;'>Durée</th></tr></thead><tbody>"
                 + rows + "</tbody></table></div>";
         }
-        // ---- Export PDF du récapitulatif Analyse NC (sélection courante) via impression d'un rapport HTML ----
         function ExportParcoursPDF() {
             var list = currentParcoursList();
             if (!list.length) { AfficherErreur("Aucune NC à exporter pour la sélection actuelle."); return; }
@@ -3624,7 +3316,6 @@
             }
             PrintHtmlReport(buildParcoursReportHtml(list, filterLabel, nG ? sumG / nG : null, nT ? sumT / nT : null));
         }
-        // Une NC (en-tête + tableau des étapes) pour le rapport imprimable.
         function parcoursReportCard(nc) {
             var lines = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
             var rows = "", prevEnd = nc.start;
@@ -3661,7 +3352,6 @@
                 + "<div class='rpt-stats'>Traitement global moyen : <b>" + (avgG == null ? "-" : fmtDHM(avgG)) + "</b> &nbsp;|&nbsp; Traitement équipe moyen : <b>" + (avgT == null ? "-" : fmtDHM(avgT)) + "</b></div>"
                 + "</div>" + body + "</body></html>";
         }
-        // Vide les en-têtes/pieds de page IE (titre, n° de page, URL) avant impression ; renvoie de quoi restaurer.
         function stripPrintHeaders() {
             var base = "HKEY_CURRENT_USER\\Software\\Microsoft\\Internet Explorer\\PageSetup\\";
             var st = { sh: null, hKey: base + "header", fKey: base + "footer", hOld: "", fOld: "", hHad: false, fHad: false };
@@ -3674,13 +3364,11 @@
             } catch (e2) {}
             return st;
         }
-        // Restaure les réglages d'en-tête/pied de page IE (valeur précédente, ou suppression si elle n'existait pas).
         function restorePrintHeaders(st) {
             if (!st || !st.sh) return;
             try { if (st.hHad) st.sh.RegWrite(st.hKey, st.hOld, "REG_SZ"); else st.sh.RegDelete(st.hKey); } catch (e) {}
             try { if (st.fHad) st.sh.RegWrite(st.fKey, st.fOld, "REG_SZ"); else st.sh.RegDelete(st.fKey); } catch (e2) {}
         }
-        // Imprime un rapport HTML via une iframe cachée (l'utilisateur choisit "Microsoft Print to PDF"), sans en-tête/pied IE.
         function PrintHtmlReport(html) {
             var old = document.getElementById('printFrame'); if (old && old.parentNode) old.parentNode.removeChild(old);
             var ifr = document.createElement('iframe');
@@ -3694,7 +3382,6 @@
                     var st = stripPrintHeaders();
                     try { ifr.contentWindow.focus(); ifr.contentWindow.print(); }
                     catch (e) { AfficherErreur("Impression impossible : " + e.message); restorePrintHeaders(st); return; }
-                    // "Print to PDF" lit les en-têtes au moment de l'ENREGISTREMENT (après print()) -> on restaure bien plus tard.
                     setTimeout(function () { restorePrintHeaders(st); }, 30000);
                 }, 250);
             } catch (e2) { AfficherErreur("Erreur lors de la génération du rapport : " + e2.message); }
@@ -3706,7 +3393,6 @@
             SaveData();
             shareQueueComment(avis, appData.comments[avis]);   // base partagée
         }
-        // Exclure / réintégrer une NC de l'analyse (impacte Extract NC et le dashboard ; reste visible ici).
         function ToggleExcludeNC(avis) {
             if (!appData.excluded) appData.excluded = {};
             if (appData.excluded[avis]) { delete appData.excluded[avis]; } else { appData.excluded[avis] = true; }
@@ -3714,11 +3400,9 @@
             SaveData();
             RenderParcours();
         }
-        // Ensembles depuis les paramètres.
         function internalRespSet() { var s = {}, rd = appData.roleDesig || []; for (var i = 0; i < rd.length; i++) { if (NettoyerChaine(rd[i].type) === "int") { var rc = NettoyerChaine(rd[i].resp).toUpperCase(); if (rc) s[rc] = true; } } return s; }
         function teamUserSet() { var s = {}, ts = [appData.teamST, appData.teamTL, appData.teamIQ]; for (var t = 0; t < ts.length; t++) { var a = ts[t] || []; for (var i = 0; i < a.length; i++) { var u = NettoyerChaine(a[i].user).toUpperCase(); if (u) s[u] = true; } } return s; }
         function stUserSet() { var s = {}, a = appData.teamST || []; for (var i = 0; i < a.length; i++) { var u = NettoyerChaine(a[i].user).toUpperCase(); if (u) s[u] = true; } return s; }
-        // Ligne "Départ" par défaut : 1re ligne (ordre Nº) d'un responsable CT (70005847/70009001) faite par un user ST.
         function defaultSelIdx(sortedLines) {
             var st = stUserSet();
             for (var k = 0; k < sortedLines.length; k++) {
@@ -3727,7 +3411,6 @@
             }
             return -1;
         }
-        // Index "Départ" effectif : sélection manuelle sauvegardée, sinon la ligne par défaut.
         function effectiveSelIdx(avis, sortedLines) {
             if (appData.selLine && appData.selLine[avis] != null && NettoyerChaine(appData.selLine[avis]) !== "") {
                 var selN = NettoyerChaine(appData.selLine[avis]);
@@ -3735,14 +3418,9 @@
             }
             return defaultSelIdx(sortedLines);
         }
-        // Totaux du parcours : de la ligne sélectionnée jusqu'à l'APQ0 (clôture).
-        //  - global = ligne -> clôture
-        //  - équipe = étapes (ligne -> clôture) dont le responsable est INTERNE ET le "Terminé par" est en équipe
         function parcoursTotals(nc, lines, selIdx) {
             if (selIdx == null || selIdx < 0) return { g: nc.durMs, e: nc.chezMs };
             var clot = nc.end;
-            // Réception de la tâche sélectionnée = fin de la tâche précédente (ordre Nº), ou création NC si 1re.
-            // On INCLUT la durée de la tâche sélectionnée (de sa réception jusqu'à l'APQ0).
             var prev = (selIdx > 0) ? parseDT(lines[selIdx - 1].td, lines[selIdx - 1].tt) : nc.start;
             if (!prev || !clot || clot <= prev) return { g: 0, e: 0 };
             var selRecept = prev, intS = internalRespSet(), usr = teamUserSet(), e = 0;
@@ -3756,7 +3434,6 @@
             }
             return { g: durBetween(selRecept, clot), e: e };
         }
-        // Sélection d'une ligne "Départ" : sauvegarde, recalcule TOUTE l'appli, met à jour les badges.
         function RecalcGlobalFromLine(avis, idx) {
             var nc = null;
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].avis === avis) { nc = ncList[i]; break; } }
@@ -3768,7 +3445,6 @@
             RecomputeAll();   // applique l'override sur nc.durMs/chezMs pour TOUTE l'appli
             SaveData();
             shareQueueSel(avis, appData.selLine[avis]);   // base partagée
-            // Met à jour les badges de la carte sans re-rendre toute la page (pas de saut de scroll).
             var nc2 = null;
             for (var k = 0; k < ncList.length; k++) { if (ncList[k].avis === avis) { nc2 = ncList[k]; break; } }
             if (nc2) {
@@ -3777,8 +3453,6 @@
                 if (t) t.innerHTML = fmtDHM(nc2.chezMs);
             }
         }
-        // Ouvre l'avis dans SAP PEA (transaction QM03). Curseur "sablier" pendant l'exécution
-        // (sur le bouton ET le body), comme lors de l'extraction.
         function OuvrirNCSap(avis, btn) {
             if (btn) btn.style.cursor = 'wait';
             document.body.style.cursor = 'wait';
@@ -3793,7 +3467,6 @@
                 if (btn) btn.style.cursor = 'pointer';
             }, 80);
         }
-        // Ouvre un ordre de fabrication dans SAP via CO03.
         function OuvrirOFSap(of, btn) {
             if (btn) btn.style.cursor = 'wait';
             document.body.style.cursor = 'wait';
@@ -3811,9 +3484,6 @@
     // INITIALISATION
     // ==========================================================
         window.onload = function () {
-            // windowstate="maximize" n'est PAS honoré sur ce poste (la fenêtre s'ouvre en fenêtré) :
-            // on force la VRAIE maximisation Windows dès le démarrage, pour que l'écran de validation soit déjà maximisé
-            // (état "maximisé" bords au ras de l'écran, et non une simple fenêtre redimensionnée à coins arrondis).
             setTimeout(MaximiserFenetre, 0);
             document.getElementById("appLogo").innerText = APP_NAME;
             document.getElementById("appSub").innerText = APP_SOUS_TITRE;
@@ -3827,14 +3497,11 @@
                     if (b) b.style.display = (c.scrollTop > 200) ? 'block' : 'none';
                 };
             }
-            // Fermeture du panneau MSN au clic en dehors.
             if (document.addEventListener) document.addEventListener('click', DocClickCloseMsn, false);
             else if (document.attachEvent) document.attachEvent('onclick', DocClickCloseMsn);
         };
         var resizeTimer = null;
         window.onresize = function () {
-            // Anti-rebond : un seul recalcul après la fin du redimensionnement, pour éviter la boucle
-            // resize -> recalcul de hauteur -> apparition/disparition de scrollbar -> nouveau resize -> ...
             if (resizeTimer) clearTimeout(resizeTimer);
             resizeTimer = setTimeout(function () {
                 if (dashSuppressLaunchResize) return;   // ignore le resize dû à la maximisation au lancement (rendu déjà planifié)
@@ -3915,7 +3582,6 @@
 
         <div id="content">
 
-            <!-- PAGE TABLEAU DE BORD -->
             <div id="pageDashboard" class="page active">
                 <div style="border-bottom:2px solid #e2e8f0; margin:0 0 18px 0; overflow:hidden;">
                     <button id="dashSubtabNC" class="subtab active" onclick="ShowDashSub('NC')">Non-conformité</button>
@@ -4100,7 +3766,6 @@
                 </div><!-- /dashSubIC -->
             </div>
 
-            <!-- PAGE ANALYSE NC -->
             <div id="pageAnalyse" class="page">
                 <div style="border-bottom:2px solid #e2e8f0; margin:0 0 18px 0;">
                     <button id="subtabNC" class="subtab active" onclick="ShowExtractSub('NC')">Non-conformité</button>
@@ -4263,7 +3928,6 @@
                 </div><!-- /extractSubIC -->
             </div>
 
-            <!-- PAGE PARCOURS / GOULOTS -->
             <div id="pageParcours" class="page">
                 <div id="weekSelectCard" class="card" style="padding:14px 25px;">
                     <span style="font-size:13px; font-weight:600; color:#475569; margin-right:12px; vertical-align:middle;">Filtrer par</span>
@@ -4276,7 +3940,6 @@
                 <div id="parcoursContainer"><div class="msg-box msg-info">Aucune NC analysée pour l'instant.</div></div>
             </div>
 
-            <!-- PAGE PARAMÈTRES -->
             <div id="pageParametres" class="page">
                 <div class="card" style="margin-bottom:16px; padding:16px 20px; overflow:hidden;">
                     <div style="float:right;">
