@@ -774,8 +774,22 @@
             return changed;
         }
         // Au démarrage : récupère commentaires + sélections partagés, fusionne et rafraîchit (si changement).
+        // Indicateur de synchronisation (pied de la barre latérale). État : 'off' (non configuré), 'ok', 'error'.
+        var syncState = 'off';
+        function setSyncState(s) { syncState = s; UpdateSyncIndicator(); }
+        function UpdateSyncIndicator() {
+            var el = document.getElementById('sidebar-footer'); if (!el) return;
+            var color, label;
+            if (!shareConfigured()) { color = "#64748b"; label = "Synchro inactive"; }
+            else if (syncState === 'error') { color = "#f59e0b"; label = "Synchro : erreur"; }
+            else { color = "#22c55e"; label = "Synchro active"; }
+            el.innerHTML = "<span style='display:inline-block; width:8px; height:8px; border-radius:50%; background:" + color + "; margin-right:7px; vertical-align:middle;'></span>"
+                + "<span style='vertical-align:middle;'>" + label + "</span>"
+                + "<div style='margin-top:4px; font-size:12px; color:#5f95af;'>v" + VERSION_ACTUELLE + " - © Adrien Truc</div>";
+        }
         function shareLoad() {
             shareRead(function (d) {
+                setSyncState(d != null ? 'ok' : (shareConfigured() ? 'error' : 'off'));
                 if (!shareApply(d)) return;
                 SaveData();
                 if (typeof RecomputeAll === 'function') RecomputeAll();   // selLine impacte les durées
@@ -796,7 +810,13 @@
             if (!shareConfigured()) return;
             var pc = pendingShare; pendingShare = { comments: {}, selLine: {} };
             shareRead(function (remote) {
-                remote = remote || {}; if (!remote.comments) remote.comments = {}; if (!remote.selLine) remote.selLine = {};
+                if (remote == null) {   // lecture échouée -> NE PAS écrire (sinon on écrase toute la base) ; on remet les modifs en attente
+                    var c, s;
+                    for (c in pc.comments) { if (pc.comments.hasOwnProperty(c)) pendingShare.comments[c] = pc.comments[c]; }
+                    for (s in pc.selLine) { if (pc.selLine.hasOwnProperty(s)) pendingShare.selLine[s] = pc.selLine[s]; }
+                    setSyncState('error'); return;
+                }
+                if (!remote.comments) remote.comments = {}; if (!remote.selLine) remote.selLine = {};
                 var a;
                 for (a in pc.comments) { if (pc.comments.hasOwnProperty(a)) remote.comments[a] = pc.comments[a]; }
                 for (a in pc.selLine) { if (pc.selLine.hasOwnProperty(a)) remote.selLine[a] = pc.selLine[a]; }
@@ -808,8 +828,9 @@
                     xhr.setRequestHeader("Accept", "application/vnd.github+json");
                     xhr.setRequestHeader("Content-Type", "application/json");
                     try { xhr.setRequestHeader("User-Agent", "KPI-Perfo"); } catch (eUA) {}
+                    xhr.onreadystatechange = function () { if (xhr.readyState === 4) setSyncState(xhr.status === 200 ? 'ok' : 'error'); };
                     xhr.send(toJSON({ files: files }));
-                } catch (e) {}
+                } catch (e) { setSyncState('error'); }
             });
         }
 
@@ -3877,10 +3898,10 @@
             // on force la VRAIE maximisation Windows dès le démarrage, pour que l'écran de validation soit déjà maximisé
             // (état "maximisé" bords au ras de l'écran, et non une simple fenêtre redimensionnée à coins arrondis).
             setTimeout(MaximiserFenetre, 0);
-            document.getElementById("sidebar-footer").innerText = "v" + VERSION_ACTUELLE + " - © Adrien Truc";
             document.getElementById("appLogo").innerText = APP_NAME;
             document.getElementById("appSub").innerText = APP_SOUS_TITRE;
             LoadData();
+            UpdateSyncIndicator();   // pied de barre : état de la synchro (après LoadData pour connaître le token)
             DemarrerVerificationSysteme();
             var c = document.getElementById('content');
             if (c) {
