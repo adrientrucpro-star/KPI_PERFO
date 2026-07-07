@@ -1054,11 +1054,6 @@
             var n = el ? parseInt(NettoyerChaine(el.value), 10) : NaN;
             return (isNaN(n) || n < 1) ? EXTRACT_ROW_CAP : n;
         }
-        function extractCapNotice(total, cap) {
-            if (total <= cap) return "";
-            return "<div style='padding:7px 12px; margin-bottom:8px; background:#fff7ed; border:1px solid #fed7aa; border-radius:6px; color:#9a3412; font-size:12px; font-weight:600;'>"
-                + total + " lignes trouvées — affichage limité aux " + cap + " premières (selon le tri). Affine les filtres ou augmente la case « Lignes ».</div>";
-        }
         // Masque le bouton "×" des champs de date quand ils sont vides (affiché seulement si une date est saisie).
         function RefreshDateClearButtons() {
             var wraps = document.querySelectorAll('.date-wrap');
@@ -1560,7 +1555,7 @@
                     + "<td style='text-align:center;'>" + escapeHtml(r.heure) + "</td>"
                     + "<td style='text-align:center;'>" + badge + "</td></tr>";
             }
-            cont.innerHTML = extractCapNotice(totalRows, cap) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
+            cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
                 + "<table class='data-table'><thead><tr><th width='4%'></th>"
                 + ofTh('of', 'Ordre de Fabrication', '16%') + ofTh('msn', 'MSN', '16%') + ofTh('user', 'User', '16%')
                 + ofTh('date', 'Date', '16%') + ofTh('heure', 'Heure', '16%') + ofTh('type', 'Type', '')
@@ -1723,7 +1718,7 @@
                     + "<td style='text-align:center;" + lateSt + "'>" + escapeHtml(r.hc) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(r.user) + "</td></tr>";
             }
-            cont.innerHTML = extractCapNotice(totalRows, cap) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
+            cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
                 + "<table class='data-table'><thead><tr><th width='4%'></th>"
                 + icTh('ic', 'Numéro IC', '13%') + icTh('msn', 'MSN', '13%')
                 + icTh('dfa', 'Date fin autorisée', '14%') + icTh('hfa', 'Heure fin autorisée', '14%')
@@ -3369,7 +3364,7 @@
                     + "<td>" + escapeHtml(cmt) + "</td>"
                     + "</tr>";
             }
-            cont.innerHTML = extractCapNotice(totalRows, cap) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'><table class='data-table'><thead><tr>"
+            cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'><table class='data-table'><thead><tr>"
                 + "<th width='4%'></th>"
                 + listeTh('avis', 'Avis', "width='8%'")
                 + listeTh('msn', 'MSN', "width='6%'")
