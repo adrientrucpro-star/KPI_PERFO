@@ -585,6 +585,10 @@
         var CLOTURE_RESP = "70005848";                   // Responsable qualité dont l'APQ0 marque la clôture
         var DECISION_CODE = "DEC0";                      // défaut : code SAP de la décision technique
         var DECISION_RESP = "70009001;70005847";         // défaut : Responsables CT (décision)
+        // Base partagée (commentaires + sélection "Départ") via Gist privé. ID = identifiant (pas un secret) ;
+        // le TOKEN d'écriture est saisi par poste (Paramètres) et stocké en local -> jamais dans le code.
+        var SHARE_GIST_ID = "8a40ac55fc606b8ad0358b7b3e3c396a";
+        var SHARE_FILE = "KPI_PERFO_DATA.json";
         // Valeur de configuration éditable (Paramètres), repli sur la constante par défaut.
         function cfgVal(k, def) { return (appData.cfg && NettoyerChaine(appData.cfg[k]) !== "") ? NettoyerChaine(appData.cfg[k]) : def; }
         var LIEN_CONFIG_APP = "https://gist.githubusercontent.com/adrientrucexternal/9006613d5966adaa40d408cdb3bd1068/raw";
@@ -660,6 +664,7 @@
             if (!NettoyerChaine(appData.cfg.decResp)) appData.cfg.decResp = DECISION_RESP;
             if (!appData.calc) appData.calc = {};           // mode de calcul des durées
             if (!appData.calc.mode) appData.calc.mode = 'cal';      // 'cal' = 7j/7j, 'ouvre' = jours ouvrés (lun-ven)
+            if (!appData.share) appData.share = { token: "" };      // base partagée : token GitHub (local, par poste)
             // Migration tableau 1 vers {resp, nom, type} : anciennes entrées = "int" ; respAutres -> "ext".
             for (var mi = 0; mi < appData.roleDesig.length; mi++) { if (appData.roleDesig[mi].type === undefined) appData.roleDesig[mi].type = "int"; }
             if (appData.respAutres && appData.respAutres.length) {
@@ -694,6 +699,7 @@
                 msnByAvis: appData.msnByAvis || {},
                 cfg: appData.cfg || {},
                 calc: appData.calc || {},
+                share: appData.share || { token: "" },
                 lastImport: appData.lastImport || ""
             };
         }
@@ -725,6 +731,99 @@
             var o = [];
             for (var k in v) { if (v.hasOwnProperty(k)) o.push(toJSON(""+k) + ":" + toJSON(v[k])); }
             return "{" + o.join(",") + "}";
+        }
+
+    // ==========================================================
+    // BASE PARTAGÉE : commentaires + sélection "Départ" via un Gist privé.
+    // Token saisi par poste (Paramètres, stocké en local) ; ID du Gist en dur (SHARE_GIST_ID).
+    // ==========================================================
+        function shareToken() { return (appData.share && NettoyerChaine(appData.share.token)) || ""; }
+        function shareConfigured() { return shareToken() !== "" && SHARE_GIST_ID !== ""; }
+        // Lit le Gist partagé -> { comments, selLine } via callback (null si non configuré / échec).
+        function shareRead(cb) {
+            if (!shareConfigured()) { if (cb) cb(null); return; }
+            try {
+                var xhr = new ActiveXObject("MSXML2.XMLHTTP.6.0");
+                xhr.open("GET", "https://api.github.com/gists/" + SHARE_GIST_ID + "?t=" + new Date().getTime(), true);
+                xhr.setRequestHeader("Authorization", "token " + shareToken());
+                xhr.setRequestHeader("Accept", "application/vnd.github+json");
+                try { xhr.setRequestHeader("User-Agent", "KPI-Perfo"); } catch (eUA) {}
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4) return;
+                    if (xhr.status !== 200) { if (cb) cb(null); return; }
+                    try {
+                        var g = JSON.parse(xhr.responseText);
+                        var f = g.files && g.files[SHARE_FILE];
+                        var d = (f && NettoyerChaine(f.content) !== "") ? JSON.parse(f.content) : {};
+                        if (cb) cb(d);
+                    } catch (e) { if (cb) cb(null); }
+                };
+                xhr.send();
+            } catch (e) { if (cb) cb(null); }
+        }
+        // Fusionne les données partagées dans appData ; renvoie true si au moins une valeur a CHANGÉ.
+        function shareApply(d) {
+            if (!d) return false;
+            var changed = false, a;
+            if (d.comments) { if (!appData.comments) appData.comments = {}; for (a in d.comments) { if (d.comments.hasOwnProperty(a) && appData.comments[a] !== d.comments[a]) { appData.comments[a] = d.comments[a]; changed = true; } } }
+            if (d.selLine) { if (!appData.selLine) appData.selLine = {}; for (a in d.selLine) { if (d.selLine.hasOwnProperty(a) && appData.selLine[a] !== d.selLine[a]) { appData.selLine[a] = d.selLine[a]; changed = true; } } }
+            return changed;
+        }
+        // Au démarrage : récupère commentaires + sélections partagés, fusionne et rafraîchit (si changement).
+        function shareLoad() {
+            shareRead(function (d) {
+                if (!shareApply(d)) return;
+                SaveData();
+                if (typeof RecomputeAll === 'function') RecomputeAll();   // selLine impacte les durées
+                InvalidateDash(); InvalidatePages(); InvalidateExtract();
+                var pp = document.getElementById('pageParcours');
+                if (pp && pp.className.indexOf('active') !== -1) RenderParcours();
+                var pd = document.getElementById('pageDashboard');
+                if (pd && pd.className.indexOf('active') !== -1) RenderDashIfNeeded();
+            });
+        }
+        // Écriture différée en read-merge-write : ne réécrit QUE les clés modifiées -> pas d'écrasement des collègues.
+        var pendingShare = { comments: {}, selLine: {} }, shareWriteTimer = null;
+        function shareQueueComment(avis, val) { if (!shareConfigured()) return; pendingShare.comments[avis] = val; shareScheduleFlush(); }
+        function shareQueueSel(avis, val) { if (!shareConfigured()) return; pendingShare.selLine[avis] = val; shareScheduleFlush(); }
+        function shareScheduleFlush() { if (shareWriteTimer) clearTimeout(shareWriteTimer); shareWriteTimer = setTimeout(shareFlush, 800); }
+        function shareFlush() {
+            shareWriteTimer = null;
+            if (!shareConfigured()) return;
+            var pc = pendingShare; pendingShare = { comments: {}, selLine: {} };
+            shareRead(function (remote) {
+                remote = remote || {}; if (!remote.comments) remote.comments = {}; if (!remote.selLine) remote.selLine = {};
+                var a;
+                for (a in pc.comments) { if (pc.comments.hasOwnProperty(a)) remote.comments[a] = pc.comments[a]; }
+                for (a in pc.selLine) { if (pc.selLine.hasOwnProperty(a)) remote.selLine[a] = pc.selLine[a]; }
+                var files = {}; files[SHARE_FILE] = { content: toJSON({ comments: remote.comments, selLine: remote.selLine }) };
+                try {
+                    var xhr = new ActiveXObject("MSXML2.XMLHTTP.6.0");
+                    xhr.open("PATCH", "https://api.github.com/gists/" + SHARE_GIST_ID, true);
+                    xhr.setRequestHeader("Authorization", "token " + shareToken());
+                    xhr.setRequestHeader("Accept", "application/vnd.github+json");
+                    xhr.setRequestHeader("Content-Type", "application/json");
+                    try { xhr.setRequestHeader("User-Agent", "KPI-Perfo"); } catch (eUA) {}
+                    xhr.send(toJSON({ files: files }));
+                } catch (e) {}
+            });
+        }
+        // Enregistre le token de partage (Paramètres) et synchronise immédiatement.
+        function SaveShareToken() {
+            var el = document.getElementById('shareTokenInput'); if (!el) return;
+            if (!appData.share) appData.share = { token: "" };
+            appData.share.token = NettoyerChaine(el.value);
+            SaveData();
+            var st = document.getElementById('shareStatus');
+            if (appData.share.token === "") { if (st) { st.style.color = "#94a3b8"; st.innerText = "Partage désactivé (token vide)."; } return; }
+            if (st) { st.style.color = "#64748b"; st.innerText = "Chargement des données partagées…"; }
+            shareRead(function (d) {
+                if (d == null) { if (st) { st.style.color = "#b91c1c"; st.innerText = "Échec : token invalide ou Gist inaccessible."; } return; }
+                shareApply(d); SaveData();
+                if (typeof RecomputeAll === 'function') RecomputeAll();
+                InvalidateDash(); InvalidatePages(); InvalidateExtract();
+                if (st) { st.style.color = "#166534"; st.innerText = "Partage actif — données synchronisées."; }
+            });
         }
 
     // ==========================================================
@@ -882,6 +981,7 @@
             // mainApp affiché DERRIÈRE l'écran de connexion (opaque, z-index 9999) pour permettre les mesures/rendu.
             document.getElementById("mainApp").style.display = "block";
             if (appData.rows && appData.rows.length) RecomputeAll();
+            shareLoad();   // récupère commentaires + sélections partagés (asynchrone, rafraîchit si changement)
             PrefillExtractDates();
             dashSuppressLaunchResize = true;
             ShowPage("pageDashboard", true);   // affiche la page SANS rendre les graphiques
@@ -1915,6 +2015,9 @@
             RenderCalcMode();
             RenderRolesTable();
             RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
+            var sti = document.getElementById('shareTokenInput'); if (sti) sti.value = shareToken();
+            var sst = document.getElementById('shareStatus');
+            if (sst) { if (shareConfigured()) { sst.style.color = "#166534"; sst.innerText = "Partage actif."; } else { sst.style.color = "#94a3b8"; sst.innerText = "Partage désactivé (token vide)."; } }
         }
         // Panneau "Mode de calcul des durées" (toujours actif, indépendant du mode édition).
         function RenderCalcMode() {
@@ -3705,6 +3808,7 @@
             appData.comments[avis] = NettoyerChaine(val);
             extractValid.NC = false;   // la colonne Commentaire du tableau NC doit refléter la modif
             SaveData();
+            shareQueueComment(avis, appData.comments[avis]);   // base partagée
         }
         // Exclure / réintégrer une NC de l'analyse (impacte Extract NC et le dashboard ; reste visible ici).
         function ToggleExcludeNC(avis) {
@@ -3767,6 +3871,7 @@
             appData.selLine[avis] = NettoyerChaine(lines[idx].n);   // sauvegarde du Nº de la ligne
             RecomputeAll();   // applique l'override sur nc.durMs/chezMs pour TOUTE l'appli
             SaveData();
+            shareQueueSel(avis, appData.selLine[avis]);   // base partagée
             // Met à jour les badges de la carte sans re-rendre toute la page (pas de saut de scroll).
             var nc2 = null;
             for (var k = 0; k < ncList.length; k++) { if (ncList[k].avis === avis) { nc2 = ncList[k]; break; } }
@@ -4266,6 +4371,12 @@
                     </div>
                     <h3 style="margin:0; display:inline-block; vertical-align:middle; margin-right:28px;">Mode de calcul des durées</h3>
                     <div id="calcModePanel" style="display:inline-block; vertical-align:middle;"></div>
+                    <div style="clear:both; margin-top:14px; padding-top:12px; border-top:1px solid #e2e8f0;">
+                        <span style="font-size:13px; font-weight:600; color:#475569; margin-right:10px; vertical-align:middle;">Partage NC (commentaires + sélection) — Token Gist :</span>
+                        <input type="password" id="shareTokenInput" style="width:320px; height:32px; border:1px solid #c5d5de; border-radius:6px; padding:0 10px; font-size:13px; vertical-align:middle; box-sizing:border-box;" placeholder="Token GitHub (portée gist)">
+                        <button class="btn-toolbar" style="margin-left:8px; vertical-align:middle;" onclick="SaveShareToken()">Enregistrer</button>
+                        <span id="shareStatus" style="margin-left:12px; font-size:12px; color:#94a3b8; vertical-align:middle;"></span>
+                    </div>
                 </div>
 
                 <div style="font-size:0; margin:0 -8px;">
