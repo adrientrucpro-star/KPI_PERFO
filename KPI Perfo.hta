@@ -54,6 +54,10 @@
         h2 { font-size: 22px; margin-top: 0; color: #002d45; margin-bottom: 24px; font-weight: 700; }
         .card { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,45,69,0.08); border: 1px solid #dde6ec; margin-bottom: 20px; padding: 20px 25px; }
         .card h3 { margin: 0 0 16px 0; font-size: 15px; color: #334155; font-weight: 700; }
+        /* Tableau de bord : cartes de graphiques dimensionnées à la fenêtre (Highcharts remplit son conteneur, cf. #dashRowStyle injecté). */
+        .dashCardNC { box-sizing: border-box; overflow: hidden; margin-bottom: 0; height: 300px; }
+        .dashCardNC > h3 { height: 32px; line-height: 16px; margin: 0 0 8px 0; font-size: 14px; color: #334155; font-weight: 700; overflow: hidden; }
+        .dashChartNC { width: 100%; height: calc(100% - 40px); }
 
         /* ====================== BOUTONS / CHAMPS ====================== */
         .btn-toolbar { font-weight: 600; font-size: 13px; height: 38px; line-height: 38px; padding: 0 20px; border: none; border-radius: 6px; cursor: pointer; color: white; display: inline-block; vertical-align: bottom; text-align: center; box-sizing: border-box; background-color: #006698; }
@@ -2211,20 +2215,10 @@
     // ==========================================================
     // PAGE : DASHBOARD
     // ==========================================================
-        var dashHeightCorrection = 0;   // ajustement (px) retiré de chaque ligne lors de la passe d'ajustement
-        var dashFitTries = 0;
-        var dashLastH = -1;             // hauteur de #content du dernier calage (cache : évite le 2e rendu si taille inchangée)
-        function RenderDashboard(isRetry) {
-            if (!isRetry) {
-                dashFitTries = 0;
-                // On ne réinitialise la correction que si la fenêtre a changé de taille ; sinon on réutilise
-                // la valeur déjà calée -> le 1er rendu est déjà à la bonne hauteur (pas de 2e rendu d'ajustement).
-                var _ch = document.getElementById('content') ? document.getElementById('content').clientHeight : 0;
-                if (_ch !== dashLastH) { dashHeightCorrection = 0; dashLastH = _ch; }
-            }
+        function RenderDashboard() {
             var elig = [];
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible) elig.push(ncList[i]); }
-            if (!isRetry) { var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar(); }
+            var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
 
             if (elig.length === 0) {
                 var empNC = document.getElementById('dashEmpty');
@@ -2235,19 +2229,15 @@
                 return;
             }
             document.getElementById('dashEmpty').style.display = "none";
-            document.getElementById('dashCharts').style.display = "block";
+            var dc = document.getElementById('dashCharts'); dc.style.display = "block";
+            var ct = document.getElementById('content'); if (ct) ct.style.overflowY = 'hidden';   // dashboard = pas de scrollbar (au démarrage, RenderDashboard est appelé hors ShowPage)
 
-            // Hauteurs des 3 lignes calculées pour remplir exactement l'écran, sans scrollbar (35% / 25% / 35%).
-            var rh = ComputeDashRowHeights();
-            rh.row1 -= dashHeightCorrection; rh.row2 -= dashHeightCorrection; rh.row3 -= dashHeightCorrection;
-            if (rh.row1 < 150) rh.row1 = 150; if (rh.row2 < 120) rh.row2 = 120; if (rh.row3 < 150) rh.row3 = 150;
-            dashRow1Height = rh.row1;
-            var ri = document.getElementById('hcRespInt'), re = document.getElementById('hcRespExt');
-            var si = document.getElementById('hcSeuilEquipe'), se = document.getElementById('hcSeuilGlobal');
-            if (ri) ri.style.height = rh.row2 + "px"; if (re) re.style.height = rh.row2 + "px";
-            if (si) si.style.height = rh.row2 + "px"; if (se) se.style.height = rh.row2 + "px";
-            var tst = document.getElementById('hcTeamST'), ttl = document.getElementById('hcTeamTL'), tiq = document.getElementById('hcTeamIQ');
-            if (tst) tst.style.height = rh.row3 + "px"; if (ttl) ttl.style.height = rh.row3 + "px"; if (tiq) tiq.style.height = rh.row3 + "px";
+            // Hauteur des cartes de graphiques dérivée de la fenêtre en CSS (calc/vh) : les 3 lignes remplissent
+            // l'écran sans boucle d'ajustement. Highcharts remplit son conteneur (aucune hauteur fixée en JS) ;
+            // #content est en overflow:hidden sur le dashboard -> aucune scrollbar (au pire quelques px rognés).
+            SetDashRowHeightNC(dc.getBoundingClientRect().top);
+            var d3w = document.getElementById('dash3weeks');
+            dashRow1Height = (d3w && d3w.clientHeight > 120) ? d3w.clientHeight : 220;   // hauteur réelle d'un conteneur (widget SVG "3 semaines")
 
             // Filtre période (haut de page) appliqué à TOUS les graphiques du tableau de bord.
             var eligF = [];
@@ -2257,22 +2247,23 @@
             RenderWeeksChart(eligF);   // courbes par semaine : filtré
             RenderDashResp(eligF);
             RenderDashTeams(eligF);
-            EgaliserDashboard();
-
-            // Ajustement par MESURE RÉELLE : on vise un bas de dernière ligne à 20px du bas de #content.
-            // gap > 0 = trop d'espace en bas -> on agrandit ; gap < 0 = débordement -> on réduit.
-            var contentEl = document.getElementById('content');
-            var lastCard = document.getElementById('hcTeamST') ? document.getElementById('hcTeamST').parentNode : null;
-            if (contentEl && lastCard) {
-                var gap = (contentEl.getBoundingClientRect().bottom - 20) - lastCard.getBoundingClientRect().bottom;
-                if (Math.abs(gap) > 4 && dashFitTries < 12) {
-                    dashFitTries++;
-                    dashHeightCorrection -= Math.round(gap / 3);   // 3 lignes -> le bas bouge de ~3x : pas = gap/3 (sinon oscillation)
-                    RenderDashboard(true);
-                    return;
-                }
-            }
-            dashValid.NC = true;   // rendu à jour : pas de re-rendu au retour sur l'onglet tant que rien ne change
+            ReflowDashNC();            // recale les Highcharts à la taille (CSS) de leur conteneur
+            dashValid.NC = true;       // rendu à jour : pas de re-rendu au retour sur l'onglet tant que rien ne change
+        }
+        // Injecte/actualise la règle CSS donnant aux cartes du dashboard NC une hauteur = (fenêtre - décalage)/3.
+        // topPx = décalage (px) entre le haut de la fenêtre et le haut de la zone des graphiques.
+        function SetDashRowHeightNC(topPx) {
+            var st = document.getElementById('dashRowStyle');
+            if (!st) { st = document.createElement('style'); st.id = 'dashRowStyle'; (document.getElementsByTagName('head')[0] || document.documentElement).appendChild(st); }
+            var off = Math.max(0, Math.round(topPx)) + 60;   // 60 = marges (padding bas de #content + inter-lignes) sous le haut des graphiques
+            var rule = '.dashCardNC { height: calc((100vh - ' + off + 'px) / 3); }';
+            if (st.styleSheet) st.styleSheet.cssText = rule;   // IE
+            else st.innerHTML = rule;
+        }
+        // Recale tous les graphiques Highcharts du dashboard NC à la taille (CSS) de leur conteneur.
+        function ReflowDashNC() {
+            var ids = ['hcWeeks', 'hcRespInt', 'hcRespExt', 'hcSeuilEquipe', 'hcSeuilGlobal', 'hcTeamST', 'hcTeamTL', 'hcTeamIQ'];
+            for (var i = 0; i < ids.length; i++) { var c = window.hcRefs[ids[i]]; if (c) { try { c.reflow(); } catch (e) {} } }
         }
         // Hauteur de référence (px) de la 1ère ligne (Évolution), utilisée par renderWeeksLineChart. 280 = repli par défaut.
         var dashRow1Height = 280;
@@ -2285,89 +2276,6 @@
             var avail = contentEl.clientHeight - top - 20;   // 20px de marge basse
             if (avail < 300) avail = 300;
             return avail;
-        }
-        // Calcule la hauteur (px) de chaque ligne de graphiques pour que le contenu remplisse exactement
-        // la zone visible de #content (pas de scrollbar) ; les 3 lignes ont la MÊME hauteur.
-        function ComputeDashRowHeights() {
-            var avail = ComputeAvailHeight('dashCharts');
-            if (avail == null) return { row1: 260, row2: 260, row3: 260 };
-            var overhead = 70 * 3 + 20 * 2;   // 3 cartes (titre + padding) + 2 marges entre lignes
-            var forCharts = avail - overhead;
-            if (forCharts < 450) forCharts = 450;
-            var row = Math.round(forCharts / 3);
-            if (row < 230) row = 230;   // plancher : le widget "3 semaines" a besoin d'au moins ça
-            return { row1: row, row2: row, row3: row };
-        }
-        // Égalise la hauteur des cartes au sein de CHAQUE ligne séparément, PUIS aligne les 3 lignes
-        // entre elles (Évolution / Responsables / Équipe doivent avoir EXACTEMENT la même hauteur).
-        function EgaliserDashboard() {
-            EgaliserRow1();
-            EgaliserCards(document.querySelectorAll('#dashCharts .dashEqRow2'));
-            EgaliserCards(document.querySelectorAll('#dashCharts .dashEqRow3'));
-            EgaliserLes3Lignes();
-        }
-        // Détermine la ligne la plus haute des 3, puis étire les 2 autres (carte + contenu) pour matcher.
-        function EgaliserLes3Lignes() {
-            var c1 = document.getElementById('cardEvo3w');
-            var ri = document.getElementById('hcRespInt'), tst = document.getElementById('hcTeamST');
-            if (!c1 || !ri || !tst) return;
-            var row1H = c1.offsetHeight, row2H = ri.parentNode.offsetHeight, row3H = tst.parentNode.offsetHeight;
-            var target = Math.max(row1H, row2H, row3H);
-
-            if (target - row1H > 1) {
-                var extra1 = target - row1H, c2 = document.getElementById('cardEvoWeek');
-                c1.style.height = target + "px"; if (c2) c2.style.height = target + "px";
-                var fd = c1.querySelector('#dash3weeks > div');
-                if (fd) fd.style.height = (fd.offsetHeight + extra1) + "px";
-                var hc = document.getElementById('hcWeeks');
-                if (hc) {
-                    var nh = hc.offsetHeight + extra1;
-                    hc.style.height = nh + "px";
-                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); window.hcWeeksChart.reflow(); } } catch (e) {}
-                }
-            }
-            if (target - row2H > 1) {
-                var extra2 = target - row2H, ids2 = ['hcRespInt', 'hcRespExt', 'hcSeuilEquipe', 'hcSeuilGlobal'];
-                for (var j = 0; j < ids2.length; j++) {
-                    var el2 = document.getElementById(ids2[j]); if (!el2) continue;
-                    el2.parentNode.style.height = target + "px";
-                    var newH2 = el2.offsetHeight + extra2;
-                    el2.style.height = newH2 + "px";
-                    try { if (window.hcRespChartRefs && window.hcRespChartRefs[ids2[j]]) { window.hcRespChartRefs[ids2[j]].setSize(el2.offsetWidth, newH2, false); window.hcRespChartRefs[ids2[j]].reflow(); } } catch (e) {}
-                }
-            }
-            if (target - row3H > 1) {
-                var extra3 = target - row3H, ids3 = ['hcTeamST', 'hcTeamTL', 'hcTeamIQ'];
-                for (var i = 0; i < ids3.length; i++) {
-                    var el = document.getElementById(ids3[i]); if (!el) continue;
-                    el.parentNode.style.height = target + "px";
-                    var newH = el.offsetHeight + extra3;
-                    el.style.height = newH + "px";
-                    try { if (window.hcTeamChartRefs && window.hcTeamChartRefs[ids3[i]]) { window.hcTeamChartRefs[ids3[i]].setSize(el.offsetWidth, newH, false); window.hcTeamChartRefs[ids3[i]].reflow(); } } catch (e) {}
-                }
-            }
-        }
-        // Ligne 1 : si l'égalisation étire une carte au-delà de son contenu naturel, on agrandit le
-        // contenu (widget "3 semaines" ou graphique Highcharts) pour qu'il remplisse la carte sans vide.
-        function EgaliserRow1() {
-            var c1 = document.getElementById('cardEvo3w'), c2 = document.getElementById('cardEvoWeek');
-            if (!c1 || !c2) return;
-            c1.style.height = ""; c2.style.height = "";
-            var h1 = c1.offsetHeight, h2 = c2.offsetHeight, max = Math.max(h1, h2);
-            c1.style.height = max + "px"; c2.style.height = max + "px";
-            var extra1 = max - h1, extra2 = max - h2;
-            if (extra1 > 1) {
-                var fd = c1.querySelector('#dash3weeks > div');
-                if (fd) fd.style.height = (fd.offsetHeight + extra1) + "px";
-            }
-            if (extra2 > 1) {
-                var hc = document.getElementById('hcWeeks');
-                if (hc) {
-                    var nh = hc.offsetHeight + extra2;
-                    hc.style.height = nh + "px";
-                    try { if (window.hcWeeksChart) { window.hcWeeksChart.setSize(hc.offsetWidth, nh, false); window.hcWeeksChart.reflow(); } } catch (e) {}
-                }
-            }
         }
 
         function fmtDDMM(d) { var dd = d.getDate(), mm = d.getMonth() + 1; return (dd < 10 ? '0' + dd : '' + dd) + '/' + (mm < 10 ? '0' + mm : '' + mm); }
@@ -2592,8 +2500,8 @@
             var cont = document.getElementById('dashWeeks');
             if (typeof Highcharts === 'undefined') { cont.innerHTML = buildWeeksLine(pts); return; }
             var hc = document.getElementById('hcWeeks');
-            if (!hc) { cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:" + dashRow1Height + "px;'></div>"; }
-            else { hc.style.height = dashRow1Height + "px"; }
+            if (!hc) { cont.innerHTML = "<div id='hcWeeks' style='width:100%; height:100%;'></div>"; }
+            // sinon : #hcWeeks est déjà en height:100% -> il suit la hauteur CSS de #dashWeeks (reflow via ReflowDashNC)
             var dMs = dayMs(), cats = [], gData = [], tData = [];
             for (var i = 0; i < pts.length; i++) {
                 cats.push(pts[i].label);
@@ -4044,62 +3952,62 @@
 
                 <div id="dashCharts" style="display:none;">
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
-                        <div style="display:table-cell; width:40%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div id="cardEvo3w" class="card dashEqRow1" style="margin-bottom:0; box-sizing:border-box;">
+                        <div style="display:table-cell; width:40%; padding-right:8px; vertical-align:top;">
+                            <div id="cardEvo3w" class="card dashCardNC">
                                 <h3>Évolution sur les 3 dernières semaines</h3>
-                                <div id="dash3weeks"></div>
+                                <div id="dash3weeks" class="dashChartNC"></div>
                             </div>
                         </div>
-                        <div style="display:table-cell; width:60%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div id="cardEvoWeek" class="card dashEqRow1" style="margin-bottom:0; box-sizing:border-box;">
+                        <div style="display:table-cell; width:60%; padding-left:8px; vertical-align:top;">
+                            <div id="cardEvoWeek" class="card dashCardNC">
                                 <h3 id="dashWeeksTitle">Évolution du traitement par semaine</h3>
-                                <div id="dashWeeks"></div>
+                                <div id="dashWeeks" class="dashChartNC"></div>
                             </div>
                         </div>
                     </div>
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
-                        <div style="display:table-cell; width:25%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqRow2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 14px 0;">Durée moyenne - Resp. internes</h3>
-                                <div id="hcRespInt" style="width:100%; height:200px;"></div>
+                        <div style="display:table-cell; width:25%; padding-right:8px; vertical-align:top;">
+                            <div class="card dashCardNC">
+                                <h3>Durée moyenne - Resp. internes</h3>
+                                <div id="hcRespInt" class="dashChartNC"></div>
                             </div>
                         </div>
-                        <div style="display:table-cell; width:25%; padding:0 8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqRow2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 14px 0;">Durée moyenne - Resp. externes</h3>
-                                <div id="hcRespExt" style="width:100%; height:200px;"></div>
+                        <div style="display:table-cell; width:25%; padding:0 8px; vertical-align:top;">
+                            <div class="card dashCardNC">
+                                <h3>Durée moyenne - Resp. externes</h3>
+                                <div id="hcRespExt" class="dashChartNC"></div>
                             </div>
                         </div>
-                        <div style="display:table-cell; width:25%; padding:0 8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqRow2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 14px 0;">Répartitions traitement équipe</h3>
-                                <div id="hcSeuilEquipe" style="width:100%; height:200px;"></div>
+                        <div style="display:table-cell; width:25%; padding:0 8px; vertical-align:top;">
+                            <div class="card dashCardNC">
+                                <h3>Répartitions traitement équipe</h3>
+                                <div id="hcSeuilEquipe" class="dashChartNC"></div>
                             </div>
                         </div>
-                        <div style="display:table-cell; width:25%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqRow2" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 14px 0;">Répartitions traitement global</h3>
-                                <div id="hcSeuilGlobal" style="width:100%; height:200px;"></div>
+                        <div style="display:table-cell; width:25%; padding-left:8px; vertical-align:top;">
+                            <div class="card dashCardNC">
+                                <h3>Répartitions traitement global</h3>
+                                <div id="hcSeuilGlobal" class="dashChartNC"></div>
                             </div>
                         </div>
                     </div>
                     <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
-                        <div style="display:table-cell; width:33.33%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqRow3" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe ST</h3>
-                                <div id="hcTeamST" style="width:100%; height:280px;"></div>
+                        <div style="display:table-cell; width:33.33%; padding-right:8px; vertical-align:top;">
+                            <div class="card dashCardNC">
+                                <h3>Durée moyenne - Équipe ST</h3>
+                                <div id="hcTeamST" class="dashChartNC"></div>
                             </div>
                         </div>
-                        <div style="display:table-cell; width:33.33%; padding:0 8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqRow3" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe TL</h3>
-                                <div id="hcTeamTL" style="width:100%; height:280px;"></div>
+                        <div style="display:table-cell; width:33.33%; padding:0 8px; vertical-align:top;">
+                            <div class="card dashCardNC">
+                                <h3>Durée moyenne - Équipe TL</h3>
+                                <div id="hcTeamTL" class="dashChartNC"></div>
                             </div>
                         </div>
-                        <div style="display:table-cell; width:33.33%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card dashEqRow3" style="height:100%; margin-bottom:0; box-sizing:border-box;">
-                                <h3 style="margin:0 0 12px 0;">Durée moyenne - Équipe IQ</h3>
-                                <div id="hcTeamIQ" style="width:100%; height:280px;"></div>
+                        <div style="display:table-cell; width:33.33%; padding-left:8px; vertical-align:top;">
+                            <div class="card dashCardNC">
+                                <h3>Durée moyenne - Équipe IQ</h3>
+                                <div id="hcTeamIQ" class="dashChartNC"></div>
                             </div>
                         </div>
                     </div>
