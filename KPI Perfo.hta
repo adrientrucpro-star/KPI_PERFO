@@ -1045,6 +1045,14 @@
             if (extractSearchTimer) clearTimeout(extractSearchTimer);
             extractSearchTimer = setTimeout(fn, 250);
         }
+        // Plafond de lignes affichées dans les tableaux d'extraction : au-delà, IE10 rame à l'affichage
+        // d'un très gros tableau (bascule d'onglet lente). Les lignes sont triées AVANT -> on garde les N premières.
+        var EXTRACT_ROW_CAP = 500;
+        function extractCapNotice(total) {
+            if (total <= EXTRACT_ROW_CAP) return "";
+            return "<div style='padding:7px 12px; margin-bottom:8px; background:#fff7ed; border:1px solid #fed7aa; border-radius:6px; color:#9a3412; font-size:12px; font-weight:600;'>"
+                + total + " lignes trouvées — affichage limité aux " + EXTRACT_ROW_CAP + " premières (selon le tri). Affine les filtres (dates / recherche) pour réduire la liste.</div>";
+        }
         // Pré-rend en arrière-plan les sous-onglets d'extraction non encore rendus (construit le HTML dans les conteneurs
         // masqués), pour que le changement d'onglet soit instantané (le coût du rendu est déplacé hors du clic).
         function PrerenderExtractSubs() {
@@ -1520,6 +1528,8 @@
                     return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
                 });
             }
+            var totalRows = data.length;
+            if (totalRows > EXTRACT_ROW_CAP) data = data.slice(0, EXTRACT_ROW_CAP);
             var rows = "";
             for (var i = 0; i < data.length; i++) {
                 var r = data[i];
@@ -1534,7 +1544,7 @@
                     + "<td style='text-align:center;'>" + escapeHtml(r.heure) + "</td>"
                     + "<td style='text-align:center;'>" + badge + "</td></tr>";
             }
-            cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
+            cont.innerHTML = extractCapNotice(totalRows) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
                 + "<table class='data-table'><thead><tr><th width='4%'></th>"
                 + ofTh('of', 'Ordre de Fabrication', '16%') + ofTh('msn', 'MSN', '16%') + ofTh('user', 'User', '16%')
                 + ofTh('date', 'Date', '16%') + ofTh('heure', 'Heure', '16%') + ofTh('type', 'Type', '')
@@ -1680,6 +1690,8 @@
                     return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
                 });
             }
+            var totalRows = data.length;
+            if (totalRows > EXTRACT_ROW_CAP) data = data.slice(0, EXTRACT_ROW_CAP);
             var rows = "";
             for (var i = 0; i < data.length; i++) {
                 var r = data[i], late = isICLate(r), lateSt = late ? " color:#b91c1c; font-weight:700;" : "";
@@ -1693,7 +1705,7 @@
                     + "<td style='text-align:center;" + lateSt + "'>" + escapeHtml(r.hc) + "</td>"
                     + "<td style='text-align:center;'>" + escapeHtml(r.user) + "</td></tr>";
             }
-            cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
+            cont.innerHTML = extractCapNotice(totalRows) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
                 + "<table class='data-table'><thead><tr><th width='4%'></th>"
                 + icTh('ic', 'Numéro IC', '13%') + icTh('msn', 'MSN', '13%')
                 + icTh('dfa', 'Date fin autorisée', '14%') + icTh('hfa', 'Heure fin autorisée', '14%')
@@ -3320,9 +3332,11 @@
                 var sc = listeSort.col, sd = listeSort.dir;
                 filtered.sort(function (a, b) { var va = listeSortVal(a, sc), vb = listeSortVal(b, sc); return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd; });
             }
+            var totalRows = filtered.length;
+            var shown = (totalRows > EXTRACT_ROW_CAP) ? filtered.slice(0, EXTRACT_ROW_CAP) : filtered;
             var rows = "";
-            for (var fi = 0; fi < filtered.length; fi++) {
-                var nc = filtered[fi];
+            for (var fi = 0; fi < shown.length; fi++) {
+                var nc = shown[fi];
                 var cmt = (appData.comments && appData.comments[nc.avis]) ? appData.comments[nc.avis] : "";
                 rows += "<tr><td style='text-align:center;'><button type='button' class='btn-view' onclick=\"OuvrirNCSap('" + escapeHtml(nc.avis) + "', this)\" title='Afficher la NC'></button></td>"
                     + "<td style='font-weight:700; text-align:center;'>" + escapeHtml(nc.avis) + "</td>"
@@ -3335,7 +3349,7 @@
                     + "<td>" + escapeHtml(cmt) + "</td>"
                     + "</tr>";
             }
-            cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'><table class='data-table'><thead><tr>"
+            cont.innerHTML = extractCapNotice(totalRows) + "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'><table class='data-table'><thead><tr>"
                 + "<th width='4%'></th>"
                 + listeTh('avis', 'Avis', "width='8%'")
                 + listeTh('msn', 'MSN', "width='6%'")
