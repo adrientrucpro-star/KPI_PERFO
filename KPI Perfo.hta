@@ -1053,6 +1053,8 @@
             return "<div style='padding:7px 12px; margin-bottom:8px; background:#fff7ed; border:1px solid #fed7aa; border-radius:6px; color:#9a3412; font-size:12px; font-weight:600;'>"
                 + total + " lignes trouvées — affichage limité aux " + EXTRACT_ROW_CAP + " premières (selon le tri). Affine les filtres (dates / recherche) pour réduire la liste.</div>";
         }
+        // Met à jour la case "Lignes" (nombre de lignes filtrées) d'un sous-onglet d'extraction.
+        function SetNbLignes(id, n) { var el = document.getElementById(id); if (el) el.innerText = "" + n; }
         // Pré-rend en arrière-plan les sous-onglets d'extraction non encore rendus (construit le HTML dans les conteneurs
         // masqués), pour que le changement d'onglet soit instantané (le coût du rendu est déplacé hors du clic).
         function PrerenderExtractSubs() {
@@ -1514,6 +1516,7 @@
                 }
                 data = keep;
             }
+            SetNbLignes('nbLignesOF', data.length);
             if (!data.length) {
                 if (totalOF) showEmptyExtract('ofTable', "Aucun OF ne correspond aux filtres.", "Modifie ou réinitialise les filtres.");
                 else showEmptyExtract('ofTable', "Aucune extraction réalisée", "Lance une extraction des ordres de fabrication ci-dessus.");
@@ -1677,6 +1680,7 @@
                 }
                 data = keep;
             }
+            SetNbLignes('nbLignesIC', data.length);
             if (!data.length) {
                 if (totalIC) showEmptyExtract('icTable', "Aucune IC ne correspond aux filtres.", "Modifie ou réinitialise les filtres.");
                 else showEmptyExtract('icTable', "Aucune extraction réalisée", "Lance une extraction des Interventions Cards ci-dessus.");
@@ -3308,7 +3312,7 @@
             if (lbl) lbl.innerText = appData.lastImport ? appData.lastImport : "Jamais";
             PrefillExtractDates();
             var cont = document.getElementById('listeContainer');
-            if (!ncList.length) { showEmptyExtract('listeContainer', "Aucune extraction réalisée", "Lance une extraction QM13 ci-dessus pour afficher les non-conformités."); return; }
+            if (!ncList.length) { SetNbLignes('nbLignesNC', 0); showEmptyExtract('listeContainer', "Aucune extraction réalisée", "Lance une extraction QM13 ci-dessus pour afficher les non-conformités."); return; }
 
             var d1 = parseFilterDate(document.getElementById('filtreDateDebut').value);
             var d2 = parseFilterDate(document.getElementById('filtreDateFin').value);
@@ -3327,6 +3331,7 @@
                 }
                 filtered.push(ncf);
             }
+            SetNbLignes('nbLignesNC', filtered.length);
             if (!filtered.length) { showEmptyExtract('listeContainer', "Aucune NC ne correspond aux filtres.", "Modifie ou réinitialise les filtres."); return; }
             if (listeSort.col) {
                 var sc = listeSort.col, sd = listeSort.dir;
@@ -4110,18 +4115,22 @@
                             <table style="border:none; width:100%;"><tr>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
-                                    <span class="date-wrap"><input type="text" id="filtreDateDebut" data-filter="1" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateDebut', event)" title="Effacer">&times;</button></span>
+                                    <span class="date-wrap"><input type="text" id="filtreDateDebut" data-filter="1" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateDebut', event)" title="Effacer">&times;</button></span>
                                 </td>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
-                                    <span class="date-wrap"><input type="text" id="filtreDateFin" data-filter="1" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateFin', event)" title="Effacer">&times;</button></span>
+                                    <span class="date-wrap"><input type="text" id="filtreDateFin" data-filter="1" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateFin', event)" title="Effacer">&times;</button></span>
                                 </td>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
                                     <input type="text" id="filtreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="DebounceExtractSearch(RenderListe)" placeholder="Tape pour filtrer">
                                 </td>
+                                <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                    <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 10px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetFiltres()">Réinitialiser</button>
+                                </td>
                                 <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
-                                    <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetFiltres()">Réinitialiser</button>
+                                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Lignes</label>
+                                    <div id="nbLignesNC" style="height:38px; line-height:38px; min-width:64px; padding:0 12px; border:1px solid #c5d5de; border-radius:6px; background:#f1f5f9; color:#0C447C; font-weight:700; font-size:13px; text-align:center; box-sizing:border-box;">0</div>
                                 </td>
                             </tr></table>
                         </div>
@@ -4158,18 +4167,22 @@
                                 <table style="border:none; width:100%;"><tr>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
-                                        <span class="date-wrap"><input type="text" id="ofFiltreDateDebut" data-filter="of" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateDebut', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="ofFiltreDateDebut" data-filter="of" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateDebut', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
-                                        <span class="date-wrap"><input type="text" id="ofFiltreDateFin" data-filter="of" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateFin', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="ofFiltreDateFin" data-filter="of" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateFin', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
                                         <input type="text" id="ofFiltreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="DebounceExtractSearch(RenderOFAll)" placeholder="Tape pour filtrer">
                                     </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 10px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetOFFiltres()">Réinitialiser</button>
+                                    </td>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
-                                        <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetOFFiltres()">Réinitialiser</button>
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Lignes</label>
+                                        <div id="nbLignesOF" style="height:38px; line-height:38px; min-width:64px; padding:0 12px; border:1px solid #c5d5de; border-radius:6px; background:#f1f5f9; color:#0C447C; font-weight:700; font-size:13px; text-align:center; box-sizing:border-box;">0</div>
                                     </td>
                                 </tr></table>
                             </div>
@@ -4205,18 +4218,22 @@
                                 <table style="border:none; width:100%;"><tr>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
-                                        <span class="date-wrap"><input type="text" id="icFiltreDateDebut" data-filter="ic" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateDebut', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="icFiltreDateDebut" data-filter="ic" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateDebut', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
-                                        <span class="date-wrap"><input type="text" id="icFiltreDateFin" data-filter="ic" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateFin', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="icFiltreDateFin" data-filter="ic" class="input-date" style="width:118px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateFin', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
                                         <input type="text" id="icFiltreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="DebounceExtractSearch(RenderICTable)" placeholder="Tape pour filtrer">
                                     </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 10px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetICFiltres()">Réinitialiser</button>
+                                    </td>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
-                                        <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetICFiltres()">Réinitialiser</button>
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Lignes</label>
+                                        <div id="nbLignesIC" style="height:38px; line-height:38px; min-width:64px; padding:0 12px; border:1px solid #c5d5de; border-radius:6px; background:#f1f5f9; color:#0C447C; font-weight:700; font-size:13px; text-align:center; box-sizing:border-box;">0</div>
                                     </td>
                                 </tr></table>
                             </div>
