@@ -1035,6 +1035,13 @@
         }
         // Rend le sous-onglet d'extraction visible UNIQUEMENT s'il a été invalidé.
         function RenderActiveExtractSub() { var s = activeExtractSub(); if (!extractValid[s]) RenderExtractSub(s); UpdateExtractButtons(); }
+        // Anti-rebond de la recherche : ne reconstruit le tableau qu'après ~250 ms sans frappe
+        // (au lieu d'un rebuild complet à CHAQUE touche -> latence sur les gros extracts).
+        var extractSearchTimer = null;
+        function DebounceExtractSearch(fn) {
+            if (extractSearchTimer) clearTimeout(extractSearchTimer);
+            extractSearchTimer = setTimeout(fn, 250);
+        }
         // Pré-rend en arrière-plan les sous-onglets d'extraction non encore rendus (construit le HTML dans les conteneurs
         // masqués), pour que le changement d'onglet soit instantané (le coût du rendu est déplacé hors du clic).
         function PrerenderExtractSubs() {
@@ -4094,7 +4101,7 @@
                                 </td>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
-                                    <input type="text" id="filtreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="RenderListe()" placeholder="Tape pour filtrer">
+                                    <input type="text" id="filtreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="DebounceExtractSearch(RenderListe)" placeholder="Tape pour filtrer">
                                 </td>
                                 <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                     <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetFiltres()">Réinitialiser</button>
@@ -4142,7 +4149,7 @@
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
-                                        <input type="text" id="ofFiltreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="RenderOFAll()" placeholder="Tape pour filtrer">
+                                        <input type="text" id="ofFiltreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="DebounceExtractSearch(RenderOFAll)" placeholder="Tape pour filtrer">
                                     </td>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                         <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetOFFiltres()">Réinitialiser</button>
@@ -4189,7 +4196,7 @@
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
-                                        <input type="text" id="icFiltreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="RenderICTable()" placeholder="Tape pour filtrer">
+                                        <input type="text" id="icFiltreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="DebounceExtractSearch(RenderICTable)" placeholder="Tape pour filtrer">
                                     </td>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                         <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 18px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetICFiltres()">Réinitialiser</button>
