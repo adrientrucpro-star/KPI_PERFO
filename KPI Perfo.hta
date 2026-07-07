@@ -79,7 +79,6 @@
         .msg-box { padding: 16px 20px; border-radius: 6px; margin-top: 12px; font-size: 14px; }
         .msg-error { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-weight: bold; }
         .msg-info { background-color: #ffffff; color: #64748b; border: 1px dashed #c5d5de; text-align: center; font-style: italic; }
-        .msg-ok { background-color: #dcfce3; color: #166534; border: 1px solid #86efac; }
 
         /* Bouton "remonter en haut" (flottant) */
         #btnScrollTop { position: fixed; bottom: 28px; right: 34px; width: 46px; height: 46px; border-radius: 50%; background: #006698; color: #ffffff; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(0,45,69,0.4); display: none; z-index: 500; font-size: 24px; font-weight: 700; line-height: 44px; text-align: center; padding: 0; }
@@ -88,39 +87,12 @@
         .spinner { border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid #ffffff; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* ====================== KPI CARTES ====================== */
-        .kpi-row { font-size: 0; margin: 0 -8px; }
-        .kpi-card { display: inline-block; vertical-align: top; width: 25%; padding: 0 8px; box-sizing: border-box; }
-        .kpi-inner { background: #ffffff; border: 1px solid #dde6ec; border-top: 3px solid #006698; border-radius: 8px; padding: 18px 14px; text-align: center; box-shadow: 0 1px 4px rgba(0,45,69,0.08); }
-        .kpi-inner .kpi-label { font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px; }
-        .kpi-inner .kpi-value { font-size: 30px; font-weight: 800; line-height: 1; color: #002d45; }
-        .kpi-inner .kpi-unit { font-size: 13px; font-weight: 600; color: #94a3b8; }
-        .kpi-blue { border-top-color: #006698; } .kpi-blue .kpi-value { color: #006698; }
-        .kpi-green { border-top-color: #10b981; } .kpi-green .kpi-value { color: #10b981; }
-        .kpi-orange { border-top-color: #f59e0b; } .kpi-orange .kpi-value { color: #f59e0b; }
-        .kpi-grey { border-top-color: #94a3b8; } .kpi-grey .kpi-value { color: #64748b; }
-
-        /* ====================== BARRES ====================== */
-        .bar-line { margin-bottom: 10px; }
-        .bar-head { font-size: 13px; color: #334155; margin-bottom: 3px; }
-        .bar-head .bar-name { font-weight: 700; }
-        .bar-head .bar-meta { color: #94a3b8; font-weight: 500; }
-        .bar-track { background: #eef2f5; border-radius: 4px; height: 18px; width: 100%; overflow: hidden; }
-        .bar-fill { background: #006698; background-image: -ms-linear-gradient(left, #0284c7 0%, #006698 100%); height: 18px; border-radius: 4px; }
-
         /* ====================== TABLEAU ====================== */
         table.data-table { width: 100%; border-collapse: collapse; background: white; border: 2px solid #c5d5de; font-size: 13px; table-layout: fixed; }
         table.data-table th { background-color: #dde6ec; color: #334155; font-weight: 600; border: 1px solid #94a3b8; padding: 9px 8px; text-align: center; overflow: hidden; text-overflow: ellipsis; }
         table.data-table td { border: 1px solid #c5d5de; padding: 8px; color: #334155; vertical-align: middle; transition: background-color 0.3s; }
         table.data-table tr:hover td { background-color: #f5f9fb; }
         .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-right: 3px; }
-        .badge-st { background: #fed7aa; color: #b45309; }
-        .badge-iq { background: #d1fae5; color: #047857; }
-        .badge-tl { background: #dbeafe; color: #1d4ed8; }
-        .badge-off { background: #fee2e2; color: #b91c1c; }
-
-        .role-select { border: 1px solid #c5d5de; border-radius: 6px; height: 34px; padding: 4px 8px; font-family: inherit; font-size: 13px; background: #fff; color: #1e293b; cursor: pointer; }
-        .role-select:focus { border-color: #006698; outline: none; }
 
         /* Champs style tableur (comme IC Manager) : sans bordure, transparents, remplissent la cellule */
         table.data-table td.cell-input { padding: 0 !important; height: 38px; }
@@ -134,9 +106,6 @@
         select.excel-input::-ms-expand { display: none; }   /* masque la flèche : clic dans la case ouvre la liste */
         /* Couleur grise du texte d'invite (placeholder) */
         input:-ms-input-placeholder, textarea:-ms-input-placeholder { color: #94a3b8; }
-        /* Bouton réinitialiser/supprimer la ligne (X) - identique à IC Manager (.btn-row-reset) */
-        .btn-del-cell { position: absolute; right: 3px; top: 50%; margin-top: -13px; width: 26px; height: 26px; line-height: 24px; padding: 0; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #f1f5f9; color: #64748b; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; }
-        .btn-del-cell:hover { background-color: #e4342d; border-color: #e4342d; color: #ffffff; }
         /* Bande titre de carte façon IC Manager : séparateur pleine largeur (bord à bord) */
         .card-title { padding: 13px 15px; border-bottom: 1px solid #eef2f5; }
         .param-ttl { font-size: 16px; font-weight: 700; text-align: center; }
@@ -1400,7 +1369,6 @@
             setExtractBtnDisabled('btnOF', teamHasMembers(appData.teamST) || teamHasMembers(appData.teamIQ), "Renseigne au moins une équipe (ST ou IQ) dans les Paramètres.");   // Extract OF
         }
         // Conservé pour compat : met à jour l'ensemble des boutons d'export.
-        function UpdateOFExtractButton() { UpdateExtractButtons(); }
         function LancerExtractOFTout() {
             if (!teamHasMembers(appData.teamST) && !teamHasMembers(appData.teamIQ)) return;   // sécurité : bouton grisé sans équipe
             var d1 = NettoyerChaine(document.getElementById('ofDateDebut').value).replace(/\//g, '.');
@@ -1436,7 +1404,7 @@
                     }
                 } catch (e) { AlerteExtract("Erreur : " + e.message); }
                 if (btn) { btn.innerHTML = "Extract OF"; }
-                UpdateOFExtractButton();   // rétablit l'état actif/grisé selon les équipes
+                UpdateExtractButtons();   // rétablit l'état actif/grisé selon les équipes
             }, 80);
         }
         // Bandeau "aucune donnée" centré et pleine hauteur pour les tableaux d'extraction (cohérent avec le dashboard).
@@ -1477,7 +1445,7 @@
         }
         function RenderOFCombined() {
             extractValid.OF = true;   // rendu à jour (cache)
-            UpdateOFExtractButton();
+            UpdateExtractButtons();
             var lbl = document.getElementById('lastOFExtractDate'); if (lbl) lbl.innerText = appData.lastOFImport ? appData.lastOFImport : "Jamais";
             var cont = document.getElementById('ofTable'); if (!cont) return;
             var data = ofCombinedRows();
@@ -2054,7 +2022,7 @@
             RecomputeAll();   // recalcule l'éligibilité AVANT la sauvegarde
             SaveData();
             RenderParametres();
-            UpdateOFExtractButton();   // les équipes ont pu changer -> maj de l'état du bouton Extract OF
+            UpdateExtractButtons();   // les équipes ont pu changer -> maj de l'état du bouton Extract OF
         }
         function ParamsAnnuler() {
             if (paramsBackup) {
