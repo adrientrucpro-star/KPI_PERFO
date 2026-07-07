@@ -1028,6 +1028,9 @@
             var pageEl = document.getElementById(id); if (pageEl) pageEl.className = "page active";
             var navEl = document.getElementById("nav" + sfx2); if (navEl) navEl.className = "nav-item active";
             ScrollContentTop();   // remet le scroll à zéro AVANT le rendu (mesures de hauteur fiables)
+            // Le tableau de bord est calibré pour remplir l'écran sans défilement -> on interdit tout scroll vertical
+            // (un éventuel ajustement de quelques px est masqué au lieu d'afficher une barre). Les autres pages défilent.
+            var ct = document.getElementById('content'); if (ct) ct.style.overflowY = (id === 'pageDashboard') ? 'hidden' : 'auto';
             if (skipRender) return;
             if (id === "pageParametres") { if (!pageValid.parametres) RenderParametres(); }
             if (id === "pageDashboard") RenderDashIfNeeded();
