@@ -1304,7 +1304,6 @@
                 var nbSkipped = 0; for (var ks in skippedAvis) { if (skippedAvis.hasOwnProperty(ks)) nbSkipped++; }
                 var nbElig = 0; for (var e = 0; e < ncList.length; e++) { if (ncList[e].eligible) nbElig++; }
                 var lbl = document.getElementById('lastExtractDate'); if (lbl) lbl.innerText = appData.lastImport || "";
-                var edI = document.getElementById('extractDate'); if (edI) edI.value = NettoyerChaine(appData.lastImport).split(' ')[0];
                 RenderListe();
                 EgaliserHauteursExtraction();
 
