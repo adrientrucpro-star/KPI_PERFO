@@ -3503,7 +3503,8 @@
                 document.body.style.cursor = '';
                 try { fso.DeleteFile(tmpHtml); } catch (e3) {}
                 try { fso.DeleteFolder(udd, true); } catch (e4) {}
-                try { new ActiveXObject("WScript.Shell").Run('explorer /select,"' + pdf + '"', 1, false); } catch (e5) {}
+                try { new ActiveXObject("Shell.Application").ShellExecute(pdf); }   // ouvre directement le PDF (appli par défaut)
+                catch (e5) { try { new ActiveXObject("WScript.Shell").Run('explorer.exe "' + pdf + '"', 1, false); } catch (e5b) {} }
                 return;
             }
             if (tries >= 40) {   // ~16 s sans résultat -> repli impression
