@@ -3424,7 +3424,7 @@
                 + ".wk svg{width:100%;height:auto;max-width:780px;}"
                 + ".pie{display:inline-block;width:48%;vertical-align:top;text-align:center;border:1px solid #e2e8f0;border-radius:6px;padding:4px;margin:0 0.6% 8px 0.6%;page-break-inside:avoid;} .pie svg{width:100%;height:auto;}"
                 + ".piettl{font-size:13px;font-weight:700;color:#334155;margin:6px 0;} .nodata{color:#94a3b8;font-style:italic;padding:26px 0;}"
-                + "@media print{body{margin:0;}}";
+                + "@page{size:A4 landscape;margin:8mm;} @media print{body{margin:0;}}";
             var html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Tableau de bord NC</title><style>" + css + "</style></head><body>"
                 + "<div class='hd'><div class='ttl'>KPI PERFO — Tableau de bord (Non-conformité)</div>"
                 + "<div class='sub'>" + escapeHtml(dashExportPeriodLabel()) + " · Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div></div>"
