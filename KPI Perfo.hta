@@ -3481,8 +3481,8 @@
             function pie(id, w, h, lr) { var s = pieExportSVG(id, w, h, lr); return s || "<div class='nodata'>Aucune donnée</div>"; }
             var pInt = pie('hcRespInt', 440, GH, true);
             var pExt = pie('hcRespExt', 440, GH, true);
-            var pEq = pie('hcSeuilEquipe', 300, GH, false);
-            var pGl = pie('hcSeuilGlobal', 300, GH, false);
+            var pEq = pie('hcSeuilEquipe', 380, GH, true);
+            var pGl = pie('hcSeuilGlobal', 380, GH, true);
             var now = new Date();
             var css = "*{box-sizing:border-box;} body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;margin:8px;font-size:11px;}"
                 + ".hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0C447C;padding-bottom:5px;margin-bottom:8px;}"
