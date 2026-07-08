@@ -2125,7 +2125,7 @@
             return out;
         }
         // === MODE MSN : buckets = valeurs de MSN (au lieu de semaines/jours) ===
-        function msnBucketKey(v) { var s = NettoyerChaine(v); return s ? s : '—'; }   // '—' = sans MSN
+        function msnBucketKey(v) { var s = NettoyerChaine(v); return s ? s : '-'; }   // '-' = sans MSN
         function msnSortKeys(keys) {
             keys.sort(function (a, b) {
                 var na = parseInt(a, 10), nb = parseInt(b, 10);
@@ -2490,7 +2490,7 @@
             var rows = "<label style='display:block; padding:6px 12px; font-weight:700; border-bottom:1px solid #e2e8f0; cursor:pointer;'><input type='checkbox'" + (tous ? " checked" : "") + " onclick=\"SetAllMsn(this.checked, event)\" style='margin-right:8px; vertical-align:middle;'>Tout sélectionner</label>";
             for (var i = 0; i < all.length; i++) {
                 var key = all[i], on = msnSelected(key);
-                var txt = (key === '—') ? '(Sans MSN)' : ('MSN ' + key);
+                var txt = (key === '-') ? '(Sans MSN)' : ('MSN ' + key);
                 rows += "<label style='display:block; padding:6px 12px; cursor:pointer; white-space:nowrap;'><input type='checkbox'" + (on ? " checked" : "") + " onclick=\"ToggleMsnKey('" + escapeHtml(key) + "', this.checked, event)\" style='margin-right:8px; vertical-align:middle;'>" + escapeHtml(txt) + "</label>";
             }
             if (!all.length) rows += "<div style='padding:10px 12px; color:#94a3b8; font-style:italic;'>Aucun MSN</div>";
@@ -3352,7 +3352,7 @@
                 + "table.tbl{width:100%;border-collapse:collapse;} table.tbl th,table.tbl td{border:1px solid #c5d5de;padding:4px 6px;font-size:11px;} table.tbl th{background:#f0f4f7;text-align:center;}"
                 + "td.c{text-align:center;} td.b{font-weight:600;} @media print{body{margin:0;}}";
             return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Récapitulatif Analyse NC</title><style>" + css + "</style></head><body>"
-                + "<div class='rpt-head'><div class='rpt-title'>KPI PERFO &mdash; Récapitulatif Analyse NC</div>"
+                + "<div class='rpt-head'><div class='rpt-title'>KPI PERFO - Récapitulatif Analyse NC</div>"
                 + "<div class='rpt-sub'>" + escapeHtml(filterLabel) + " &middot; " + list.length + " NC" + (list.length > 1 ? "s" : "") + " &middot; Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div>"
                 + "<div class='rpt-stats'>Traitement global moyen : <b>" + (avgG == null ? "-" : fmtDHM(avgG)) + "</b> &nbsp;|&nbsp; Traitement équipe moyen : <b>" + (avgT == null ? "-" : fmtDHM(avgT)) + "</b></div>"
                 + "</div>" + body + "</body></html>";
@@ -3435,7 +3435,7 @@
             if (g === 'msn') return "Par MSN · " + lbl;
             return "Mois : " + lbl;
         }
-        // Réduit les tailles de police du widget "3 semaines" via le DOM (fiable — le regex sur innerHTML échoue car IE réécrit les styles) et fixe sa hauteur.
+        // Réduit les tailles de police du widget "3 semaines" via le DOM (fiable - le regex sur innerHTML échoue car IE réécrit les styles) et fixe sa hauteur.
         // Widget "3 dernières semaines" dédié à l'export : compact, texte centré, espacements réguliers (tables -> colonnes alignées).
         function buildExportWeeks3(pts) {
             var wk = pts.slice(Math.max(0, pts.length - 3));
@@ -3496,11 +3496,11 @@
                 + "@page{size:A4 landscape;margin:7mm;} @media print{body{margin:0;}}";
             function cell(w, title, content) { return "<div class='cell' style='width:" + w + "'><div class='box'><div class='secttl'>" + title + "</div><div class='content'>" + content + "</div></div></div>"; }
             return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Tableau de bord NC</title><style>" + css + "</style></head><body>"
-                + "<div class='hd'><div class='ttl'>KPI PERFO — Tableau de bord (Non-conformité)</div>"
+                + "<div class='hd'><div class='ttl'>KPI PERFO - Tableau de bord (Non-conformité)</div>"
                 + "<div class='sub'>" + escapeHtml(dashExportPeriodLabel()) + "<br>Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div></div>"
                 + "<div class='row'>" + cell("40%", "Évolution sur les 3 dernières semaines", w3html) + cell("60%", "Évolution du traitement par semaine", "<div class='wk'>" + weeksSVG + "</div>") + "</div>"
-                + "<div class='row'>" + cell("50%", "Durée moyenne — Responsables internes", "<div class='pie'>" + pInt + "</div>") + cell("50%", "Répartition traitement équipe", "<div class='pie'>" + pEq + "</div>") + "</div>"
-                + "<div class='row'>" + cell("50%", "Durée moyenne — Responsables externes", "<div class='pie'>" + pExt + "</div>") + cell("50%", "Répartition traitement global", "<div class='pie'>" + pGl + "</div>") + "</div>"
+                + "<div class='row'>" + cell("50%", "Durée moyenne - Responsables internes", "<div class='pie'>" + pInt + "</div>") + cell("50%", "Répartition - Traitement équipe", "<div class='pie'>" + pEq + "</div>") + "</div>"
+                + "<div class='row'>" + cell("50%", "Durée moyenne - Responsables externes", "<div class='pie'>" + pExt + "</div>") + cell("50%", "Répartition - Traitement global", "<div class='pie'>" + pGl + "</div>") + "</div>"
                 + "</body></html>";
         }
         // Chemin de msedge.exe (génération PDF headless). "" si introuvable.
@@ -3530,7 +3530,7 @@
             if (html == null) { AfficherErreur("Aucune donnée à exporter. Lance une extraction NC."); return; }
             var reason = tryDirectPdf(html);   // "" = génération lancée ; sinon = motif d'échec
             if (reason === "") return;
-            AfficherErreur("Génération directe du PDF impossible : " + reason + ".\n\nRepli sur la boîte d'impression — choisis « Microsoft Print to PDF ».");
+            AfficherErreur("Génération directe du PDF impossible : " + reason + ".\n\nRepli sur la boîte d'impression - choisis « Microsoft Print to PDF ».");
             PrintHtmlReport(html);
         }
         // Tente de générer le PDF via Edge headless. Renvoie "" si lancé, sinon le motif d'échec (pour diagnostic).
@@ -3860,13 +3860,13 @@
                         </div>
                         <div style="display:table-cell; width:25%; padding:0 8px; vertical-align:top;">
                             <div class="card dashCardNC">
-                                <h3>Répartition traitement équipe</h3>
+                                <h3>Répartition - Traitement équipe</h3>
                                 <div id="hcSeuilEquipe" class="dashChartNC"></div>
                             </div>
                         </div>
                         <div style="display:table-cell; width:25%; padding-left:8px; vertical-align:top;">
                             <div class="card dashCardNC">
-                                <h3>Répartition traitement global</h3>
+                                <h3>Répartition - Traitement global</h3>
                                 <div id="hcSeuilGlobal" class="dashChartNC"></div>
                             </div>
                         </div>
