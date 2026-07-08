@@ -3409,9 +3409,9 @@
             if (g === 'msn') return "Par MSN · " + lbl;
             return "Mois : " + lbl;
         }
-        function ExportDashboardNC() {
+        function buildDashboardNCReportHtml() {
             var dc = document.getElementById('dashCharts');
-            if (!dc || dc.style.display === 'none') { AfficherErreur("Aucune donnée à exporter. Lance une extraction NC."); return; }
+            if (!dc || dc.style.display === 'none') return null;
             var w3 = document.getElementById('dash3weeks');
             var w3html = w3 ? w3.innerHTML.replace(/height:\s*\d+px/, 'height:150px').replace(/font-size:14px/g, 'font-size:11px').replace(/font-size:13px/g, 'font-size:10px') : "";   // widget 3 semaines réduit (hauteur + police) pour l'export
             var weeksSVG = grabChartSVG('hcWeeks') || "<div class='nodata'>Aucune donnée</div>";
@@ -3429,7 +3429,7 @@
                 + ".wk svg{height:185px;width:auto;max-width:100%;} .pie svg{height:178px;width:auto;max-width:100%;}"
                 + ".piettl{font-size:12px;font-weight:700;color:#334155;margin:5px 0;} .nodata{color:#94a3b8;font-style:italic;padding:22px 0;}"
                 + "@page{size:A4 landscape;margin:7mm;} @media print{body{margin:0;}}";
-            var html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Tableau de bord NC</title><style>" + css + "</style></head><body>"
+            return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Tableau de bord NC</title><style>" + css + "</style></head><body>"
                 + "<div class='hd'><div class='ttl'>KPI PERFO — Tableau de bord (Non-conformité)</div>"
                 + "<div class='sub'>" + escapeHtml(dashExportPeriodLabel()) + " · Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div></div>"
                 + "<div class='row'>"
@@ -3445,7 +3445,70 @@
                 + "<div class='cell' style='width:40%;'><div class='box'>" + pGl + "</div></div>"
                 + "</div>"
                 + "</body></html>";
-            PrintHtmlReport(html);
+        }
+        // Chemin de msedge.exe (génération PDF headless). "" si introuvable.
+        function findEdgePath() {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject"), sh = new ActiveXObject("WScript.Shell");
+                var c = [sh.ExpandEnvironmentStrings("%ProgramFiles(x86)%") + "\\Microsoft\\Edge\\Application\\msedge.exe",
+                    sh.ExpandEnvironmentStrings("%ProgramFiles%") + "\\Microsoft\\Edge\\Application\\msedge.exe",
+                    sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") + "\\Microsoft\\Edge\\Application\\msedge.exe"];
+                for (var i = 0; i < c.length; i++) { if (fso.FileExists(c[i])) return c[i]; }
+                try { var p = sh.RegRead("HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\msedge.exe\\"); if (p && fso.FileExists(p)) return p; } catch (e) {}
+            } catch (e2) {}
+            return "";
+        }
+        function nowStamp() {
+            var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
+            return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+        }
+        function writeUtf8File(path, text) {
+            var st = new ActiveXObject("ADODB.Stream");
+            st.Type = 2; st.Charset = "UTF-8"; st.Open(); st.WriteText(text); st.SaveToFile(path, 2); st.Close();
+        }
+        function ExportDashboardNC() {
+            var html = buildDashboardNCReportHtml();
+            if (html == null) { AfficherErreur("Aucune donnée à exporter. Lance une extraction NC."); return; }
+            var edge = findEdgePath();
+            if (edge) {
+                try {
+                    var fso = new ActiveXObject("Scripting.FileSystemObject"), sh = new ActiveXObject("WScript.Shell");
+                    var stamp = nowStamp(), tmp = fso.GetSpecialFolder(2);
+                    var tmpHtml = tmp + "\\kpi_dash_nc_" + stamp + ".html";
+                    var udd = tmp + "\\kpi_edge_" + stamp;
+                    writeUtf8File(tmpHtml, html);
+                    var dl = sh.ExpandEnvironmentStrings("%USERPROFILE%") + "\\Downloads";
+                    if (!fso.FolderExists(dl)) dl = sh.ExpandEnvironmentStrings("%USERPROFILE%");
+                    var pdf = dl + "\\KPI_TableauDeBord_NC_" + stamp + ".pdf";
+                    var url = "file:///" + tmpHtml.replace(/\\/g, "/").replace(/ /g, "%20");
+                    var cmd = '"' + edge + '" --headless=new --disable-gpu --no-first-run --user-data-dir="' + udd + '" --no-pdf-header-footer --print-to-pdf="' + pdf + '" "' + url + '"';
+                    sh.Run(cmd, 0, false);
+                    document.body.style.cursor = 'wait';
+                    pollDashPdf(pdf, tmpHtml, udd, html, 0, 0);
+                    return;
+                } catch (e) { /* repli impression ci-dessous */ }
+            }
+            PrintHtmlReport(html);   // repli : boîte d'impression (choisir "Microsoft Print to PDF")
+        }
+        // Attend l'apparition (stable) du PDF généré par Edge, ouvre l'Explorateur dessus ; repli impression si échec.
+        function pollDashPdf(pdf, tmpHtml, udd, html, tries, stable) {
+            var fso; try { fso = new ActiveXObject("Scripting.FileSystemObject"); } catch (e) { document.body.style.cursor = ''; PrintHtmlReport(html); return; }
+            var sz = -1; try { if (fso.FileExists(pdf)) sz = fso.GetFile(pdf).Size; } catch (e2) {}
+            if (sz > 0 && stable >= 1) {   // fichier présent et stable (2 relevés) -> terminé
+                document.body.style.cursor = '';
+                try { fso.DeleteFile(tmpHtml); } catch (e3) {}
+                try { fso.DeleteFolder(udd, true); } catch (e4) {}
+                try { new ActiveXObject("WScript.Shell").Run('explorer /select,"' + pdf + '"', 1, false); } catch (e5) {}
+                return;
+            }
+            if (tries >= 40) {   // ~16 s sans résultat -> repli impression
+                document.body.style.cursor = '';
+                try { fso.DeleteFile(tmpHtml); } catch (e6) {}
+                try { fso.DeleteFolder(udd, true); } catch (e7) {}
+                PrintHtmlReport(html);
+                return;
+            }
+            setTimeout(function () { pollDashPdf(pdf, tmpHtml, udd, html, tries + 1, sz > 0 ? stable + 1 : 0); }, 400);
         }
         function stripPrintHeaders() {
             var base = "HKEY_CURRENT_USER\\Software\\Microsoft\\Internet Explorer\\PageSetup\\";
