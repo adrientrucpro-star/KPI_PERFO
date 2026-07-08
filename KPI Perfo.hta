@@ -2062,15 +2062,18 @@
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligible) elig.push(ncList[i]); }
             var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
 
+            var eb = document.getElementById('dashExportNC');
             if (elig.length === 0) {
                 var empNC = document.getElementById('dashEmpty');
                 empNC.style.display = "block";
                 document.getElementById('dashCharts').style.display = "none";
+                if (eb) eb.style.display = 'none';
                 var avNC = ComputeAvailHeight('dashEmpty'); if (avNC != null) empNC.style.height = avNC + "px";
                 dashValid.NC = true;
                 return;
             }
             document.getElementById('dashEmpty').style.display = "none";
+            if (eb) eb.style.display = '';   // données présentes -> bouton d'export visible
             var dc = document.getElementById('dashCharts'); dc.style.display = "block";
             var ct = document.getElementById('content'); if (ct) ct.style.overflowY = 'hidden';   // dashboard = pas de scrollbar (au démarrage, RenderDashboard est appelé hors ShowPage)
 
@@ -2593,6 +2596,8 @@
                 var pane = document.getElementById(subs[kk]); if (pane) pane.style.display = (kk === s) ? "block" : "none";
                 var tab = document.getElementById(tabs[kk]); if (tab) tab.className = (kk === s) ? "subtab active" : "subtab";
             }
+            var eb = document.getElementById('dashExportNC');   // bouton export : NC uniquement, et seulement si des graphiques sont présents
+            if (eb) { var dcv = document.getElementById('dashCharts'); eb.style.display = (s === 'NC' && dcv && dcv.style.display !== 'none') ? '' : 'none'; }
             if (!dashValid[s]) RenderDashSub(s);
         }
         function RenderActiveDashboardSub() { RenderDashSub(activeDashSub()); }
@@ -3352,6 +3357,83 @@
                 + "<div class='rpt-stats'>Traitement global moyen : <b>" + (avgG == null ? "-" : fmtDHM(avgG)) + "</b> &nbsp;|&nbsp; Traitement équipe moyen : <b>" + (avgT == null ? "-" : fmtDHM(avgT)) + "</b></div>"
                 + "</div>" + body + "</body></html>";
         }
+        // ================= EXPORT PDF DU TABLEAU DE BORD NC =================
+        // Sérialise un <svg> en ajoutant un viewBox (sur un clone) pour qu'il se mette à l'échelle proprement à l'impression.
+        function serializeSVG(s) {
+            if (!s) return "";
+            var c = s.cloneNode(true);
+            if (!c.getAttribute('viewBox')) {
+                var w = parseFloat(s.getAttribute('width')) || 0, h = parseFloat(s.getAttribute('height')) || 0;
+                if (w && h) c.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+            }
+            try { return new XMLSerializer().serializeToString(c); } catch (e) { return s.outerHTML || ""; }
+        }
+        function grabChartSVG(id) {
+            var c = document.getElementById(id); if (!c) return "";
+            return serializeSVG(c.getElementsByTagName('svg')[0]);
+        }
+        // Re-rend un camembert (à partir des données du graphique vivant) dans un conteneur caché, AVEC légende, et renvoie le SVG.
+        function pieExportSVG(id, title) {
+            var live = window.hcRefs[id];
+            if (!live || !live.series || !live.series[0] || !live.series[0].data.length) return "";
+            var sd = live.series[0].data, pts = [];
+            for (var i = 0; i < sd.length; i++) pts.push({ name: sd[i].name, y: sd[i].y, color: sd[i].color });
+            var tmp = document.createElement('div');
+            tmp.style.position = 'absolute'; tmp.style.left = '-10000px'; tmp.style.top = '0'; tmp.style.width = '400px'; tmp.style.height = '330px';
+            document.body.appendChild(tmp);
+            var out = "";
+            try {
+                var ch = Highcharts.chart(tmp, {
+                    chart: { type: 'pie', width: 400, height: 330, backgroundColor: '#ffffff', spacing: [8, 8, 4, 8], style: { fontFamily: "'Segoe UI',Arial,sans-serif" } },
+                    title: { text: title, style: { fontSize: '13px', color: '#334155', fontWeight: '700' } },
+                    credits: { enabled: false }, tooltip: { enabled: false },
+                    legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemStyle: { fontSize: '11px', color: '#334155', fontWeight: 'normal' } },
+                    plotOptions: { pie: { animation: false, showInLegend: true, size: '68%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -22, style: { color: '#ffffff', fontSize: '11px', fontWeight: 'bold', textOutline: 'none' } } } },
+                    series: [{ name: title, data: pts }]
+                });
+                out = serializeSVG(tmp.getElementsByTagName('svg')[0]);
+                ch.destroy();
+            } catch (e) {}
+            if (tmp.parentNode) tmp.parentNode.removeChild(tmp);
+            return out;
+        }
+        function dashExportPeriodLabel() {
+            var s = dashPeriodState(), lbl = (s && s.idx >= 0) ? s.label(s.items[s.idx]) : "";
+            var g = dashFilter.gran;
+            if (g === 'year') return "Année " + lbl;
+            if (g === 'week') return "Semaine " + lbl;
+            if (g === 'msn') return "Par MSN · " + lbl;
+            return "Mois : " + lbl;
+        }
+        function ExportDashboardNC() {
+            var dc = document.getElementById('dashCharts');
+            if (!dc || dc.style.display === 'none') { AfficherErreur("Aucune donnée à exporter. Lance une extraction NC."); return; }
+            var w3 = document.getElementById('dash3weeks');
+            var w3html = w3 ? w3.innerHTML : "";
+            var weeksSVG = grabChartSVG('hcWeeks') || "<div class='nodata'>Aucune donnée</div>";
+            var pies = [['hcRespInt', 'Durée moyenne — Responsables internes'], ['hcRespExt', 'Durée moyenne — Responsables externes'], ['hcSeuilEquipe', 'Répartition traitement équipe'], ['hcSeuilGlobal', 'Répartition traitement global']];
+            var pieCells = "";
+            for (var i = 0; i < pies.length; i++) {
+                var svg = pieExportSVG(pies[i][0], pies[i][1]);
+                pieCells += "<div class='pie'>" + (svg || ("<div class='piettl'>" + escapeHtml(pies[i][1]) + "</div><div class='nodata'>Aucune donnée</div>")) + "</div>";
+            }
+            var now = new Date();
+            var css = "*{box-sizing:border-box;} body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;margin:16px;font-size:12px;}"
+                + ".hd{border-bottom:2px solid #0C447C;padding-bottom:8px;margin-bottom:14px;} .ttl{font-size:18px;font-weight:700;color:#0C447C;} .sub{font-size:12px;color:#475569;margin-top:3px;}"
+                + ".sec{margin-bottom:16px;page-break-inside:avoid;} .secttl{font-size:13px;font-weight:700;color:#0C447C;margin-bottom:7px;border-left:3px solid #0C447C;padding-left:8px;}"
+                + ".wk svg{width:100%;height:auto;max-width:780px;}"
+                + ".pie{display:inline-block;width:48%;vertical-align:top;text-align:center;border:1px solid #e2e8f0;border-radius:6px;padding:4px;margin:0 0.6% 8px 0.6%;page-break-inside:avoid;} .pie svg{width:100%;height:auto;}"
+                + ".piettl{font-size:13px;font-weight:700;color:#334155;margin:6px 0;} .nodata{color:#94a3b8;font-style:italic;padding:26px 0;}"
+                + "@media print{body{margin:0;}}";
+            var html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Tableau de bord NC</title><style>" + css + "</style></head><body>"
+                + "<div class='hd'><div class='ttl'>KPI PERFO — Tableau de bord (Non-conformité)</div>"
+                + "<div class='sub'>" + escapeHtml(dashExportPeriodLabel()) + " · Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div></div>"
+                + "<div class='sec'><div class='secttl'>Évolution sur les 3 dernières semaines</div>" + w3html + "</div>"
+                + "<div class='sec'><div class='secttl'>Évolution du traitement par semaine</div><div class='wk'>" + weeksSVG + "</div></div>"
+                + "<div class='sec'><div class='secttl'>Répartitions</div><div class='pies'>" + pieCells + "</div></div>"
+                + "</body></html>";
+            PrintHtmlReport(html);
+        }
         function stripPrintHeaders() {
             var base = "HKEY_CURRENT_USER\\Software\\Microsoft\\Internet Explorer\\PageSetup\\";
             var st = { sh: null, hKey: base + "header", fKey: base + "footer", hOld: "", fOld: "", hHad: false, fHad: false };
@@ -3587,6 +3669,7 @@
                     <button id="dashSubtabNC" class="subtab active" onclick="ShowDashSub('NC')">Non-conformité</button>
                     <button id="dashSubtabOF" class="subtab" onclick="ShowDashSub('OF')">Ordre de Fabrication</button>
                     <button id="dashSubtabIC" class="subtab" onclick="ShowDashSub('IC')">Intervention Card</button>
+                    <button id="dashExportNC" onclick="ExportDashboardNC()" title="Exporter le tableau de bord NC en PDF" style="display:none; float:right; margin:4px 0 4px 12px; height:30px; padding:0 14px; border:none; border-radius:6px; background:#0C447C; color:#fff; font-size:12px; font-weight:600; cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Exporter PDF</button>
                     <span id="dashFilterBar" style="float:right; margin:4px 0;"></span>
                 </div>
 
