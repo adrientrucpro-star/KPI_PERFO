@@ -3372,9 +3372,9 @@
             var c = document.getElementById(id); if (!c) return "";
             return serializeSVG(c.getElementsByTagName('svg')[0]);
         }
-        // Re-rend un camembert (à partir des données du graphique vivant) dans un conteneur caché, AVEC légende, et renvoie le SVG.
-        // legendRight=true -> légende verticale à droite (colonne large) ; sinon légende horizontale en bas.
-        function pieExportSVG(id, title, w, h, legendRight) {
+        // Re-rend un camembert (données du graphique vivant) dans un conteneur caché, AVEC légende (titre géré à l'extérieur), renvoie le SVG.
+        // legendRight=true -> légende verticale à droite ; sinon légende horizontale en bas.
+        function pieExportSVG(id, w, h, legendRight) {
             var live = window.hcRefs[id];
             if (!live || !live.series || !live.series[0] || !live.series[0].data.length) return "";
             var sd = live.series[0].data, pts = [];
@@ -3385,15 +3385,14 @@
             var out = "";
             try {
                 var leg = legendRight
-                    ? { enabled: true, align: 'right', verticalAlign: 'middle', layout: 'vertical', itemMarginBottom: 1, itemStyle: { fontSize: '9px', color: '#334155', fontWeight: 'normal' } }
+                    ? { enabled: true, align: 'right', verticalAlign: 'middle', layout: 'vertical', itemMarginBottom: 1, itemStyle: { fontSize: '10px', color: '#334155', fontWeight: 'normal' } }
                     : { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemStyle: { fontSize: '10px', color: '#334155', fontWeight: 'normal' } };
                 var ch = Highcharts.chart(tmp, {
-                    chart: { type: 'pie', width: w, height: h, backgroundColor: '#ffffff', spacing: [6, 6, 4, 6], style: { fontFamily: "'Segoe UI',Arial,sans-serif" } },
-                    title: { text: title, style: { fontSize: '12px', color: '#334155', fontWeight: '700' } },
-                    credits: { enabled: false }, tooltip: { enabled: false },
+                    chart: { type: 'pie', width: w, height: h, backgroundColor: '#ffffff', spacing: [4, 4, 4, 4], style: { fontFamily: "'Segoe UI',Arial,sans-serif" } },
+                    title: { text: null }, credits: { enabled: false }, tooltip: { enabled: false },
                     legend: leg,
-                    plotOptions: { pie: { animation: false, showInLegend: true, size: '78%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -20, style: { color: '#ffffff', fontSize: '10px', fontWeight: 'bold', textOutline: 'none' } } } },
-                    series: [{ name: title, data: pts }]
+                    plotOptions: { pie: { animation: false, showInLegend: true, size: '86%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -20, style: { color: '#ffffff', fontSize: '10px', fontWeight: 'bold', textOutline: 'none' } } } },
+                    series: [{ name: 'x', data: pts }]
                 });
                 out = serializeSVG(tmp.getElementsByTagName('svg')[0]);
                 ch.destroy();
@@ -3412,38 +3411,32 @@
         function buildDashboardNCReportHtml() {
             var dc = document.getElementById('dashCharts');
             if (!dc || dc.style.display === 'none') return null;
+            var GH = 185;   // hauteur commune des graphiques (px)
             var w3 = document.getElementById('dash3weeks');
-            var w3html = w3 ? w3.innerHTML.replace(/height:\s*\d+px/, 'height:150px').replace(/font-size:14px/g, 'font-size:11px').replace(/font-size:13px/g, 'font-size:10px') : "";   // widget 3 semaines réduit (hauteur + police) pour l'export
+            var w3html = w3 ? w3.innerHTML.replace(/height:\s*\d+px/, 'height:' + GH + 'px').replace(/font-size:14px/g, 'font-size:11px').replace(/font-size:13px/g, 'font-size:10px') : "";
             var weeksSVG = grabChartSVG('hcWeeks') || "<div class='nodata'>Aucune donnée</div>";
-            function pieCell(id, title, w, h, lr) { var s = pieExportSVG(id, title, w, h, lr); return s || ("<div class='piettl'>" + escapeHtml(title) + "</div><div class='nodata'>Aucune donnée</div>"); }
-            var pInt = pieCell('hcRespInt', 'Durée moyenne — Responsables internes', 560, 240, true);
-            var pExt = pieCell('hcRespExt', 'Durée moyenne — Responsables externes', 560, 240, true);
-            var pEq = pieCell('hcSeuilEquipe', 'Répartition traitement équipe', 340, 240, false);
-            var pGl = pieCell('hcSeuilGlobal', 'Répartition traitement global', 340, 240, false);
+            function pie(id, w, h, lr) { var s = pieExportSVG(id, w, h, lr); return s || "<div class='nodata'>Aucune donnée</div>"; }
+            var pInt = pie('hcRespInt', 440, GH, true);
+            var pExt = pie('hcRespExt', 440, GH, true);
+            var pEq = pie('hcSeuilEquipe', 300, GH, false);
+            var pGl = pie('hcSeuilGlobal', 300, GH, false);
             var now = new Date();
             var css = "*{box-sizing:border-box;} body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;margin:8px;font-size:11px;}"
-                + ".hd{border-bottom:2px solid #0C447C;padding-bottom:5px;margin-bottom:8px;} .ttl{font-size:15px;font-weight:700;color:#0C447C;} .sub{font-size:11px;color:#475569;margin-top:2px;}"
-                + ".row{display:table;width:100%;table-layout:fixed;margin-bottom:8px;} .cell{display:table-cell;vertical-align:top;padding:0 4px;}"
+                + ".hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0C447C;padding-bottom:5px;margin-bottom:8px;}"
+                + ".ttl{font-size:15px;font-weight:700;color:#0C447C;} .sub{font-size:11px;color:#475569;text-align:right;line-height:1.4;}"
+                + ".row{display:table;width:100%;table-layout:fixed;margin-bottom:8px;} .cell{display:table-cell;width:50%;vertical-align:top;padding:0 4px;}"
                 + ".box{border:1px solid #e2e8f0;border-radius:6px;padding:5px 7px;height:100%;text-align:center;}"
                 + ".secttl{font-size:12px;font-weight:700;color:#0C447C;margin-bottom:4px;text-align:left;}"
-                + ".wk svg{height:185px;width:auto;max-width:100%;} .pie svg{height:178px;width:auto;max-width:100%;}"
-                + ".piettl{font-size:12px;font-weight:700;color:#334155;margin:5px 0;} .nodata{color:#94a3b8;font-style:italic;padding:22px 0;}"
+                + ".wk svg,.pie svg{height:" + GH + "px;width:auto;max-width:100%;}"
+                + ".nodata{color:#94a3b8;font-style:italic;padding:70px 0;}"
                 + "@page{size:A4 landscape;margin:7mm;} @media print{body{margin:0;}}";
+            function cell(title, content) { return "<div class='cell'><div class='box'><div class='secttl'>" + title + "</div>" + content + "</div></div>"; }
             return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Tableau de bord NC</title><style>" + css + "</style></head><body>"
                 + "<div class='hd'><div class='ttl'>KPI PERFO — Tableau de bord (Non-conformité)</div>"
-                + "<div class='sub'>" + escapeHtml(dashExportPeriodLabel()) + " · Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div></div>"
-                + "<div class='row'>"
-                + "<div class='cell' style='width:38%;'><div class='box'><div class='secttl'>Évolution sur les 3 dernières semaines</div>" + w3html + "</div></div>"
-                + "<div class='cell' style='width:62%;'><div class='box'><div class='secttl'>Évolution du traitement par semaine</div><div class='wk'>" + weeksSVG + "</div></div></div>"
-                + "</div>"
-                + "<div class='row'>"
-                + "<div class='cell' style='width:60%;'><div class='box'>" + pInt + "</div></div>"
-                + "<div class='cell' style='width:40%;'><div class='box'>" + pEq + "</div></div>"
-                + "</div>"
-                + "<div class='row'>"
-                + "<div class='cell' style='width:60%;'><div class='box'>" + pExt + "</div></div>"
-                + "<div class='cell' style='width:40%;'><div class='box'>" + pGl + "</div></div>"
-                + "</div>"
+                + "<div class='sub'>" + escapeHtml(dashExportPeriodLabel()) + "<br>Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div></div>"
+                + "<div class='row'>" + cell("Évolution sur les 3 dernières semaines", w3html) + cell("Évolution du traitement par semaine", "<div class='wk'>" + weeksSVG + "</div>") + "</div>"
+                + "<div class='row'>" + cell("Durée moyenne — Responsables internes", "<div class='pie'>" + pInt + "</div>") + cell("Répartition traitement équipe", "<div class='pie'>" + pEq + "</div>") + "</div>"
+                + "<div class='row'>" + cell("Durée moyenne — Responsables externes", "<div class='pie'>" + pExt + "</div>") + cell("Répartition traitement global", "<div class='pie'>" + pGl + "</div>") + "</div>"
                 + "</body></html>";
         }
         // Chemin de msedge.exe (génération PDF headless). "" si introuvable.
