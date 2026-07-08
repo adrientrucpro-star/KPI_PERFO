@@ -3368,9 +3368,36 @@
             }
             try { return new XMLSerializer().serializeToString(c); } catch (e) { return s.outerHTML || ""; }
         }
-        function grabChartSVG(id) {
-            var c = document.getElementById(id); if (!c) return "";
-            return serializeSVG(c.getElementsByTagName('svg')[0]);
+        // Re-rend le graphe "évolution par semaine" (données du graphique vivant) à une taille contrôlée, spacing serré (pas de vide sous la légende).
+        function weeksExportSVG(w, h) {
+            var live = window.hcRefs['hcWeeks'];
+            if (!live || !live.series || !live.series.length) return "";
+            var cats = (live.xAxis && live.xAxis[0] && live.xAxis[0].categories) ? live.xAxis[0].categories : [];
+            var series = [];
+            for (var i = 0; i < live.series.length; i++) {
+                var s = live.series[i], od = (s.options && s.options.data) ? s.options.data : [], data = [];
+                for (var k = 0; k < od.length; k++) { var d = od[k]; data.push((d && typeof d === 'object') ? d.y : d); }
+                series.push({ name: s.name, data: data, color: s.color });
+            }
+            var tmp = document.createElement('div');
+            tmp.style.position = 'absolute'; tmp.style.left = '-10000px'; tmp.style.top = '0'; tmp.style.width = w + 'px'; tmp.style.height = h + 'px';
+            document.body.appendChild(tmp);
+            var out = "";
+            try {
+                var ch = Highcharts.chart(tmp, {
+                    chart: { type: 'line', width: w, height: h, backgroundColor: '#ffffff', spacing: [6, 4, 2, 2], style: { fontFamily: "'Segoe UI',Arial,sans-serif" } },
+                    title: { text: null }, credits: { enabled: false }, tooltip: { enabled: false },
+                    legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', margin: 2, padding: 0, itemMarginTop: 0, itemMarginBottom: 0, itemStyle: { fontSize: '10px' } },
+                    xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
+                    yAxis: { title: { text: null }, min: 0, tickInterval: 5, plotLines: [{ value: 2, color: '#dc2626', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
+                    plotOptions: { line: { animation: false, marker: { radius: 3 }, lineWidth: 2 }, series: { connectNulls: true } },
+                    series: series
+                });
+                out = serializeSVG(tmp.getElementsByTagName('svg')[0]);
+                ch.destroy();
+            } catch (e) {}
+            if (tmp.parentNode) tmp.parentNode.removeChild(tmp);
+            return out;
         }
         // Re-rend un camembert (données du graphique vivant) dans un conteneur caché, AVEC légende (titre géré à l'extérieur), renvoie le SVG.
         // legendRight=true -> légende verticale à droite ; sinon légende horizontale en bas.
@@ -3413,8 +3440,8 @@
             if (!dc || dc.style.display === 'none') return null;
             var GH = 185;   // hauteur commune des graphiques (px)
             var w3 = document.getElementById('dash3weeks');
-            var w3html = w3 ? w3.innerHTML.replace(/height:\s*\d+px/, 'height:' + GH + 'px').replace(/font-size:14px/g, 'font-size:11px').replace(/font-size:13px/g, 'font-size:10px') : "";
-            var weeksSVG = grabChartSVG('hcWeeks') || "<div class='nodata'>Aucune donnée</div>";
+            var w3html = w3 ? w3.innerHTML.replace(/height:\s*\d+px/, 'height:' + GH + 'px').replace(/font-size:14px/g, 'font-size:10px').replace(/font-size:13px/g, 'font-size:9px') : "";
+            var weeksSVG = weeksExportSVG(490, GH) || "<div class='nodata'>Aucune donnée</div>";
             function pie(id, w, h, lr) { var s = pieExportSVG(id, w, h, lr); return s || "<div class='nodata'>Aucune donnée</div>"; }
             var pInt = pie('hcRespInt', 440, GH, true);
             var pExt = pie('hcRespExt', 440, GH, true);
