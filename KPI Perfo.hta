@@ -3440,7 +3440,8 @@
             if (!dc || dc.style.display === 'none') return null;
             var GH = 185;   // hauteur commune des graphiques (px)
             var w3 = document.getElementById('dash3weeks');
-            var w3html = w3 ? w3.innerHTML.replace(/height:\s*\d+px/, 'height:' + GH + 'px').replace(/font-size:14px/g, 'font-size:10px').replace(/font-size:13px/g, 'font-size:9px') : "";
+            // NB : IE réécrit les styles inline en lisant innerHTML (casse/espaces variables) -> regex tolérante. Réduit toutes les tailles de police à 68%.
+            var w3html = w3 ? w3.innerHTML.replace(/height\s*:\s*\d+px/i, 'height:' + GH + 'px').replace(/font-size\s*:\s*(\d+)px/gi, function (m, n) { var v = Math.round(parseInt(n, 10) * 0.68); return 'font-size:' + (v < 8 ? 8 : v) + 'px'; }) : "";
             var weeksSVG = weeksExportSVG(490, GH) || "<div class='nodata'>Aucune donnée</div>";
             function pie(id, w, h, lr) { var s = pieExportSVG(id, w, h, lr); return s || "<div class='nodata'>Aucune donnée</div>"; }
             var pInt = pie('hcRespInt', 440, GH, true);
