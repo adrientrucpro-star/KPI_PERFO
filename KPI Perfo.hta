@@ -3308,6 +3308,12 @@
                 + "<table class='data-table'><thead><tr><th width='5%'></th><th width='14%' style='text-align:center;'>Code</th><th width='14%' style='text-align:center;'>Responsable</th><th width='25%'>Désignation</th><th width='14%' style='text-align:center;'>Terminé par</th><th width='14%' style='text-align:center;'>Date et Heure</th><th width='14%' style='text-align:center;'>Durée</th></tr></thead><tbody>"
                 + rows + "</tbody></table></div>";
         }
+        // Suffixe de nom de fichier pour l'export Analyse NC (selon le filtre semaine / MSN).
+        function parcoursExportTag() {
+            if (parcoursMode === 'msn') return (parcoursMsn === "" ? "sans-MSN" : parcoursMsn);
+            if (parcoursWeek) { var mon = new Date(parcoursWeek); return "S" + isoWeek(mon) + "-" + mon.getFullYear(); }
+            return "export";
+        }
         function ExportParcoursPDF() {
             var list = currentParcoursList();
             if (!list.length) { AfficherErreur("Aucune NC à exporter pour la sélection actuelle."); return; }
@@ -3319,7 +3325,11 @@
                 if (list[i].durMs != null) { sumG += list[i].durMs; nG++; }
                 if (list[i].chezMs != null) { sumT += list[i].chezMs; nT++; }
             }
-            PrintHtmlReport(buildParcoursReportHtml(list, filterLabel, nG ? sumG / nG : null, nT ? sumT / nT : null));
+            var html = buildParcoursReportHtml(list, filterLabel, nG ? sumG / nG : null, nT ? sumT / nT : null);
+            var reason = tryDirectPdf(html, "KPI-PERFO_AnalyseNC_" + parcoursExportTag());   // génération directe (Edge) comme le tableau de bord
+            if (reason === "") return;
+            AfficherErreur("Génération directe du PDF impossible : " + reason + ".\n\nRepli sur la boîte d'impression - choisis « Microsoft Print to PDF ».");
+            PrintHtmlReport(html);
         }
         function parcoursReportCard(nc) {
             var lines = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
@@ -3341,21 +3351,21 @@
         function buildParcoursReportHtml(list, filterLabel, avgG, avgT) {
             var now = new Date(), body = "";
             for (var i = 0; i < list.length; i++) body += parcoursReportCard(list[i]);
-            var css = "*{box-sizing:border-box;} body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;margin:18px;font-size:12px;}"
-                + ".rpt-head{border-bottom:2px solid #0C447C;padding-bottom:8px;margin-bottom:14px;}"
-                + ".rpt-title{font-size:18px;font-weight:700;color:#0C447C;} .rpt-sub{font-size:12px;color:#475569;margin-top:3px;} .rpt-stats{font-size:12px;margin-top:6px;}"
+            var css = "*{box-sizing:border-box;} body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;margin:8px;font-size:12px;}"
+                + ".rpt-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0C447C;padding-bottom:6px;margin-bottom:6px;}"
+                + ".rpt-title{font-size:16px;font-weight:700;color:#0C447C;} .rpt-sub{font-size:11px;color:#475569;text-align:right;line-height:1.4;} .rpt-stats{font-size:12px;margin-bottom:12px;}"
                 + ".nc{border:1px solid #c5d5de;border-radius:6px;padding:10px 12px;margin-bottom:12px;page-break-inside:avoid;}"
                 + ".nchead{font-weight:700;font-size:13px;margin-bottom:6px;} .ncttl{color:#0C447C;}"
                 + ".badges{margin-bottom:8px;} .badges span{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;margin-right:6px;}"
                 + ".bg1{background:#E6F1FB;color:#0C447C;} .bg2{background:#dcfce3;color:#166534;}"
                 + ".cmt{font-size:11px;font-style:italic;color:#475569;margin-bottom:8px;}"
                 + "table.tbl{width:100%;border-collapse:collapse;} table.tbl th,table.tbl td{border:1px solid #c5d5de;padding:4px 6px;font-size:11px;} table.tbl th{background:#f0f4f7;text-align:center;}"
-                + "td.c{text-align:center;} td.b{font-weight:600;} @media print{body{margin:0;}}";
-            return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Récapitulatif Analyse NC</title><style>" + css + "</style></head><body>"
+                + "td.c{text-align:center;} td.b{font-weight:600;} @page{margin:7mm;} @media print{body{margin:0;}}";
+            return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>KPI-PERFO_AnalyseNC_" + parcoursExportTag() + "</title><style>" + css + "</style></head><body>"
                 + "<div class='rpt-head'><div class='rpt-title'>KPI PERFO - Récapitulatif Analyse NC</div>"
-                + "<div class='rpt-sub'>" + escapeHtml(filterLabel) + " &middot; " + list.length + " NC" + (list.length > 1 ? "s" : "") + " &middot; Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div>"
+                + "<div class='rpt-sub'>" + escapeHtml(filterLabel) + " &middot; " + list.length + " NC" + (list.length > 1 ? "s" : "") + "<br>Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div></div>"
                 + "<div class='rpt-stats'>Traitement global moyen : <b>" + (avgG == null ? "-" : fmtDHM(avgG)) + "</b> &nbsp;|&nbsp; Traitement équipe moyen : <b>" + (avgT == null ? "-" : fmtDHM(avgT)) + "</b></div>"
-                + "</div>" + body + "</body></html>";
+                + body + "</body></html>";
         }
         // ================= EXPORT PDF DU TABLEAU DE BORD NC =================
         // Sérialise un <svg> en ajoutant un viewBox (sur un clone) pour qu'il se mette à l'échelle proprement à l'impression.
@@ -3546,13 +3556,13 @@
         function ExportDashboardNC() {
             var html = buildDashboardNCReportHtml();
             if (html == null) { AfficherErreur("Aucune donnée à exporter. Lance une extraction NC."); return; }
-            var reason = tryDirectPdf(html);   // "" = génération lancée ; sinon = motif d'échec
+            var reason = tryDirectPdf(html, "KPI-PERFO_NC_" + dashExportFileTag());   // "" = génération lancée ; sinon = motif d'échec
             if (reason === "") return;
             AfficherErreur("Génération directe du PDF impossible : " + reason + ".\n\nRepli sur la boîte d'impression - choisis « Microsoft Print to PDF ».");
             PrintHtmlReport(html);
         }
         // Tente de générer le PDF via Edge headless. Renvoie "" si lancé, sinon le motif d'échec (pour diagnostic).
-        function tryDirectPdf(html) {
+        function tryDirectPdf(html, base) {
             var edge = findEdgePath();
             if (!edge) return "Microsoft Edge introuvable";
             var fso, sh;
@@ -3562,7 +3572,7 @@
             var tmpHtml = tmp + "\\kpi_dash_nc_" + stamp + ".html", udd = tmp + "\\kpi_edge_" + stamp;
             if (!writeReportFile(tmpHtml, html)) return "écriture du fichier temporaire bloquée";
             var dl; try { dl = sh.ExpandEnvironmentStrings("%USERPROFILE%") + "\\Downloads"; if (!fso.FolderExists(dl)) dl = sh.ExpandEnvironmentStrings("%USERPROFILE%"); } catch (e) { dl = tmp; }
-            var base = "KPI-PERFO_NC_" + dashExportFileTag(), pdf = dl + "\\" + base + ".pdf";
+            var pdf = dl + "\\" + base + ".pdf";
             try { if (fso.FileExists(pdf)) fso.DeleteFile(pdf); } catch (e) {}                       // écrase l'ancien export du même filtre
             if (fso.FileExists(pdf)) pdf = dl + "\\" + base + "_" + stamp + ".pdf";                   // ancien fichier verrouillé (ouvert) -> nom unique
             var url = "file:///" + tmpHtml.replace(/\\/g, "/").replace(/ /g, "%20");
