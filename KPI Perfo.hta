@@ -3462,33 +3462,38 @@
             var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
             return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
         }
-        function writeUtf8File(path, text) {
-            var st = new ActiveXObject("ADODB.Stream");
-            st.Type = 2; st.Charset = "UTF-8"; st.Open(); st.WriteText(text); st.SaveToFile(path, 2); st.Close();
+        // Écrit un fichier texte : essai UTF-8 via ADODB.Stream, repli UTF-16+BOM via FileSystemObject (si ADODB bloqué). false si échec.
+        function writeReportFile(path, text) {
+            try { var st = new ActiveXObject("ADODB.Stream"); st.Type = 2; st.Charset = "UTF-8"; st.Open(); st.WriteText(text); st.SaveToFile(path, 2); st.Close(); return true; } catch (e) {}
+            try { var fso = new ActiveXObject("Scripting.FileSystemObject"); var f = fso.CreateTextFile(path, true, true); f.Write(text); f.Close(); return true; } catch (e2) {}
+            return false;
         }
         function ExportDashboardNC() {
             var html = buildDashboardNCReportHtml();
             if (html == null) { AfficherErreur("Aucune donnée à exporter. Lance une extraction NC."); return; }
+            var reason = tryDirectPdf(html);   // "" = génération lancée ; sinon = motif d'échec
+            if (reason === "") return;
+            AfficherErreur("Génération directe du PDF impossible : " + reason + ".\n\nRepli sur la boîte d'impression — choisis « Microsoft Print to PDF ».");
+            PrintHtmlReport(html);
+        }
+        // Tente de générer le PDF via Edge headless. Renvoie "" si lancé, sinon le motif d'échec (pour diagnostic).
+        function tryDirectPdf(html) {
             var edge = findEdgePath();
-            if (edge) {
-                try {
-                    var fso = new ActiveXObject("Scripting.FileSystemObject"), sh = new ActiveXObject("WScript.Shell");
-                    var stamp = nowStamp(), tmp = fso.GetSpecialFolder(2);
-                    var tmpHtml = tmp + "\\kpi_dash_nc_" + stamp + ".html";
-                    var udd = tmp + "\\kpi_edge_" + stamp;
-                    writeUtf8File(tmpHtml, html);
-                    var dl = sh.ExpandEnvironmentStrings("%USERPROFILE%") + "\\Downloads";
-                    if (!fso.FolderExists(dl)) dl = sh.ExpandEnvironmentStrings("%USERPROFILE%");
-                    var pdf = dl + "\\KPI_TableauDeBord_NC_" + stamp + ".pdf";
-                    var url = "file:///" + tmpHtml.replace(/\\/g, "/").replace(/ /g, "%20");
-                    var cmd = '"' + edge + '" --headless=new --disable-gpu --no-first-run --user-data-dir="' + udd + '" --no-pdf-header-footer --print-to-pdf="' + pdf + '" "' + url + '"';
-                    sh.Run(cmd, 0, false);
-                    document.body.style.cursor = 'wait';
-                    pollDashPdf(pdf, tmpHtml, udd, html, 0, 0);
-                    return;
-                } catch (e) { /* repli impression ci-dessous */ }
-            }
-            PrintHtmlReport(html);   // repli : boîte d'impression (choisir "Microsoft Print to PDF")
+            if (!edge) return "Microsoft Edge introuvable";
+            var fso, sh;
+            try { fso = new ActiveXObject("Scripting.FileSystemObject"); sh = new ActiveXObject("WScript.Shell"); } catch (e) { return "Scripting.FileSystemObject / WScript.Shell indisponible"; }
+            var stamp = nowStamp(), tmp;
+            try { tmp = fso.GetSpecialFolder(2); } catch (e) { return "dossier temporaire inaccessible"; }
+            var tmpHtml = tmp + "\\kpi_dash_nc_" + stamp + ".html", udd = tmp + "\\kpi_edge_" + stamp;
+            if (!writeReportFile(tmpHtml, html)) return "écriture du fichier temporaire bloquée";
+            var dl; try { dl = sh.ExpandEnvironmentStrings("%USERPROFILE%") + "\\Downloads"; if (!fso.FolderExists(dl)) dl = sh.ExpandEnvironmentStrings("%USERPROFILE%"); } catch (e) { dl = tmp; }
+            var pdf = dl + "\\KPI_TableauDeBord_NC_" + stamp + ".pdf";
+            var url = "file:///" + tmpHtml.replace(/\\/g, "/").replace(/ /g, "%20");
+            var cmd = '"' + edge + '" --headless=new --disable-gpu --no-first-run --user-data-dir="' + udd + '" --no-pdf-header-footer --print-to-pdf="' + pdf + '" "' + url + '"';
+            try { sh.Run(cmd, 0, false); } catch (e) { return "lancement d'Edge bloqué (" + e.message + ")"; }
+            document.body.style.cursor = 'wait';
+            pollDashPdf(pdf, tmpHtml, udd, html, 0, 0);
+            return "";
         }
         // Attend l'apparition (stable) du PDF généré par Edge, ouvre l'Explorateur dessus ; repli impression si échec.
         function pollDashPdf(pdf, tmpHtml, udd, html, tries, stable) {
@@ -3505,6 +3510,7 @@
                 document.body.style.cursor = '';
                 try { fso.DeleteFile(tmpHtml); } catch (e6) {}
                 try { fso.DeleteFolder(udd, true); } catch (e7) {}
+                AfficherErreur("Edge a été lancé mais aucun PDF n'est apparu (Edge probablement bloqué par la politique de sécurité, ou l'option --headless est indisponible).\n\nRepli sur la boîte d'impression.");
                 PrintHtmlReport(html);
                 return;
             }
