@@ -3413,7 +3413,7 @@
             var dc = document.getElementById('dashCharts');
             if (!dc || dc.style.display === 'none') { AfficherErreur("Aucune donnée à exporter. Lance une extraction NC."); return; }
             var w3 = document.getElementById('dash3weeks');
-            var w3html = w3 ? w3.innerHTML.replace(/height:\s*\d+px/, 'height:150px') : "";   // widget 3 semaines réduit pour l'export
+            var w3html = w3 ? w3.innerHTML.replace(/height:\s*\d+px/, 'height:150px').replace(/font-size:14px/g, 'font-size:11px').replace(/font-size:13px/g, 'font-size:10px') : "";   // widget 3 semaines réduit (hauteur + police) pour l'export
             var weeksSVG = grabChartSVG('hcWeeks') || "<div class='nodata'>Aucune donnée</div>";
             function pieCell(id, title, w, h, lr) { var s = pieExportSVG(id, title, w, h, lr); return s || ("<div class='piettl'>" + escapeHtml(title) + "</div><div class='nodata'>Aucune donnée</div>"); }
             var pInt = pieCell('hcRespInt', 'Durée moyenne — Responsables internes', 560, 240, true);
