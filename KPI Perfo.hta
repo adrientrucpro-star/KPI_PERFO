@@ -2279,6 +2279,9 @@
                 + line("Global", a.g, b.g, false) + line("Équipe", a.t, b.t, true)
                 + "</div>";
         }
+        // Config de base commune des graphiques Highcharts du tableau de bord (fond transparent, police héritée) + message d'erreur commun.
+        function hcChart(type, spacing) { return { type: type, backgroundColor: 'transparent', spacing: spacing, style: { fontFamily: 'inherit' } }; }
+        function hcErr(c) { if (c) c.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         window.hcRefs = window.hcRefs || {};
         function hcDraw(id, config) {
             var el = document.getElementById(id);
@@ -2311,7 +2314,7 @@
             }
             try {
                 window.hcWeeksChart = hcDraw('hcWeeks', {
-                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
+                    chart: hcChart('line', [6, 2, 0, 2]),
                     title: { text: null },
                     credits: { enabled: false },
                     legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemStyle: { fontSize: '12px' }, margin: 4, padding: 4, itemMarginTop: 0, itemMarginBottom: 0 },
@@ -2696,7 +2699,7 @@
                     }
                     try {
                         hcDraw(userId, {
-                            chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
+                            chart: hcChart('line', [6, 2, 6, 2]),
                             title: { text: null }, credits: { enabled: false },
                             xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                             yAxis: { title: { text: null }, min: 0, allowDecimals: false },
@@ -2704,7 +2707,7 @@
                             plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
                             series: series
                         });
-                    } catch (e) { contU.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
+                    } catch (e) { hcErr(contU); }
                 }
             }
             var contT = document.getElementById(totId);
@@ -2717,7 +2720,7 @@
                     var dataT = []; for (var k2 = 0; k2 < b.buckets.length; k2++) dataT.push(b.total[b.buckets[k2]] || 0);
                     try {
                         hcDraw(totId, {
-                            chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
+                            chart: hcChart('line', [6, 2, 6, 2]),
                             title: { text: null }, credits: { enabled: false }, legend: { enabled: false },
                             xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                             yAxis: { title: { text: null }, min: 0, allowDecimals: false },
@@ -2725,7 +2728,7 @@
                             plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 }, color: color } },
                             series: [{ name: 'Total', data: dataT, color: color }]
                         });
-                    } catch (e) { contT.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
+                    } catch (e) { hcErr(contT); }
                 }
             }
         }
@@ -2824,7 +2827,7 @@
             var icB = icYAxisBounds(allPts);
             try {
                 hcDraw(id, {
-                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 6, 2], style: { fontFamily: 'inherit' } },
+                    chart: hcChart('line', [6, 2, 6, 2]),
                     title: { text: null }, credits: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                     yAxis: { title: { text: null }, allowDecimals: false, min: icB.min, max: icB.max, labels: { formatter: function () { return icAxisLabel(this.value); }, style: { color: '#334155' } }, plotLines: [{ value: 0, color: '#16a34a', dashStyle: 'Dash', width: 1.5, zIndex: 5 }] },
@@ -2832,7 +2835,7 @@
                     plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
                     series: series
                 });
-            } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
+            } catch (e) { hcErr(cont); }
         }
         function icTotalBuckets() {
             if (dashFilter.gran === 'msn') return icTotalMSNBuckets();
@@ -2878,7 +2881,7 @@
             var icB = icYAxisBounds(data);
             try {
                 hcDraw(id, {
-                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
+                    chart: hcChart('line', [6, 2, 0, 2]),
                     title: { text: null }, credits: { enabled: false },
                     legend: { enabled: false },
                     xAxis: { categories: b.cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
@@ -2887,7 +2890,7 @@
                     plotOptions: { line: { animation: false, lineWidth: 2.5, marker: { radius: 4 }, color: '#dc2626', negativeColor: '#16a34a' }, series: { connectNulls: true } },
                     series: [ { name: 'Temps de clôture moyen', data: data, color: '#dc2626', negativeColor: '#16a34a' } ]
                 });
-            } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
+            } catch (e) { hcErr(cont); }
         }
         function RenderDashResp(elig) {
             var intNom = {}, extNom = {}, rd = appData.roleDesig || [];
@@ -2922,7 +2925,7 @@
             if (!data.length) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
             try {
                 var cfg = {
-                    chart: { type: 'pie', backgroundColor: 'transparent', spacing: [4, 2, 4, 2], style: { fontFamily: 'inherit' } },
+                    chart: hcChart('pie', [4, 2, 4, 2]),
                     title: { text: null }, credits: { enabled: false },
                     tooltip: { useHTML: true, formatter: tooltipFmt },
                     legend: { enabled: false },
@@ -2932,7 +2935,7 @@
                 if (colors) cfg.colors = colors;
                 window.hcRespChartRefs = window.hcRespChartRefs || {};
                 window.hcRespChartRefs[id] = hcDraw(id, cfg);
-            } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
+            } catch (e) { hcErr(cont); }
         }
         function hcSeuilPie(id, s) {
             var data = [];
@@ -3003,7 +3006,7 @@
             try {
                 window.hcTeamChartRefs = window.hcTeamChartRefs || {};
                 window.hcTeamChartRefs[id] = hcDraw(id, {
-                    chart: { type: 'line', backgroundColor: 'transparent', spacing: [6, 2, 0, 2], style: { fontFamily: 'inherit' } },
+                    chart: hcChart('line', [6, 2, 0, 2]),
                     title: { text: null }, credits: { enabled: false },
                     xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                     yAxis: { title: { text: null }, min: 0 },
@@ -3012,7 +3015,7 @@
                     plotOptions: { line: { animation: false, lineWidth: 2, marker: { radius: 3 } }, series: { connectNulls: true } },
                     series: series
                 });
-            } catch (e) { cont.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
+            } catch (e) { hcErr(cont); }
         }
 
     // ==========================================================
@@ -3315,6 +3318,7 @@
             return "export";
         }
         function ExportParcoursPDF() {
+            if (pdfExporting) return;
             var list = currentParcoursList();
             if (!list.length) { AfficherErreur("Aucune NC à exporter pour la sélection actuelle."); return; }
             var filterLabel = (parcoursMode === 'msn')
@@ -3326,10 +3330,7 @@
                 if (list[i].chezMs != null) { sumT += list[i].chezMs; nT++; }
             }
             var html = buildParcoursReportHtml(list, filterLabel, nG ? sumG / nG : null, nT ? sumT / nT : null);
-            var reason = tryDirectPdf(html, "KPI-PERFO_AnalyseNC_" + parcoursExportTag());   // génération directe (Edge) comme le tableau de bord
-            if (reason === "") return;
-            AfficherErreur("Génération directe du PDF impossible : " + reason + ".\n\nRepli sur la boîte d'impression - choisis « Microsoft Print to PDF ».");
-            PrintHtmlReport(html);
+            startPdfExport(html, "KPI-PERFO_AnalyseNC_" + parcoursExportTag());   // génération directe (Edge) comme le tableau de bord
         }
         function parcoursReportCard(nc) {
             var lines = nc.lines.slice(0).sort(function (a, b) { return (parseInt(NettoyerChaine(a.n), 10) || 0) - (parseInt(NettoyerChaine(b.n), 10) || 0); });
@@ -3553,13 +3554,31 @@
             try { var fso = new ActiveXObject("Scripting.FileSystemObject"); var f = fso.CreateTextFile(path, true, true); f.Write(text); f.Close(); return true; } catch (e2) {}
             return false;
         }
-        function ExportDashboardNC() {
-            var html = buildDashboardNCReportHtml();
-            if (html == null) { AfficherErreur("Aucune donnée à exporter. Lance une extraction NC."); return; }
-            var reason = tryDirectPdf(html, "KPI-PERFO_NC_" + dashExportFileTag());   // "" = génération lancée ; sinon = motif d'échec
-            if (reason === "") return;
+        var pdfExporting = false;   // anti double-clic : une seule génération PDF à la fois
+        // Lance la génération directe (Edge) ; repli impression si échec. pollDashPdf remet pdfExporting=false à la fin.
+        function startPdfExport(html, base) {
+            pdfExporting = true;
+            var reason = tryDirectPdf(html, base);
+            if (reason === "") return;   // génération en cours
+            pdfExporting = false;
             AfficherErreur("Génération directe du PDF impossible : " + reason + ".\n\nRepli sur la boîte d'impression - choisis « Microsoft Print to PDF ».");
             PrintHtmlReport(html);
+        }
+        // Purge les temporaires d'export (kpi_dash_nc_*.html + dossiers kpi_edge_*) laissés dans %TEMP% par des générations interrompues.
+        function CleanExportTemp() {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject"), tmp = fso.GetFolder(fso.GetSpecialFolder(2));
+                var ef = new Enumerator(tmp.Files);
+                for (; !ef.atEnd(); ef.moveNext()) { var f = ef.item(); if (/^kpi_dash_nc_.*\.html$/i.test(f.Name)) { try { f.Delete(true); } catch (x) {} } }
+                var ed = new Enumerator(tmp.SubFolders);
+                for (; !ed.atEnd(); ed.moveNext()) { var d = ed.item(); if (/^kpi_edge_/i.test(d.Name)) { try { d.Delete(true); } catch (x2) {} } }
+            } catch (e) {}
+        }
+        function ExportDashboardNC() {
+            if (pdfExporting) return;
+            var html = buildDashboardNCReportHtml();
+            if (html == null) { AfficherErreur("Aucune donnée à exporter. Lance une extraction NC."); return; }
+            startPdfExport(html, "KPI-PERFO_NC_" + dashExportFileTag());
         }
         // Tente de générer le PDF via Edge headless. Renvoie "" si lancé, sinon le motif d'échec (pour diagnostic).
         function tryDirectPdf(html, base) {
@@ -3584,10 +3603,10 @@
         }
         // Attend l'apparition (stable) du PDF généré par Edge, ouvre l'Explorateur dessus ; repli impression si échec.
         function pollDashPdf(pdf, tmpHtml, udd, html, tries, stable) {
-            var fso; try { fso = new ActiveXObject("Scripting.FileSystemObject"); } catch (e) { document.body.style.cursor = ''; PrintHtmlReport(html); return; }
+            var fso; try { fso = new ActiveXObject("Scripting.FileSystemObject"); } catch (e) { pdfExporting = false; document.body.style.cursor = ''; PrintHtmlReport(html); return; }
             var sz = -1; try { if (fso.FileExists(pdf)) sz = fso.GetFile(pdf).Size; } catch (e2) {}
             if (sz > 0 && stable >= 1) {   // fichier présent et stable (2 relevés) -> terminé
-                document.body.style.cursor = '';
+                pdfExporting = false; document.body.style.cursor = '';
                 try { fso.DeleteFile(tmpHtml); } catch (e3) {}
                 try { fso.DeleteFolder(udd, true); } catch (e4) {}
                 try { new ActiveXObject("Shell.Application").ShellExecute(pdf); }   // ouvre directement le PDF (appli par défaut)
@@ -3595,7 +3614,7 @@
                 return;
             }
             if (tries >= 40) {   // ~16 s sans résultat -> repli impression
-                document.body.style.cursor = '';
+                pdfExporting = false; document.body.style.cursor = '';
                 try { fso.DeleteFile(tmpHtml); } catch (e6) {}
                 try { fso.DeleteFolder(udd, true); } catch (e7) {}
                 AfficherErreur("Edge a été lancé mais aucun PDF n'est apparu (Edge probablement bloqué par la politique de sécurité, ou l'option --headless est indisponible).\n\nRepli sur la boîte d'impression.");
@@ -3742,6 +3761,7 @@
             LoadData();
             UpdateSyncIndicator();   // pied de barre : état de la synchro (après LoadData pour connaître le token)
             DemarrerVerificationSysteme();
+            setTimeout(CleanExportTemp, 4000);   // purge des fichiers temporaires d'export laissés par des générations interrompues
             var c = document.getElementById('content');
             if (c) {
                 c.onscroll = function () {
