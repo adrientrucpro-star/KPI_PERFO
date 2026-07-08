@@ -3454,7 +3454,7 @@
             var GH = 185;   // hauteur commune des graphiques (px)
             var w3 = document.getElementById('dash3weeks');
             var w3html = w3 ? shrinkWidgetHtml(w3, 0.65) : "";   // widget 3 semaines : police réduite (via DOM), hauteur naturelle
-            var weeksSVG = weeksExportSVG(490, GH) || "<div class='nodata'>Aucune donnée</div>";
+            var weeksSVG = weeksExportSVG(560, GH) || "<div class='nodata'>Aucune donnée</div>";
             function pie(id, w, h, lr) { var s = pieExportSVG(id, w, h, lr); return s || "<div class='nodata'>Aucune donnée</div>"; }
             var pInt = pie('hcRespInt', 440, GH, true);
             var pExt = pie('hcRespExt', 440, GH, true);
@@ -3464,19 +3464,20 @@
             var css = "*{box-sizing:border-box;} body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;margin:8px;font-size:11px;}"
                 + ".hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0C447C;padding-bottom:5px;margin-bottom:8px;}"
                 + ".ttl{font-size:15px;font-weight:700;color:#0C447C;} .sub{font-size:11px;color:#475569;text-align:right;line-height:1.4;}"
-                + ".row{display:flex;align-items:flex-start;margin-bottom:8px;} .cell{width:50%;padding:0 4px;}"
-                + ".box{border:1px solid #e2e8f0;border-radius:6px;padding:5px 7px;text-align:center;}"
-                + ".secttl{font-size:12px;font-weight:700;color:#0C447C;margin-bottom:4px;text-align:left;}"
+                + ".row{display:flex;align-items:stretch;margin-bottom:8px;} .cell{padding:0 4px;}"
+                + ".box{border:1px solid #e2e8f0;border-radius:6px;padding:5px 7px;height:100%;display:flex;flex-direction:column;text-align:center;}"
+                + ".secttl{font-size:12px;font-weight:700;color:#0C447C;margin-bottom:4px;text-align:left;flex:0 0 auto;}"
+                + ".content{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;}"
                 + ".wk svg,.pie svg{height:" + GH + "px;width:auto;max-width:100%;}"
                 + ".nodata{color:#94a3b8;font-style:italic;padding:70px 0;}"
                 + "@page{size:A4 landscape;margin:7mm;} @media print{body{margin:0;}}";
-            function cell(title, content) { return "<div class='cell'><div class='box'><div class='secttl'>" + title + "</div>" + content + "</div></div>"; }
+            function cell(w, title, content) { return "<div class='cell' style='width:" + w + "'><div class='box'><div class='secttl'>" + title + "</div><div class='content'>" + content + "</div></div></div>"; }
             return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Tableau de bord NC</title><style>" + css + "</style></head><body>"
                 + "<div class='hd'><div class='ttl'>KPI PERFO — Tableau de bord (Non-conformité)</div>"
                 + "<div class='sub'>" + escapeHtml(dashExportPeriodLabel()) + "<br>Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div></div>"
-                + "<div class='row'>" + cell("Évolution sur les 3 dernières semaines", w3html) + cell("Évolution du traitement par semaine", "<div class='wk'>" + weeksSVG + "</div>") + "</div>"
-                + "<div class='row'>" + cell("Durée moyenne — Responsables internes", "<div class='pie'>" + pInt + "</div>") + cell("Répartition traitement équipe", "<div class='pie'>" + pEq + "</div>") + "</div>"
-                + "<div class='row'>" + cell("Durée moyenne — Responsables externes", "<div class='pie'>" + pExt + "</div>") + cell("Répartition traitement global", "<div class='pie'>" + pGl + "</div>") + "</div>"
+                + "<div class='row'>" + cell("40%", "Évolution sur les 3 dernières semaines", w3html) + cell("60%", "Évolution du traitement par semaine", "<div class='wk'>" + weeksSVG + "</div>") + "</div>"
+                + "<div class='row'>" + cell("50%", "Durée moyenne — Responsables internes", "<div class='pie'>" + pInt + "</div>") + cell("50%", "Répartition traitement équipe", "<div class='pie'>" + pEq + "</div>") + "</div>"
+                + "<div class='row'>" + cell("50%", "Durée moyenne — Responsables externes", "<div class='pie'>" + pExt + "</div>") + cell("50%", "Répartition traitement global", "<div class='pie'>" + pGl + "</div>") + "</div>"
                 + "</body></html>";
         }
         // Chemin de msedge.exe (génération PDF headless). "" si introuvable.
