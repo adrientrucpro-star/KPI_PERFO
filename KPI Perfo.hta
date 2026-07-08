@@ -3446,7 +3446,9 @@
                 else { for (var i = 0; i < all.length; i++) { if (dashFilter.msnSel[all[i]]) list.push(all[i]); } }
                 if (!list.length) return "MSN";
                 list.sort(function (a, b) { return (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0); });
-                return (list.length === 1) ? ("" + list[0]) : (list[0] + "-" + list[list.length - 1]);
+                var joined = list.join("-");
+                return (joined.length > 100) ? (list[0] + "-" + list[list.length - 1]) : joined;   // filet de sécurité : nom de fichier trop long
+
             }
             var m = dashFilter.month + 1;   // mois 0-based -> 1-based, sur 2 chiffres
             return "M" + (m < 10 ? "0" : "") + m + "-" + y;
