@@ -1212,6 +1212,7 @@
                 var pane = document.getElementById(subs[kk]); if (pane) pane.style.display = (kk === s) ? "block" : "none";
                 var tab = document.getElementById(tabs[kk]); if (tab) tab.className = (kk === s) ? "subtab active" : "subtab";
             }
+            var ctSc = document.getElementById('content'); if (ctSc) ctSc.scrollTop = 0;   // repart en haut (évite un mauvais calcul de hauteur de l'état vide)
             if (!extractValid[s]) RenderExtractSub(s);
             UpdateExtractButtons();   // maj état grisé des boutons d'export même si le tableau est en cache
             if (s === 'NC') EgaliserHauteursExtraction();
@@ -2335,7 +2336,7 @@
         function ComputeAvailHeight(containerId) {
             var charts = document.getElementById(containerId), contentEl = document.getElementById('content');
             if (!charts || !contentEl) return null;
-            var top = charts.getBoundingClientRect().top - contentEl.getBoundingClientRect().top;   // indépendant du scroll
+            var top = charts.getBoundingClientRect().top - contentEl.getBoundingClientRect().top + contentEl.scrollTop;   // offset réel (indépendant du défilement de #content)
             var cs = contentEl.currentStyle || window.getComputedStyle(contentEl);
             var padB = parseInt(cs.paddingBottom, 10) || 0;   // padding bas de #content (sinon léger dépassement -> scrollbar)
             var avail = contentEl.clientHeight - top - padB - 4;   // padding bas + petit filet anti-arrondi
@@ -3387,6 +3388,15 @@
                 if (boxes[i].style.maxHeight !== hpx) boxes[i].style.maxHeight = hpx;
             }
         }
+        // Re-dimensionne les cadres d'état vide visibles (sinon un cadre dimensionné à une autre taille de fenêtre dépasse -> scrollbar).
+        function ResizeEmptyCards() {
+            var cards = document.querySelectorAll('.empty-extract');
+            for (var i = 0; i < cards.length; i++) {
+                var c = cards[i]; if (!c.offsetParent || !c.parentNode || !c.parentNode.id) continue;
+                var av = ComputeAvailHeight(c.parentNode.id);
+                if (av != null) c.style.height = av + "px";
+            }
+        }
         function ResetFiltres() {
             document.getElementById('filtreDateDebut').value = "";
             document.getElementById('filtreDateFin').value = "";
@@ -4086,7 +4096,7 @@
                 InvalidateDash();   // les graphiques doivent être redimensionnés à la nouvelle taille de fenêtre
                 InvalidatePages();  // Analyse NC / Paramètres non visibles : à re-fitter à la prochaine ouverture
                 var pg = document.getElementById('pageAnalyse');
-                if (pg && pg.className.indexOf('active') !== -1) { EgaliserHauteursExtraction(); AjusterHauteurTables(); }
+                if (pg && pg.className.indexOf('active') !== -1) { EgaliserHauteursExtraction(); AjusterHauteurTables(); ResizeEmptyCards(); }
                 var pd = document.getElementById('pageDashboard');
                 if (pd && pd.className.indexOf('active') !== -1) RenderActiveDashboardSub();
                 var pp = document.getElementById('pageParcours');
