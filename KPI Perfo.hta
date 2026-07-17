@@ -1613,7 +1613,7 @@
         function PlanifMajBadge() {
             var lw = document.getElementById('lastPlanifWeek'); if (!lw) return;
             var n = (appData.planif || []).length, wk = planifDominantWeek();
-            lw.innerText = n ? ((wk ? ("Semaine " + wk.week + " - " + wk.year) : "?") + " · " + n + " ligne" + (n > 1 ? "s" : "")) : "-";
+            lw.innerText = n ? (wk ? ("Semaine " + wk.week + " - " + wk.year) : "?") : "-";
             var badge = document.getElementById('planifWeekBadge'); if (badge) badge.title = appData.planifFile ? ("Fichier : " + appData.planifFile) : "";
         }
         function RenderPlanif() {
