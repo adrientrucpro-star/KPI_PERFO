@@ -362,11 +362,11 @@
         Function VBS_ExtractOFCree(strLow, strHigh)   ' OFs créés (ST)
             VBS_ExtractOFCree = VBS_ExtractCOOIS("LAROCHE_ST", "S_ECKST", strLow, strHigh, "EXPORT_ST.txt", False)
         End Function
-        Function VBS_ExtractOFClotOF(strLow, strHigh)   ' Clôture : OF + MSN (variante IQ1) -> EXPORT_IQ1.txt
-            VBS_ExtractOFClotOF = VBS_ExtractCOOIS("LAROCHE_IQ1", "S_TERST", strLow, strHigh, "EXPORT_IQ1.txt", False)
+        Function VBS_ExtractOFClotUser(strLow, strHigh)   ' Clôture : user + date + heure (variante IQ1, multi-lignes) -> EXPORT_IQ1.txt
+            VBS_ExtractOFClotUser = VBS_ExtractCOOIS("LAROCHE_IQ1", "S_TERST", strLow, strHigh, "EXPORT_IQ1.txt", False)
         End Function
-        Function VBS_ExtractOFClotUser(strLow, strHigh)   ' Clôture : user + date + heure (variante IQ2, multi-lignes) -> EXPORT_IQ2.txt
-            VBS_ExtractOFClotUser = VBS_ExtractCOOIS("LAROCHE_IQ2", "S_TERST", strLow, strHigh, "EXPORT_IQ2.txt", False)
+        Function VBS_ExtractOFClotMSN(strLow, strHigh)   ' Clôture : OF + MSN (variante IQ2) -> EXPORT_IQ2.txt
+            VBS_ExtractOFClotMSN = VBS_ExtractCOOIS("LAROCHE_IQ2", "S_TERST", strLow, strHigh, "EXPORT_IQ2.txt", False)
         End Function
         Function VBS_ExtractIC(strDateLow, strDateHigh)
             On Error Resume Next
@@ -1267,16 +1267,14 @@
             var h = (NettoyerChaine(heure).replace(/\D/g, "") + "000000").slice(0, 6);
             return d * 1000000 + (parseInt(h, 10) || 0);
         }
-        // Clôture OF : IQ1 (OF + MSN) + IQ2 (user/date/heure, multi-lignes -> on garde la DERNIÈRE confirmation = clôture).
+        // Clôture OF : IQ1 (user/date/heure, multi-lignes -> on garde la DERNIÈRE confirmation = clôture) + IQ2 (OF + MSN).
         // Le filtrage "clôturé par un membre de l'équipe IQ" se fait à l'affichage (getOFTeamRows('clot')) sur le user de clôture.
         function MergeOFClot(pathIQ1, pathIQ2) {
             try {
                 var fso = new ActiveXObject("Scripting.FileSystemObject");
-                var msnMap = {};
-                if (fso.FileExists(pathIQ1)) { var t1 = fso.OpenTextFile(pathIQ1, 1, false, 0); var c1 = t1.AtEndOfStream ? "" : t1.ReadAll(); t1.Close(); msnMap = ParseOFMSN(c1); }
-                if (!fso.FileExists(pathIQ2)) return 0;
-                var t2 = fso.OpenTextFile(pathIQ2, 1, false, 0); var c2 = t2.AtEndOfStream ? "" : t2.ReadAll(); t2.Close();
-                var lines = c2.split(/\r?\n/), closeMap = {};
+                if (!fso.FileExists(pathIQ1)) return 0;
+                var t1 = fso.OpenTextFile(pathIQ1, 1, false, 0); var c1 = t1.AtEndOfStream ? "" : t1.ReadAll(); t1.Close();
+                var lines = c1.split(/\r?\n/), closeMap = {};
                 for (var i = 0; i < lines.length; i++) {
                     var raw = lines[i]; if (raw.indexOf("\t") === -1) continue;
                     var parts = raw.split("\t"); while (parts.length && NettoyerChaine(parts[0]) === "") parts.shift();
@@ -1286,6 +1284,8 @@
                     var k = ofDateTimeKey(date, heure);
                     if (!closeMap[of] || k >= closeMap[of].k) closeMap[of] = { user: user, date: date, heure: heure, k: k };   // dernière confirmation = clôture
                 }
+                var msnMap = {};
+                if (fso.FileExists(pathIQ2)) { var t2 = fso.OpenTextFile(pathIQ2, 1, false, 0); var c2 = t2.AtEndOfStream ? "" : t2.ReadAll(); t2.Close(); msnMap = ParseOFMSN(c2); }
                 var cur = appData.ofClot || [], byOf = {};
                 for (var j = 0; j < cur.length; j++) byOf[cur[j].of] = cur[j];
                 var n = 0;
@@ -1340,10 +1340,10 @@
                     if (r1 && r1.indexOf("SAP inaccessible") !== -1) { sapDown = true; }   // SAP indisponible -> message unique, on n'enchaîne pas les autres extracts
                     else {
                         if (r1 && r1.indexOf("ERREUR") === -1) MergeOFFile(folder + "EXPORT_ST.txt", 'cree'); else errs.push("Création : " + (r1 || "erreur inconnue"));
-                        var r2 = VBS_ExtractOFClotOF(d1, d2);     // IQ1 : OF + MSN
-                        if (r2 && r2.indexOf("ERREUR") !== -1) errs.push("Clôture (OF/MSN) : " + r2);
-                        var r3 = VBS_ExtractOFClotUser(d1, d2);   // IQ2 : user + date + heure de clôture
-                        if (r3 && r3.indexOf("ERREUR") === -1) MergeOFClot(folder + "EXPORT_IQ1.txt", folder + "EXPORT_IQ2.txt"); else errs.push("Clôture : " + (r3 || "erreur inconnue"));
+                        var r2 = VBS_ExtractOFClotUser(d1, d2);   // IQ1 : user + date + heure de clôture (primaire)
+                        var r3 = VBS_ExtractOFClotMSN(d1, d2);    // IQ2 : OF + MSN (affectation MSN, best-effort)
+                        if (r3 && r3.indexOf("ERREUR") !== -1) errs.push("Clôture (MSN) : " + r3);
+                        if (r2 && r2.indexOf("ERREUR") === -1) MergeOFClot(folder + "EXPORT_IQ1.txt", folder + "EXPORT_IQ2.txt"); else errs.push("Clôture : " + (r2 || "erreur inconnue"));
                     }
                     if (sapDown) {
                         AlerteExtract("SAP n'est pas disponible. Ouvre SAP Logon et connecte-toi.");
