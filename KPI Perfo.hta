@@ -2336,7 +2336,9 @@
             var charts = document.getElementById(containerId), contentEl = document.getElementById('content');
             if (!charts || !contentEl) return null;
             var top = charts.getBoundingClientRect().top - contentEl.getBoundingClientRect().top;   // indépendant du scroll
-            var avail = contentEl.clientHeight - top - 20;   // 20px de marge basse
+            var cs = contentEl.currentStyle || window.getComputedStyle(contentEl);
+            var padB = parseInt(cs.paddingBottom, 10) || 0;   // padding bas de #content (sinon léger dépassement -> scrollbar)
+            var avail = contentEl.clientHeight - top - padB - 4;   // padding bas + petit filet anti-arrondi
             if (avail < 300) avail = 300;
             return avail;
         }
@@ -3379,7 +3381,7 @@
                 boxes[i].onscroll = tblScrollHandler;   // bouton "remonter" quand on défile dans le tableau
                 var r = boxes[i].getBoundingClientRect();
                 if (r.top === 0 && r.height === 0) continue;   // masqué
-                var h = window.innerHeight - r.top - 24;
+                var h = window.innerHeight - r.top - 30;   // marge basse > padding bas de #content (25px) pour éviter une scrollbar
                 if (h < 150) h = 150;
                 var hpx = h + "px";
                 if (boxes[i].style.maxHeight !== hpx) boxes[i].style.maxHeight = hpx;
