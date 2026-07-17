@@ -575,6 +575,9 @@
             if (!appData.lastOFImport) appData.lastOFImport = "";   // date/heure de la dernière extraction OF
             if (!appData.icRows) appData.icRows = [];        // Interventions Cards : [{ic,user,dfa,hfa,dc,hc}]
             if (!appData.lastICImport) appData.lastICImport = "";
+            if (!appData.planif) appData.planif = [];        // Planification (CSV hebdo) : [{ofnc,msn,sujet,statut,date,vac}]
+            if (!appData.planifFile) appData.planifFile = "";   // nom du dernier CSV chargé
+            if (!appData.planifImport) appData.planifImport = "";
             if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
             if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
             if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
@@ -610,6 +613,9 @@
                 lastOFImport: appData.lastOFImport || "",
                 icRows: appData.icRows || [],
                 lastICImport: appData.lastICImport || "",
+                planif: appData.planif || [],
+                planifFile: appData.planifFile || "",
+                planifImport: appData.planifImport || "",
                 msnByAvis: appData.msnByAvis || {},
                 cfg: appData.cfg || {},
                 calc: appData.calc || {},
@@ -943,7 +949,7 @@
         function RenderExtractSub(s) {
             if (s === 'OF') { RenderOFCombined(); }
             else if (s === 'IC') { RenderICTable(); }
-            else if (s === 'PL') { /* Planification : état statique, chargement CSV à venir */ }
+            else if (s === 'PL') { RenderPlanif(); }
             else { RenderListe(); }
         }
         function RenderActiveExtractSub() { var s = activeExtractSub(); if (!extractValid[s]) RenderExtractSub(s); UpdateExtractButtons(); }
@@ -1466,6 +1472,140 @@
             RenderOFCombined();
         }
         function RenderOFAll() { RenderOFCombined(); }
+        // ======================= PLANIFICATION (CSV hebdomadaire) =======================
+        function ChargerPlanifCSV() {
+            var inp = document.getElementById('planifFileInput');
+            if (inp) { inp.value = ""; inp.click(); }   // reset -> onchange se déclenche même si on rechoisit le même fichier
+        }
+        function OnPlanifFileChosen(inp) {
+            var path = (inp && inp.value) ? inp.value : "";   // en HTA, .value = chemin complet du fichier choisi
+            if (!path) return;
+            var content = readPlanifFile(path);
+            if (content == null) { AfficherErreur("Impossible de lire le fichier CSV."); return; }
+            var rows = ParsePlanifCSV(content);
+            if (!rows.length) { AfficherErreur("Aucune donnée exploitable (en-tête MSN / OF / VAC introuvable dans le CSV ?)."); return; }
+            appData.planif = rows;
+            appData.planifFile = path.replace(/^.*[\\\/]/, "");   // nom de fichier seul
+            appData.planifImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
+            SaveData();
+            InvalidateDash();       // le tableau de bord Planification pourra exploiter ces données
+            RenderPlanif();
+        }
+        // Lecture texte : ADODB.Stream en UTF-8 (export Google Sheets), repli FSO ANSI.
+        function readPlanifFile(path) {
+            try { var st = new ActiveXObject("ADODB.Stream"); st.Type = 2; st.Charset = "UTF-8"; st.Open(); st.LoadFromFile(path); var t = st.ReadText(); st.Close(); return t; } catch (e) {}
+            try { var fso = new ActiveXObject("Scripting.FileSystemObject"); var ts = fso.OpenTextFile(path, 1, false, 0); var c = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close(); return c; } catch (e2) {}
+            return null;
+        }
+        // Détecte le séparateur sur la 1re ligne : ',' (Google), ';' (Excel FR) ou tabulation.
+        function planifSniffSep(text) {
+            var fl = text.split(/\r?\n/)[0] || "", cc = 0, sc = 0, tc = 0;
+            for (var i = 0; i < fl.length; i++) { var c = fl.charAt(i); if (c === ',') cc++; else if (c === ';') sc++; else if (c === '\t') tc++; }
+            if (sc >= cc && sc >= tc) return ';';
+            if (tc >= cc && tc >= sc) return '\t';
+            return ',';
+        }
+        // Parseur CSV complet : gère les champs entre guillemets ("" échappé) et les séparateurs/retours-ligne à l'intérieur.
+        function parseCSVText(text, sep) {
+            if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);   // BOM
+            var rows = [], field = "", row = [], i = 0, n = text.length, inQ = false;
+            while (i < n) {
+                var c = text.charAt(i);
+                if (inQ) {
+                    if (c === '"') { if (text.charAt(i + 1) === '"') { field += '"'; i += 2; continue; } inQ = false; i++; continue; }
+                    field += c; i++; continue;
+                }
+                if (c === '"') { inQ = true; i++; continue; }
+                if (c === sep) { row.push(field); field = ""; i++; continue; }
+                if (c === '\r') { i++; continue; }
+                if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+                field += c; i++;
+            }
+            if (field !== "" || row.length) { row.push(field); rows.push(row); }
+            return rows;
+        }
+        // OF/NC/MSN numériques : normalise "1.0293E9" / "843.0" -> entier ; laisse le texte tel quel.
+        function planifFmtNum(v) {
+            v = NettoyerChaine(v);
+            if (v === "") return "";
+            var s = v.replace(/\s/g, "");
+            if (/^[\d.,]+([eE][+\-]?\d+)?$/.test(s)) {
+                var num = parseFloat(s.replace(",", "."));
+                if (isFinite(num) && num >= 1) return String(Math.round(num));
+            }
+            return v;
+        }
+        // Date : convertit un n° de série Excel/Sheets en JJ/MM/AAAA ; laisse une date déjà texte inchangée.
+        function planifFmtDate(v) {
+            v = NettoyerChaine(v);
+            if (v === "") return "";
+            if (/^\d{4,6}(\.\d+)?$/.test(v)) {
+                var n = parseFloat(v);
+                if (n > 20000 && n < 80000) {
+                    var d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000), p = function (x) { return (x < 10 ? "0" : "") + x; };
+                    return p(d.getUTCDate()) + "/" + p(d.getUTCMonth() + 1) + "/" + d.getUTCFullYear();
+                }
+            }
+            return v;
+        }
+        function ParsePlanifCSV(text) {
+            var grid = parseCSVText(text, planifSniffSep(text));
+            if (!grid.length) return [];
+            function norm(s) { return NettoyerChaine(s).toUpperCase(); }
+            var hdrIdx = -1, hdr = null;
+            for (var r = 0; r < Math.min(grid.length, 12); r++) {   // repère la ligne d'en-tête (MSN + VAC/OF) dans les 1res lignes
+                var line = grid[r], hasMsn = false, hasVac = false, hasOf = false;
+                for (var c = 0; c < line.length; c++) { var h = norm(line[c]); if (h.indexOf('MSN') !== -1) hasMsn = true; if (h.indexOf('VAC') !== -1) hasVac = true; if (h === 'OF' || h.indexOf('OF/') !== -1) hasOf = true; }
+                if (hasMsn && (hasVac || hasOf)) { hdrIdx = r; hdr = line; break; }
+            }
+            if (hdrIdx === -1) { hdrIdx = 0; hdr = grid[0]; }
+            function findCol(pred) { for (var cc = 0; cc < hdr.length; cc++) { if (pred(norm(hdr[cc]))) return cc; } return -1; }
+            var iOF = findCol(function (h) { return h === 'OF' || h.indexOf('OF/NC') !== -1; });
+            if (iOF === -1) iOF = findCol(function (h) { return /(^| )OF( |$|\/)/.test(h); });
+            var iMSN = findCol(function (h) { return h.indexOf('MSN') !== -1; });
+            var iPRIO = findCol(function (h) { return h.indexOf('PRIO') !== -1; });
+            var iSUJ = findCol(function (h) { return h.indexOf('SUJET') !== -1 || h.indexOf('SUBJECT') !== -1; });
+            var iSTA = findCol(function (h) { return h.indexOf('STATUT') !== -1 || h.indexOf('STATUS') !== -1; });
+            var iDAT = findCol(function (h) { return h.indexOf('DATE') !== -1; });
+            var iVAC = findCol(function (h) { return h.indexOf('VAC') !== -1; });
+            var out = [];
+            for (var r2 = hdrIdx + 1; r2 < grid.length; r2++) {
+                var ln = grid[r2]; if (!ln) continue;
+                var g = function (idx) { return (idx >= 0 && idx < ln.length) ? NettoyerChaine(ln[idx]) : ""; };
+                var msnRaw = g(iMSN);
+                if (msnRaw === "" && iPRIO >= 0) { var pv = planifFmtNum(g(iPRIO)); if (/^\d{3}$/.test(pv)) msnRaw = pv; }   // MSN parfois saisi dans la colonne PRIO
+                var ofnc = planifFmtNum(g(iOF)), msn = planifFmtNum(msnRaw), sujet = g(iSUJ), statut = g(iSTA), date = planifFmtDate(g(iDAT)), vac = g(iVAC);
+                if (ofnc === "" && msn === "" && sujet === "") continue;   // ligne vide
+                out.push({ ofnc: ofnc, msn: msn, sujet: sujet, statut: statut, date: date, vac: vac });
+            }
+            return out;
+        }
+        function RenderPlanif() {
+            extractValid.PL = true;
+            var cont = document.getElementById('planifTable'); if (!cont) return;
+            var fn = document.getElementById('planifFileName'); if (fn) fn.innerText = appData.planifFile ? appData.planifFile : "-";
+            var data = appData.planif || [];
+            var cntEl = document.getElementById('planifCount'); if (cntEl) cntEl.innerText = data.length ? (data.length + " ligne" + (data.length > 1 ? "s" : "")) : "";
+            if (!data.length) {
+                cont.innerHTML = "<div class='msg-box msg-info'>Aucun fichier chargé. Clique sur « Charger un fichier CSV » pour importer le planning de la semaine.</div>";
+                return;
+            }
+            var rows = "";
+            for (var i = 0; i < data.length; i++) {
+                var r = data[i];
+                rows += "<tr><td style='text-align:center; font-weight:700;'>" + (r.ofnc ? escapeHtml(r.ofnc) : "-") + "</td>"
+                    + "<td style='text-align:center;'>" + (r.msn ? escapeHtml(r.msn) : "-") + "</td>"
+                    + "<td>" + (r.sujet ? escapeHtml(r.sujet) : "-") + "</td>"
+                    + "<td style='text-align:center;'>" + (r.statut ? escapeHtml(r.statut) : "-") + "</td>"
+                    + "<td style='text-align:center;'>" + (r.date ? escapeHtml(r.date) : "-") + "</td>"
+                    + "<td style='text-align:center;'>" + (r.vac ? escapeHtml(r.vac) : "-") + "</td></tr>";
+            }
+            cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
+                + "<table class='data-table'><thead><tr>"
+                + "<th width='14%'>OF/NC</th><th width='9%'>MSN</th><th>Sujet</th><th width='14%'>Statut</th><th width='12%'>Date</th><th width='10%'>Vacation</th>"
+                + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+            AjusterHauteurTables();
+        }
         function ResetOFFiltres() {
             var ids = ['ofFiltreDateDebut', 'ofFiltreDateFin', 'ofFiltreRecherche'];
             for (var i = 0; i < ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ""; }
@@ -4328,19 +4468,18 @@
                 </div><!-- /extractSubIC -->
 
                 <div id="extractSubPL" style="display:none;">
-                    <div class="card" style="margin-bottom:0; box-sizing:border-box;">
-                        <div style="display:table; width:100%; height:100%;">
-                            <div style="display:table-cell; vertical-align:middle; text-align:center; padding:40px 20px;">
-                                <div style="width:64px; height:64px; margin:0 auto 18px auto; border-radius:50%; background:#eef2f5; display:table;">
-                                    <span style="display:table-cell; vertical-align:middle; text-align:center;">
-                                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
-                                    </span>
-                                </div>
-                                <div style="font-size:17px; font-weight:700; color:#334155; margin-bottom:8px;">Planification</div>
-                                <div style="font-size:14px; color:#64748b;">Le chargement du CSV hebdomadaire du planning sera disponible ici (volume planifié, statuts prod).</div>
-                            </div>
-                        </div>
+                    <div class="card" style="margin-bottom:16px; box-sizing:border-box;">
+                        <table style="border:none; width:100%;"><tr>
+                            <td style="border:none; padding:0 14px 0 0; vertical-align:middle; white-space:nowrap;">
+                                <button id="btnPlanif" class="btn-toolbar" style="min-width:190px;" onclick="ChargerPlanifCSV()">Charger un fichier CSV</button>
+                                <input type="file" id="planifFileInput" accept=".csv" style="display:none;" onchange="OnPlanifFileChosen(this)">
+                            </td>
+                            <td style="border:none; padding:0; vertical-align:middle; width:100%;">
+                                <span style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #c5d5de; border-radius:6px; background:#f0f4f7; color:#334155; font-size:13px; box-sizing:border-box; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Fichier : <b id="planifFileName">-</b><span id="planifCount" style="color:#0C447C; font-weight:700; margin-left:14px;"></span></span>
+                            </td>
+                        </tr></table>
                     </div>
+                    <div id="planifTable"><div class="msg-box msg-info">Aucun fichier chargé. Clique sur « Charger un fichier CSV » pour importer le planning de la semaine.</div></div>
                 </div><!-- /extractSubPL -->
             </div>
 
