@@ -1568,10 +1568,15 @@
             var iSTA = findCol(function (h) { return h.indexOf('STATUT') !== -1 || h.indexOf('STATUS') !== -1; });
             var iDAT = findCol(function (h) { return h.indexOf('DATE') !== -1; });
             var iVAC = findCol(function (h) { return h.indexOf('VAC') !== -1; });
+            var iTEAM = findCol(function (h) { return h.indexOf('TEAM') !== -1 || h.indexOf('EQUIPE') !== -1 || h.indexOf('ÉQUIPE') !== -1; });
+            if (iTEAM === -1 && iPRIO > 0) iTEAM = iPRIO - 1;   // colonne TEAM = juste avant PRIO (en-tête souvent vide)
+            if (iTEAM === -1) iTEAM = 0;
             var out = [];
             for (var r2 = hdrIdx + 1; r2 < grid.length; r2++) {
                 var ln = grid[r2]; if (!ln) continue;
                 var g = function (idx) { return (idx >= 0 && idx < ln.length) ? NettoyerChaine(ln[idx]) : ""; };
+                var team = g(iTEAM).toUpperCase();
+                if (team === 'QLS' || team === 'ST') continue;   // exclusion demandée : lignes QLS / ST
                 var msnRaw = g(iMSN);
                 if (msnRaw === "" && iPRIO >= 0) { var pv = planifFmtNum(g(iPRIO)); if (/^\d{3}$/.test(pv)) msnRaw = pv; }   // MSN parfois saisi dans la colonne PRIO
                 var ofnc = planifFmtNum(g(iOF)), msn = planifFmtNum(msnRaw), sujet = g(iSUJ), statut = g(iSTA), date = planifFmtDate(g(iDAT)), vac = g(iVAC);
