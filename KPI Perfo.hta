@@ -2335,11 +2335,10 @@
         var dashRow1Height = 280;
         function ComputeAvailHeight(containerId) {
             var charts = document.getElementById(containerId), contentEl = document.getElementById('content');
-            if (!charts || !contentEl) return null;
-            var top = charts.getBoundingClientRect().top - contentEl.getBoundingClientRect().top + contentEl.scrollTop;   // offset réel (indépendant du défilement de #content)
-            var cs = contentEl.currentStyle || window.getComputedStyle(contentEl);
-            var padB = parseInt(cs.paddingBottom, 10) || 0;   // padding bas de #content (sinon léger dépassement -> scrollbar)
-            var avail = contentEl.clientHeight - top - padB - 4;   // padding bas + petit filet anti-arrondi
+            if (!charts) return null;
+            if (contentEl) contentEl.scrollTop = 0;   // mesure toujours en haut (un #content défilé fausse la position -> cadre surdimensionné)
+            var top = charts.getBoundingClientRect().top;   // position viewport du conteneur (base fiable en IE10, comme AjusterHauteurTables)
+            var avail = window.innerHeight - top - 30;      // marge basse > padding bas de #content (25px)
             if (avail < 300) avail = 300;
             return avail;
         }
