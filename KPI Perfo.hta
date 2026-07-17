@@ -1482,7 +1482,7 @@
             if (!path) return;
             var content = readPlanifFile(path);
             if (content == null) { AfficherErreur("Impossible de lire le fichier CSV."); return; }
-            var rows = ParsePlanifCSV(content);
+            var res = ParsePlanifCSV(content), rows = res.rows;
             if (!rows.length) { AfficherErreur("Aucune donnée exploitable (en-tête MSN / OF / VAC introuvable dans le CSV ?)."); return; }
             appData.planif = rows;
             appData.planifFile = path.replace(/^.*[\\\/]/, "");   // nom de fichier seul
@@ -1490,6 +1490,19 @@
             SaveData();
             InvalidateDash();       // le tableau de bord Planification pourra exploiter ces données
             RenderPlanif();
+            PlanifReportColonnes(res.found, rows.length);   // récap colonnes + avertissement en-têtes manquants
+        }
+        // Récapitulatif à l'import : liste les colonnes reconnues par en-tête et avertit si un intitulé attendu est introuvable.
+        function PlanifReportColonnes(found, nb) {
+            found = found || {};
+            var disp = [['of', 'OF/NC'], ['msn', 'MSN'], ['sujet', 'Sujet'], ['statut', 'Statut'], ['date', 'Date'], ['vac', 'Vacation']];
+            var ok = [], miss = [];
+            for (var i = 0; i < disp.length; i++) { if (found[disp[i][0]]) ok.push(disp[i][1]); else miss.push(disp[i][1]); }
+            if (found.team) ok.push('Team');
+            var msg = nb + " ligne" + (nb > 1 ? "s" : "") + " chargée" + (nb > 1 ? "s" : "") + ".\n\nColonnes reconnues par en-tête : " + (ok.length ? ok.join(", ") : "aucune") + ".";
+            if (miss.length) msg += "\n\n⚠ En-tête introuvable : " + miss.join(", ") + " - ces colonnes resteront vides. Vérifie les intitulés dans le fichier.";
+            if (!found.team) msg += "\n\n⚠ En-tête « Team » introuvable : l'exclusion QLS / ST est appliquée par position (colonne juste avant PRIO). Vérifie l'intitulé.";
+            AlerteExtract(msg);
         }
         // Lecture texte : ADODB.Stream en UTF-8 (export Google Sheets), repli FSO ANSI.
         function readPlanifFile(path) {
@@ -1550,7 +1563,7 @@
         }
         function ParsePlanifCSV(text) {
             var grid = parseCSVText(text, planifSniffSep(text));
-            if (!grid.length) return [];
+            if (!grid.length) return { rows: [], found: {} };
             function norm(s) { return NettoyerChaine(s).toUpperCase(); }
             var hdrIdx = -1, hdr = null;
             for (var r = 0; r < Math.min(grid.length, 12); r++) {   // repère la ligne d'en-tête (MSN + VAC/OF) dans les 1res lignes
@@ -1569,6 +1582,7 @@
             var iDAT = findCol(function (h) { return h.indexOf('DATE') !== -1; });
             var iVAC = findCol(function (h) { return h.indexOf('VAC') !== -1; });
             var iTEAM = findCol(function (h) { return h.indexOf('TEAM') !== -1 || h.indexOf('EQUIPE') !== -1 || h.indexOf('ÉQUIPE') !== -1; });
+            var found = { of: iOF !== -1, msn: iMSN !== -1, sujet: iSUJ !== -1, statut: iSTA !== -1, date: iDAT !== -1, vac: iVAC !== -1, team: iTEAM !== -1 };   // colonnes trouvées par en-tête (avant replis positionnels)
             if (iTEAM === -1 && iPRIO > 0) iTEAM = iPRIO - 1;   // colonne TEAM = juste avant PRIO (en-tête souvent vide)
             if (iTEAM === -1) iTEAM = 0;
             var out = [];
@@ -1583,7 +1597,7 @@
                 if (ofnc === "" && msn === "" && sujet === "") continue;   // ligne vide
                 out.push({ ofnc: ofnc, msn: msn, sujet: sujet, statut: statut, date: date, vac: vac });
             }
-            return out;
+            return { rows: out, found: found };
         }
         function RenderPlanif() {
             extractValid.PL = true;
