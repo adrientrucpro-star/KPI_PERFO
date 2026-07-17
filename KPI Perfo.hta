@@ -1599,14 +1599,29 @@
             }
             return { rows: out, found: found };
         }
+        // Semaine ISO dominante des dates du planning chargé (badge "Dernière semaine extraite").
+        function planifDominantWeek() {
+            var data = appData.planif || [], counts = {}, best = null, bestN = 0;
+            for (var i = 0; i < data.length; i++) {
+                var d = parseOFDateObj(data[i].date); if (!d) continue;
+                var w = isoWeek(d), y = d.getFullYear(), key = y + "-" + w;
+                counts[key] = (counts[key] || 0) + 1;
+                if (counts[key] > bestN) { bestN = counts[key]; best = { week: w, year: y }; }
+            }
+            return best;
+        }
+        function PlanifMajBadge() {
+            var lw = document.getElementById('lastPlanifWeek'); if (!lw) return;
+            var n = (appData.planif || []).length, wk = planifDominantWeek();
+            lw.innerText = n ? ((wk ? ("Semaine " + wk.week + " - " + wk.year) : "?") + " · " + n + " ligne" + (n > 1 ? "s" : "")) : "-";
+            var badge = document.getElementById('planifWeekBadge'); if (badge) badge.title = appData.planifFile ? ("Fichier : " + appData.planifFile) : "";
+        }
         function RenderPlanif() {
             extractValid.PL = true;
+            PlanifMajBadge();
             var cont = document.getElementById('planifTable'); if (!cont) return;
-            var fn = document.getElementById('planifFileName'); if (fn) fn.innerText = appData.planifFile ? appData.planifFile : "-";
             var all = appData.planif || [], totalRows = all.length;
-            var cntEl = document.getElementById('planifCount');
             if (!totalRows) {
-                if (cntEl) cntEl.innerText = "";
                 showEmptyExtract('planifTable', "Aucun fichier chargé", "Clique sur « Charger un fichier CSV » pour importer le planning de la semaine.");
                 return;
             }
@@ -1620,7 +1635,6 @@
                 if (fr && (NettoyerChaine(rw.ofnc) + " " + NettoyerChaine(rw.msn) + " " + NettoyerChaine(rw.sujet) + " " + NettoyerChaine(rw.statut) + " " + NettoyerChaine(rw.vac)).toUpperCase().indexOf(fr) === -1) continue;
                 data.push(rw);
             }
-            if (cntEl) cntEl.innerText = (data.length === totalRows) ? (totalRows + " ligne" + (totalRows > 1 ? "s" : "")) : (data.length + " / " + totalRows);
             if (!data.length) {
                 showEmptyExtract('planifTable', "Aucune ligne ne correspond aux filtres", "Modifie ou réinitialise les filtres.");
                 return;
@@ -4521,8 +4535,7 @@
                                         <input type="file" id="planifFileInput" accept=".csv" style="display:none;" onchange="OnPlanifFileChosen(this)">
                                     </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
-                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Fichier chargé</label>
-                                        <span style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #c5d5de; border-radius:6px; background:#f0f4f7; color:#334155; font-size:13px; box-sizing:border-box; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><b id="planifFileName">-</b><span id="planifCount" style="color:#0C447C; font-weight:700; margin-left:14px;"></span></span>
+                                        <span id="planifWeekBadge" style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Dernière semaine extraite : <b id="lastPlanifWeek">-</b></span>
                                     </td>
                                 </tr></table>
                             </div>
