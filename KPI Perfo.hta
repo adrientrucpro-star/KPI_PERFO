@@ -1665,6 +1665,33 @@
             RefreshDateClearButtons();
             RenderPlanif();
         }
+        // ---- Réinitialisation par onglet : efface uniquement l'extraction de l'onglet courant ----
+        function ResetExtractNC() {
+            if (!confirm("Réinitialiser l'extraction Non-conformité ?\nLes NC extraites seront effacées (cet onglet uniquement).")) return;
+            appData.rows = []; appData.comments = {}; appData.selLine = {}; appData.excluded = {}; appData.msnByAvis = {}; appData.lastImport = "";
+            SaveData();
+            RecomputeAll();   // reconstruit ncList (vide) + invalide dashboard / Analyse NC / paramètres
+            RenderListe();
+            UpdateExtractButtons();
+        }
+        function ResetExtractOF() {
+            if (!confirm("Réinitialiser l'extraction Ordre de Fabrication ?\nLes OF extraits seront effacés (cet onglet uniquement).")) return;
+            appData.ofCree = []; appData.ofClot = []; appData.lastOFImport = "";
+            SaveData(); InvalidateDash();
+            RenderOFCombined(); UpdateExtractButtons();
+        }
+        function ResetExtractIC() {
+            if (!confirm("Réinitialiser l'extraction Intervention Card ?\nLes IC extraites seront effacées (cet onglet uniquement).")) return;
+            appData.icRows = []; appData.lastICImport = "";
+            SaveData(); InvalidateDash();
+            RenderICTable(); UpdateExtractButtons();
+        }
+        function ResetExtractPlanif() {
+            if (!confirm("Réinitialiser la Planification ?\nLe planning chargé sera effacé.")) return;
+            appData.planif = []; appData.planifFile = ""; appData.planifImport = "";
+            SaveData(); InvalidateDash();
+            RenderPlanif();
+        }
         function ResetOFFiltres() {
             var ids = ['ofFiltreDateDebut', 'ofFiltreDateFin', 'ofFiltreRecherche'];
             for (var i = 0; i < ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ""; }
@@ -2110,11 +2137,9 @@
             var e = document.getElementById('btnParamsEdit');
             var v = document.getElementById('btnParamsSave');
             var c = document.getElementById('btnParamsCancel');
-            var r = document.getElementById('btnParamsReset');
             if (e) e.style.display = isEditingParams ? 'none' : 'inline-block';
             if (v) v.style.display = isEditingParams ? 'inline-block' : 'none';
             if (c) c.style.display = isEditingParams ? 'inline-block' : 'none';
-            if (r) r.style.display = isEditingParams ? 'none' : 'inline-block';   // masqué en mode édition
         }
         function ParamsEdit() {
             isEditingParams = true;
@@ -2150,16 +2175,6 @@
             }
             isEditingParams = false; paramsBackup = null;
             RenderParametres();
-        }
-        function ReinitialiserApplication() {
-            if (!confirm("Réinitialiser l'application ? Toutes les données seront EFFACÉES.\n\nCette action est IRRÉVERSIBLE.")) return;
-            if (!confirm("Confirmer la réinitialisation ?\n\nL'application va redémarrer à vide.")) return;
-            try {
-                var fso = new ActiveXObject("Scripting.FileSystemObject");
-                var path = getAppDataFilePath();
-                if (path && fso.FileExists(path)) fso.DeleteFile(path, true);
-            } catch (e) { AfficherErreur("Erreur lors de la réinitialisation : " + e.message); return; }
-            try { location.reload(); } catch (e2) { location.href = location.href; }
         }
         function cleanRoleDesig(a) {
             var o = []; for (var i = 0; i < a.length; i++) {
@@ -4398,6 +4413,9 @@
                                 <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                     <button id="btnExtract" class="btn-toolbar" style="vertical-align:bottom; padding:0 10px; min-width:130px;" onclick="LancerExtractionSAP()">Extract NC</button>
                                 </td>
+                                <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; white-space:nowrap;">
+                                    <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractNC()" title="Réinitialiser l'extraction de cet onglet (efface les NC)">Vider</button>
+                                </td>
                                 <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
                                     <span style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Dernière extraction : <b id="lastExtractDate">-</b></span>
                                 </td>
@@ -4450,6 +4468,9 @@
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                         <button id="btnOF" class="btn-toolbar" style="padding:0 10px; min-width:130px;" onclick="LancerExtractOFTout()">Extract OF</button>
                                     </td>
+                                    <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; white-space:nowrap;">
+                                        <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractOF()" title="Réinitialiser l'extraction de cet onglet (efface les OF)">Vider</button>
+                                    </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
                                         <span style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Dernière extraction : <b id="lastOFExtractDate">-</b></span>
                                     </td>
@@ -4501,6 +4522,9 @@
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                         <button id="btnICExtract" class="btn-toolbar" style="vertical-align:bottom; padding:0 10px; min-width:130px;" onclick="LancerExtractIC()">Extract IC</button>
                                     </td>
+                                    <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; white-space:nowrap;">
+                                        <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractIC()" title="Réinitialiser l'extraction de cet onglet (efface les IC)">Vider</button>
+                                    </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
                                         <span style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Dernière extraction : <b id="lastICExtractDate">-</b></span>
                                     </td>
@@ -4545,6 +4569,9 @@
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Fichier de planification</label>
                                         <button id="btnPlanif" class="btn-toolbar" style="min-width:190px;" onclick="ChargerPlanifCSV()">Charger un fichier CSV</button>
                                         <input type="file" id="planifFileInput" accept=".csv" style="display:none;" onchange="OnPlanifFileChosen(this)">
+                                    </td>
+                                    <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; white-space:nowrap;">
+                                        <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractPlanif()" title="Réinitialiser la planification (efface le CSV chargé)">Vider</button>
                                     </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
                                         <span id="planifWeekBadge" style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Dernière semaine extraite : <b id="lastPlanifWeek">-</b></span>
@@ -4597,7 +4624,6 @@
             <div id="pageParametres" class="page">
                 <div class="card" style="margin-bottom:16px; padding:16px 20px; overflow:hidden;">
                     <div style="float:right;">
-                        <button id="btnParamsReset" class="btn-toolbar" style="margin-right:8px; background:#dc2626; color:#fff; border:none;" onclick="ReinitialiserApplication()">Réinitialiser l'application</button>
                         <button id="btnParamsEdit" class="btn-toolbar btn-green" onclick="ParamsEdit()">Modifier</button>
                         <button id="btnParamsSave" class="btn-toolbar btn-green" style="display:none; margin-left:8px;" onclick="ParamsValider()">Valider</button>
                         <button id="btnParamsCancel" class="btn-toolbar btn-grey" style="display:none; margin-left:6px;" onclick="ParamsAnnuler()">Annuler</button>
