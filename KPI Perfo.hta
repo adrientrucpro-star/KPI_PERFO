@@ -2839,6 +2839,8 @@
             else RenderDashboard();
         }
         function RenderDashboardPL() {
+            var emp = document.getElementById('dashPLEmpty');
+            if (emp) { var av = ComputeAvailHeight('dashPLEmpty'); if (av != null) emp.style.height = av + "px"; }   // le cadre remplit l'espace visible
             dashValid.PL = true;   // Planification : état statique (import CSV hebdo à venir), pas de filtre période
         }
         function ShowDashSub(s) {
