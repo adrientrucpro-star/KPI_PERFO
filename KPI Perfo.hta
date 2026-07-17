@@ -931,17 +931,19 @@
     // ==========================================================
         var PAGES = ["pageDashboard", "pageAnalyse", "pageParcours", "pageParametres"];
         var pageValid = { parcours: false, parametres: false };
-        var extractValid = { NC: false, OF: false, IC: false };
+        var extractValid = { NC: false, OF: false, IC: false, PL: false };
         function InvalidatePages() { pageValid.parcours = false; pageValid.parametres = false; }
-        function InvalidateExtract() { extractValid.NC = false; extractValid.OF = false; extractValid.IC = false; }
+        function InvalidateExtract() { extractValid.NC = false; extractValid.OF = false; extractValid.IC = false; extractValid.PL = false; }
         function activeExtractSub() {
             if (document.getElementById('extractSubOF') && document.getElementById('extractSubOF').style.display === 'block') return 'OF';
             if (document.getElementById('extractSubIC') && document.getElementById('extractSubIC').style.display === 'block') return 'IC';
+            if (document.getElementById('extractSubPL') && document.getElementById('extractSubPL').style.display === 'block') return 'PL';
             return 'NC';
         }
         function RenderExtractSub(s) {
             if (s === 'OF') { RenderOFCombined(); }
             else if (s === 'IC') { RenderICTable(); }
+            else if (s === 'PL') { /* Planification : état statique, chargement CSV à venir */ }
             else { RenderListe(); }
         }
         function RenderActiveExtractSub() { var s = activeExtractSub(); if (!extractValid[s]) RenderExtractSub(s); UpdateExtractButtons(); }
@@ -1197,8 +1199,8 @@
 
         // ======================= ORDRES DE FABRICATION (OF) =======================
         function ShowExtractSub(s) {
-            var subs = { NC: 'extractSubNC', OF: 'extractSubOF', IC: 'extractSubIC' };
-            var tabs = { NC: 'subtabNC', OF: 'subtabOF', IC: 'subtabIC' };
+            var subs = { NC: 'extractSubNC', OF: 'extractSubOF', IC: 'extractSubIC', PL: 'extractSubPL' };
+            var tabs = { NC: 'subtabNC', OF: 'subtabOF', IC: 'subtabIC', PL: 'subtabPL' };
             for (var kk in subs) {
                 if (!subs.hasOwnProperty(kk)) continue;
                 var pane = document.getElementById(subs[kk]); if (pane) pane.style.display = (kk === s) ? "block" : "none";
@@ -2609,21 +2611,26 @@
         // ==========================================================
         // TABLEAU DE BORD - sous-onglet ORDRE DE FABRICATION (filtre commun avec le sous-onglet NC : dashFilter)
         // ==========================================================
-        var dashValid = { NC: false, OF: false, IC: false };
-        function InvalidateDash() { dashValid.NC = false; dashValid.OF = false; dashValid.IC = false; }
+        var dashValid = { NC: false, OF: false, IC: false, PL: false };
+        function InvalidateDash() { dashValid.NC = false; dashValid.OF = false; dashValid.IC = false; dashValid.PL = false; }
         function activeDashSub() {
             if (document.getElementById('dashSubOF') && document.getElementById('dashSubOF').style.display === 'block') return 'OF';
             if (document.getElementById('dashSubIC') && document.getElementById('dashSubIC').style.display === 'block') return 'IC';
+            if (document.getElementById('dashSubPL') && document.getElementById('dashSubPL').style.display === 'block') return 'PL';
             return 'NC';
         }
         function RenderDashSub(sub) {
             if (sub === 'OF') RenderDashboardOF();
             else if (sub === 'IC') RenderDashboardIC();
+            else if (sub === 'PL') RenderDashboardPL();
             else RenderDashboard();
         }
+        function RenderDashboardPL() {
+            dashValid.PL = true;   // Planification : état statique (import CSV hebdo à venir), pas de filtre période
+        }
         function ShowDashSub(s) {
-            var subs = { NC: 'dashSubNC', OF: 'dashSubOF', IC: 'dashSubIC' };
-            var tabs = { NC: 'dashSubtabNC', OF: 'dashSubtabOF', IC: 'dashSubtabIC' };
+            var subs = { NC: 'dashSubNC', OF: 'dashSubOF', IC: 'dashSubIC', PL: 'dashSubPL' };
+            var tabs = { NC: 'dashSubtabNC', OF: 'dashSubtabOF', IC: 'dashSubtabIC', PL: 'dashSubtabPL' };
             for (var kk in subs) {
                 if (!subs.hasOwnProperty(kk)) continue;
                 var pane = document.getElementById(subs[kk]); if (pane) pane.style.display = (kk === s) ? "block" : "none";
@@ -2633,6 +2640,7 @@
             if (eb) { var dcv = document.getElementById('dashCharts'); eb.style.display = (s === 'NC' && dcv && dcv.style.display !== 'none') ? '' : 'none'; }
             var ebO = document.getElementById('dashExportOF');   // bouton export OF : onglet OF actif et graphiques présents
             if (ebO) { var dcvO = document.getElementById('dashOFCharts'); ebO.style.display = (s === 'OF' && dcvO && dcvO.style.display !== 'none') ? '' : 'none'; }
+            var fb = document.getElementById('dashFilterBar'); if (fb) fb.style.display = (s === 'PL') ? 'none' : '';   // pas de filtre période sur la Planification
             if (!dashValid[s]) RenderDashSub(s);
         }
         function RenderActiveDashboardSub() { RenderDashSub(activeDashSub()); }
@@ -3958,6 +3966,7 @@
                     <button id="dashSubtabNC" class="subtab active" onclick="ShowDashSub('NC')">Non-conformité</button>
                     <button id="dashSubtabOF" class="subtab" onclick="ShowDashSub('OF')">Ordre de Fabrication</button>
                     <button id="dashSubtabIC" class="subtab" onclick="ShowDashSub('IC')">Intervention Card</button>
+                    <button id="dashSubtabPL" class="subtab" onclick="ShowDashSub('PL')">Planification</button>
                     <button id="dashExportNC" onclick="ExportDashboardNC()" title="Exporter le tableau de bord NC en PDF" style="display:none; float:right; margin:4px 0 4px 12px; height:34px; padding:0 14px; border:none; border-radius:6px; background:#0C447C; color:#fff; font-size:13px; font-weight:600; cursor:pointer; box-sizing:border-box;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Exporter PDF</button>
                     <button id="dashExportOF" onclick="ExportDashboardOF()" title="Exporter le tableau de bord OF en PDF" style="display:none; float:right; margin:4px 0 4px 12px; height:34px; padding:0 14px; border:none; border-radius:6px; background:#0C447C; color:#fff; font-size:13px; font-weight:600; cursor:pointer; box-sizing:border-box;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Exporter PDF</button>
                     <span id="dashFilterBar" style="float:right; margin:4px 0;"></span>
@@ -4137,6 +4146,23 @@
                         </div>
                     </div>
                 </div><!-- /dashSubIC -->
+
+                <div id="dashSubPL" style="display:none;">
+                    <div id="dashPLEmpty" class="card" style="margin-bottom:0; box-sizing:border-box;">
+                        <div style="display:table; width:100%; height:100%;">
+                            <div style="display:table-cell; vertical-align:middle; text-align:center; padding:40px 20px;">
+                                <div style="width:64px; height:64px; margin:0 auto 18px auto; border-radius:50%; background:#eef2f5; display:table;">
+                                    <span style="display:table-cell; vertical-align:middle; text-align:center;">
+                                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
+                                    </span>
+                                </div>
+                                <div style="font-size:17px; font-weight:700; color:#334155; margin-bottom:8px;">Planification - à venir</div>
+                                <div style="font-size:14px; color:#64748b; margin-bottom:22px;">Importe le CSV hebdomadaire du planning depuis <b>Extraction &rsaquo; Planification</b> pour afficher le volume planifié et les statuts prod.</div>
+                                <button class="btn-toolbar" onclick="ShowPage('pageAnalyse'); ShowExtractSub('PL');">Aller à la planification</button>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- /dashSubPL -->
             </div>
 
             <div id="pageAnalyse" class="page">
@@ -4144,6 +4170,7 @@
                     <button id="subtabNC" class="subtab active" onclick="ShowExtractSub('NC')">Non-conformité</button>
                     <button id="subtabOF" class="subtab" onclick="ShowExtractSub('OF')">Ordre de Fabrication</button>
                     <button id="subtabIC" class="subtab" onclick="ShowExtractSub('IC')">Intervention Card</button>
+                    <button id="subtabPL" class="subtab" onclick="ShowExtractSub('PL')">Planification</button>
                 </div>
 
                 <div id="extractSubNC">
@@ -4299,6 +4326,22 @@
                     </div>
                     <div id="icTable"><div class="msg-box msg-info">Aucune extraction réalisée.</div></div>
                 </div><!-- /extractSubIC -->
+
+                <div id="extractSubPL" style="display:none;">
+                    <div class="card" style="margin-bottom:0; box-sizing:border-box;">
+                        <div style="display:table; width:100%; height:100%;">
+                            <div style="display:table-cell; vertical-align:middle; text-align:center; padding:40px 20px;">
+                                <div style="width:64px; height:64px; margin:0 auto 18px auto; border-radius:50%; background:#eef2f5; display:table;">
+                                    <span style="display:table-cell; vertical-align:middle; text-align:center;">
+                                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
+                                    </span>
+                                </div>
+                                <div style="font-size:17px; font-weight:700; color:#334155; margin-bottom:8px;">Planification</div>
+                                <div style="font-size:14px; color:#64748b;">Le chargement du CSV hebdomadaire du planning sera disponible ici (volume planifié, statuts prod).</div>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- /extractSubPL -->
             </div>
 
             <div id="pageParcours" class="page">
