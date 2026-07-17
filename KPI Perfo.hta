@@ -2420,6 +2420,8 @@
             for (i = 0; i < ofRows.length; i++) set[msnBucketKey(ofRows[i].msn)] = true;
             var ic = appData.icRows || [];
             for (i = 0; i < ic.length; i++) set[msnBucketKey(ic[i].msn)] = true;
+            var pl = appData.planif || [];
+            for (i = 0; i < pl.length; i++) { var pm = NettoyerChaine(pl[i].msn); if (pm) set[msnBucketKey(pm)] = true; }   // MSN du planning
             var out = []; for (var mm in set) { if (set.hasOwnProperty(mm)) out.push(mm); }
             return msnSortKeys(out);
         }
@@ -2640,6 +2642,8 @@
             for (var j = 0; j < ofRows.length; j++) { var d = parseOFDateObj(ofRows[j].date); if (d) out.push(d); }
             var ic = appData.icRows || [];
             for (var k = 0; k < ic.length; k++) { var dic = parseDT(ic[k].dc, ic[k].hc); if (dic) out.push(dic); }   // dates de clôture IC
+            var pl = appData.planif || [];
+            for (var p = 0; p < pl.length; p++) { var dpl = parseOFDateObj(pl[p].date); if (dpl) out.push(dpl); }   // dates du planning
             return out;
         }
         function dashYearsList() {
@@ -2845,10 +2849,20 @@
         var PLANIF_FINIS_PROD = ['QARJ', 'CERT', 'ADMIN'];
         function planifStatutNorm(s) { return NettoyerChaine(s).toUpperCase(); }
         function planifInGroup(sU, group) { for (var i = 0; i < group.length; i++) { if (planifStatutNorm(group[i]) === sU) return true; } return false; }
+        function planifFilteredRows() {
+            var all = appData.planif || [], out = [], msnMode = (dashFilter.gran === 'msn');
+            for (var i = 0; i < all.length; i++) {
+                var d = parseOFDateObj(all[i].date);
+                if (!inSelectedPeriod(d)) continue;   // filtre période (Année/Mois/Semaine ; MSN & all -> toutes)
+                if (msnMode && !msnSelected(msnBucketKey(all[i].msn))) continue;   // filtre MSN
+                out.push(all[i]);
+            }
+            return out;
+        }
         function RenderDashboardPL() {
+            var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
             var emp = document.getElementById('dashPLEmpty'), charts = document.getElementById('dashPLCharts');
-            var data = appData.planif || [];
-            if (!data.length) {
+            if (!(appData.planif && appData.planif.length)) {
                 if (emp) { emp.style.display = 'block'; var av = ComputeAvailHeight('dashPLEmpty'); if (av != null) emp.style.height = av + 'px'; }
                 if (charts) charts.style.display = 'none';
                 dashValid.PL = true;
@@ -2858,6 +2872,7 @@
             if (charts) charts.style.display = 'block';
             var ct = document.getElementById('content'); if (ct) ct.style.overflowY = 'hidden';
             SetDashCardHeight('dashRowStylePL', 'dashCardPL', 2, charts.getBoundingClientRect().top);
+            var data = planifFilteredRows();
             var coordCounts = {}, prodCounts = {}, total = data.length, realiseCoord = 0, finisProd = 0;
             for (var i = 0; i < data.length; i++) {
                 var sU = planifStatutNorm(data[i].statut);
@@ -2919,7 +2934,7 @@
             if (eb) { var dcv = document.getElementById('dashCharts'); eb.style.display = (s === 'NC' && dcv && dcv.style.display !== 'none') ? '' : 'none'; }
             var ebO = document.getElementById('dashExportOF');   // bouton export OF : onglet OF actif et graphiques présents
             if (ebO) { var dcvO = document.getElementById('dashOFCharts'); ebO.style.display = (s === 'OF' && dcvO && dcvO.style.display !== 'none') ? '' : 'none'; }
-            var fb = document.getElementById('dashFilterBar'); if (fb) fb.style.display = (s === 'PL') ? 'none' : '';   // pas de filtre période sur la Planification
+            var fb = document.getElementById('dashFilterBar'); if (fb) fb.style.display = '';   // barre de filtre visible sur tous les sous-onglets (Planification incluse)
             if (!dashValid[s]) RenderDashSub(s);
         }
         function RenderActiveDashboardSub() { RenderDashSub(activeDashSub()); }
