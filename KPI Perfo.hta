@@ -363,7 +363,8 @@
             VBS_ExtractOFCree = VBS_ExtractCOOIS("LAROCHE_ST", "S_ECKST", strLow, strHigh, "EXPORT_ST.txt", False)
         End Function
         Function VBS_ExtractOFClotUser(strLow, strHigh)   ' Clôture : user + date + heure (variante IQ1, multi-lignes) -> EXPORT_IQ1.txt
-            VBS_ExtractOFClotUser = VBS_ExtractCOOIS("LAROCHE_IQ1", "S_TERST", strLow, strHigh, "EXPORT_IQ1.txt", False)
+            ' doExpand=True : la variante IQ1 nécessite de déplier la barre d'outils ALV (&NAVIGATION_PROFILE_TOOLBAR_EXPAND) avant d'ouvrir le menu Export (cf. script SAP)
+            VBS_ExtractOFClotUser = VBS_ExtractCOOIS("LAROCHE_IQ1", "S_TERST", strLow, strHigh, "EXPORT_IQ1.txt", True)
         End Function
         Function VBS_ExtractOFClotMSN(strLow, strHigh)   ' Clôture : OF + MSN (variante IQ2) -> EXPORT_IQ2.txt
             VBS_ExtractOFClotMSN = VBS_ExtractCOOIS("LAROCHE_IQ2", "S_TERST", strLow, strHigh, "EXPORT_IQ2.txt", False)
