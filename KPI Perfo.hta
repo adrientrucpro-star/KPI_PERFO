@@ -1073,11 +1073,11 @@
             if (dpInput) validateDatePair(dpInput.id);
             if (dpInput && dpInput.getAttribute('data-filter')) {
                 var df = dpInput.getAttribute('data-filter');
-                if (df === 'of') RenderOFAll(); else if (df === 'ic') RenderICTable(); else RenderListe();
+                if (df === 'of') RenderOFAll(); else if (df === 'ic') RenderICTable(); else if (df === 'planif') RenderPlanif(); else RenderListe();
             }
             RefreshDateClearButtons();
         }
-        var DATE_PAIRS = [['extractDate', 'extractDateFin'], ['filtreDateDebut', 'filtreDateFin'], ['ofDateDebut', 'ofDateFin'], ['ofFiltreDateDebut', 'ofFiltreDateFin'], ['icDateDebut', 'icDateFin'], ['icFiltreDateDebut', 'icFiltreDateFin']];
+        var DATE_PAIRS = [['extractDate', 'extractDateFin'], ['filtreDateDebut', 'filtreDateFin'], ['ofDateDebut', 'ofDateFin'], ['ofFiltreDateDebut', 'ofFiltreDateFin'], ['icDateDebut', 'icDateFin'], ['icFiltreDateDebut', 'icFiltreDateFin'], ['planifFiltreDateDebut', 'planifFiltreDateFin']];
         function validateDatePair(id) {
             for (var i = 0; i < DATE_PAIRS.length; i++) {
                 if (DATE_PAIRS[i][0] === id || DATE_PAIRS[i][1] === id) {
@@ -1104,7 +1104,7 @@
             var el = document.getElementById(id); if (el) el.value = "";
             RefreshDateClearButtons();
             var f = el ? el.getAttribute('data-filter') : null;
-            if (f === 'of') RenderOFAll(); else if (f) RenderListe();
+            if (f === 'of') RenderOFAll(); else if (f === 'ic') RenderICTable(); else if (f === 'planif') RenderPlanif(); else if (f) RenderListe();
             if (event && event.stopPropagation) event.stopPropagation();
         }
         document.onclick = function (e) {
@@ -1584,12 +1584,30 @@
             extractValid.PL = true;
             var cont = document.getElementById('planifTable'); if (!cont) return;
             var fn = document.getElementById('planifFileName'); if (fn) fn.innerText = appData.planifFile ? appData.planifFile : "-";
-            var data = appData.planif || [];
-            var cntEl = document.getElementById('planifCount'); if (cntEl) cntEl.innerText = data.length ? (data.length + " ligne" + (data.length > 1 ? "s" : "")) : "";
-            if (!data.length) {
-                cont.innerHTML = "<div class='msg-box msg-info'>Aucun fichier chargé. Clique sur « Charger un fichier CSV » pour importer le planning de la semaine.</div>";
+            var all = appData.planif || [], totalRows = all.length;
+            var cntEl = document.getElementById('planifCount');
+            if (!totalRows) {
+                if (cntEl) cntEl.innerText = "";
+                showEmptyExtract('planifTable', "Aucun fichier chargé", "Clique sur « Charger un fichier CSV » pour importer le planning de la semaine.");
                 return;
             }
+            var fE1 = document.getElementById('planifFiltreDateDebut'), fE2 = document.getElementById('planifFiltreDateFin'), fER = document.getElementById('planifFiltreRecherche');
+            var nd = fE1 ? dateToNum(fE1.value) : null, nf = fE2 ? dateToNum(fE2.value) : null;
+            var fr = fER ? NettoyerChaine(fER.value).toUpperCase() : "";
+            var data = [];
+            for (var k = 0; k < all.length; k++) {
+                var rw = all[k];
+                if (nd || nf) { var rnum = dateToNum(rw.date); if (rnum != null) { if (nd && rnum < nd) continue; if (nf && rnum > nf) continue; } }
+                if (fr && (NettoyerChaine(rw.ofnc) + " " + NettoyerChaine(rw.msn) + " " + NettoyerChaine(rw.sujet) + " " + NettoyerChaine(rw.statut) + " " + NettoyerChaine(rw.vac)).toUpperCase().indexOf(fr) === -1) continue;
+                data.push(rw);
+            }
+            if (cntEl) cntEl.innerText = (data.length === totalRows) ? (totalRows + " ligne" + (totalRows > 1 ? "s" : "")) : (data.length + " / " + totalRows);
+            if (!data.length) {
+                showEmptyExtract('planifTable', "Aucune ligne ne correspond aux filtres", "Modifie ou réinitialise les filtres.");
+                return;
+            }
+            var cap = extractCap('nbLignesPlanif');
+            if (data.length > cap) data = data.slice(0, cap);
             var rows = "";
             for (var i = 0; i < data.length; i++) {
                 var r = data[i];
@@ -1605,6 +1623,12 @@
                 + "<th width='14%'>OF/NC</th><th width='9%'>MSN</th><th>Sujet</th><th width='14%'>Statut</th><th width='12%'>Date</th><th width='10%'>Vacation</th>"
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
+        }
+        function ResetPlanifFiltres() {
+            var ids = ['planifFiltreDateDebut', 'planifFiltreDateFin', 'planifFiltreRecherche'];
+            for (var i = 0; i < ids.length; i++) { var el = document.getElementById(ids[i]); if (el) el.value = ""; }
+            RefreshDateClearButtons();
+            RenderPlanif();
         }
         function ResetOFFiltres() {
             var ids = ['ofFiltreDateDebut', 'ofFiltreDateFin', 'ofFiltreRecherche'];
@@ -4468,16 +4492,47 @@
                 </div><!-- /extractSubIC -->
 
                 <div id="extractSubPL" style="display:none;">
-                    <div class="card" style="margin-bottom:16px; box-sizing:border-box;">
-                        <table style="border:none; width:100%;"><tr>
-                            <td style="border:none; padding:0 14px 0 0; vertical-align:middle; white-space:nowrap;">
-                                <button id="btnPlanif" class="btn-toolbar" style="min-width:190px;" onclick="ChargerPlanifCSV()">Charger un fichier CSV</button>
-                                <input type="file" id="planifFileInput" accept=".csv" style="display:none;" onchange="OnPlanifFileChosen(this)">
-                            </td>
-                            <td style="border:none; padding:0; vertical-align:middle; width:100%;">
-                                <span style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #c5d5de; border-radius:6px; background:#f0f4f7; color:#334155; font-size:13px; box-sizing:border-box; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Fichier : <b id="planifFileName">-</b><span id="planifCount" style="color:#0C447C; font-weight:700; margin-left:14px;"></span></span>
-                            </td>
-                        </tr></table>
+                    <div style="display:table; width:100%; margin:0 0 20px 0;">
+                        <div style="display:table-cell; width:50%; padding-right:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <table style="border:none; width:100%;"><tr>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Fichier de planification</label>
+                                        <button id="btnPlanif" class="btn-toolbar" style="min-width:190px;" onclick="ChargerPlanifCSV()">Charger un fichier CSV</button>
+                                        <input type="file" id="planifFileInput" accept=".csv" style="display:none;" onchange="OnPlanifFileChosen(this)">
+                                    </td>
+                                    <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Fichier chargé</label>
+                                        <span style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #c5d5de; border-radius:6px; background:#f0f4f7; color:#334155; font-size:13px; box-sizing:border-box; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><b id="planifFileName">-</b><span id="planifCount" style="color:#0C447C; font-weight:700; margin-left:14px;"></span></span>
+                                    </td>
+                                </tr></table>
+                            </div>
+                        </div>
+                        <div style="display:table-cell; width:50%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
+                            <div class="card" style="height:100%; margin-bottom:0; box-sizing:border-box;">
+                                <table style="border:none; width:100%;"><tr>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
+                                        <span class="date-wrap"><input type="text" id="planifFiltreDateDebut" data-filter="planif" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('planifFiltreDateDebut', event)" title="Effacer">&times;</button></span>
+                                    </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
+                                        <span class="date-wrap"><input type="text" id="planifFiltreDateFin" data-filter="planif" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('planifFiltreDateFin', event)" title="Effacer">&times;</button></span>
+                                    </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
+                                        <input type="text" id="planifFiltreRecherche" class="input-text" style="width:100%; box-sizing:border-box;" onkeyup="DebounceExtractSearch(RenderPlanif)" placeholder="OF/NC, MSN, sujet, statut, vacation">
+                                    </td>
+                                    <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
+                                        <button class="btn-grey" style="font-weight:600; font-size:13px; height:38px; line-height:38px; padding:0 10px; border:none; border-radius:6px; cursor:pointer; color:#fff;" onclick="ResetPlanifFiltres()">Réinitialiser</button>
+                                    </td>
+                                    <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
+                                        <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Lignes</label>
+                                        <input type="text" id="nbLignesPlanif" value="500" onkeyup="DebounceExtractSearch(RenderPlanif)" title="Nombre de lignes à afficher" style="width:72px; height:38px; padding:0 8px; border:1px solid #c5d5de; border-radius:6px; background:#fff; color:#0C447C; font-weight:700; font-size:13px; text-align:center; box-sizing:border-box;">
+                                    </td>
+                                </tr></table>
+                            </div>
+                        </div>
                     </div>
                     <div id="planifTable"><div class="msg-box msg-info">Aucun fichier chargé. Clique sur « Charger un fichier CSV » pour importer le planning de la semaine.</div></div>
                 </div><!-- /extractSubPL -->
