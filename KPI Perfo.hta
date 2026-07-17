@@ -599,13 +599,11 @@
             for (var i = 0; i < ncList.length; i++) { if (ncList[i].eligRaw) eligAvis[ncList[i].avis] = true; }
             var allRows = appData.rows || [], savedRows = [];
             for (var j = 0; j < allRows.length; j++) { if (eligAvis[allRows[j].a]) savedRows.push(allRows[j]); }
-            var savedComments = {};
-            if (appData.comments) { for (var a in appData.comments) { if (appData.comments.hasOwnProperty(a) && eligAvis[a]) savedComments[a] = appData.comments[a]; } }
             return {
                 rows: savedRows,
                 roleDesig: appData.roleDesig || [],
                 teamST: appData.teamST || [], teamTL: appData.teamTL || [], teamIQ: appData.teamIQ || [],
-                comments: savedComments,
+                comments: appData.comments || {},   // toujours conservés (annotations partagées), indépendamment de l'éligibilité des NC
                 selLine: appData.selLine || {},
                 excluded: appData.excluded || {},
                 ofCree: appData.ofCree || [],
@@ -1667,8 +1665,8 @@
         }
         // ---- Réinitialisation par onglet : efface uniquement l'extraction de l'onglet courant ----
         function ResetExtractNC() {
-            if (!confirm("Réinitialiser l'extraction Non-conformité ?\nLes NC extraites seront effacées (cet onglet uniquement).")) return;
-            appData.rows = []; appData.comments = {}; appData.selLine = {}; appData.excluded = {}; appData.msnByAvis = {}; appData.lastImport = "";
+            if (!confirm("Réinitialiser l'extraction Non-conformité ?\nLes NC extraites seront effacées.\nLes commentaires et lignes sélectionnées (base partagée) sont conservés.")) return;
+            appData.rows = []; appData.msnByAvis = {}; appData.lastImport = "";   // on garde comments / selLine / excluded (annotations, dont base partagée)
             SaveData();
             RecomputeAll();   // reconstruit ncList (vide) + invalide dashboard / Analyse NC / paramètres
             RenderListe();
