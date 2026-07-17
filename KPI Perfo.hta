@@ -53,9 +53,9 @@
         h2 { font-size: 22px; margin-top: 0; color: #002d45; margin-bottom: 24px; font-weight: 700; }
         .card { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,45,69,0.08); border: 1px solid #dde6ec; margin-bottom: 20px; padding: 20px 25px; }
         .card h3 { margin: 0 0 16px 0; font-size: 15px; color: #334155; font-weight: 700; }
-        .dashCardNC, .dashCardOF, .dashCardIC { box-sizing: border-box; overflow: hidden; margin-bottom: 0; height: 300px; }
-        .dashCardNC > h3, .dashCardOF > h3, .dashCardIC > h3 { height: 32px; line-height: 16px; margin: 0 0 8px 0; font-size: 14px; color: #334155; font-weight: 700; overflow: hidden; }
-        .dashChartNC, .dashChartOF, .dashChartIC { width: 100%; height: calc(100% - 40px); }
+        .dashCardNC, .dashCardOF, .dashCardIC, .dashCardPL { box-sizing: border-box; overflow: hidden; margin-bottom: 0; height: 300px; }
+        .dashCardNC > h3, .dashCardOF > h3, .dashCardIC > h3, .dashCardPL > h3 { height: 32px; line-height: 16px; margin: 0 0 8px 0; font-size: 14px; color: #334155; font-weight: 700; overflow: hidden; }
+        .dashChartNC, .dashChartOF, .dashChartIC, .dashChartPL { width: 100%; height: calc(100% - 40px); }
         .btn-view { width: 28px; height: 26px; padding: 0; border: none; border-radius: 5px; cursor: pointer; vertical-align: middle; background-color: #0C447C; background-repeat: no-repeat; background-position: center; background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNCIgaGVpZ2h0PSIxNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMiI+PHBhdGggZD0iTTEgMTJzNC03IDExLTcgMTEgNyAxMSA3LTQgNy0xMSA3LTExLTctMTEtN3oiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIzIi8+PC9zdmc+"); }
         .btn-view:hover { background-color: #0a3a6a; }
 
@@ -2838,10 +2838,74 @@
             else if (sub === 'PL') RenderDashboardPL();
             else RenderDashboard();
         }
+        // Groupes de statuts (planification). "Réalisé" côté coordination = statuts production ; "Finis" côté production = QARJ/CERT/ADMIN.
+        var PLANIF_COORD_STATUTS = ['Non commencé', 'Blq accès', 'Blq AR', 'RETP', 'Mqt pièce', 'Retour CT', 'IC refusée'];
+        var PLANIF_PROD_STATUTS = ['TFS', 'Dépose OK', 'QARJ', 'ADMIN', 'CERT'];
+        var PLANIF_REALISE_COORD = ['TFS', 'Dépose OK', 'QARJ', 'CERT', 'ADMIN'];
+        var PLANIF_FINIS_PROD = ['QARJ', 'CERT', 'ADMIN'];
+        function planifStatutNorm(s) { return NettoyerChaine(s).toUpperCase(); }
+        function planifInGroup(sU, group) { for (var i = 0; i < group.length; i++) { if (planifStatutNorm(group[i]) === sU) return true; } return false; }
         function RenderDashboardPL() {
-            var emp = document.getElementById('dashPLEmpty');
-            if (emp) { var av = ComputeAvailHeight('dashPLEmpty'); if (av != null) emp.style.height = av + "px"; }   // le cadre remplit l'espace visible
-            dashValid.PL = true;   // Planification : état statique (import CSV hebdo à venir), pas de filtre période
+            var emp = document.getElementById('dashPLEmpty'), charts = document.getElementById('dashPLCharts');
+            var data = appData.planif || [];
+            if (!data.length) {
+                if (emp) { emp.style.display = 'block'; var av = ComputeAvailHeight('dashPLEmpty'); if (av != null) emp.style.height = av + 'px'; }
+                if (charts) charts.style.display = 'none';
+                dashValid.PL = true;
+                return;
+            }
+            if (emp) emp.style.display = 'none';
+            if (charts) charts.style.display = 'block';
+            var ct = document.getElementById('content'); if (ct) ct.style.overflowY = 'hidden';
+            SetDashCardHeight('dashRowStylePL', 'dashCardPL', 2, charts.getBoundingClientRect().top);
+            var coordCounts = {}, prodCounts = {}, total = data.length, realiseCoord = 0, finisProd = 0;
+            for (var i = 0; i < data.length; i++) {
+                var sU = planifStatutNorm(data[i].statut);
+                if (!sU) continue;   // (sans statut) : compté dans le total mais dans aucun camembert
+                for (var c = 0; c < PLANIF_COORD_STATUTS.length; c++) { if (planifStatutNorm(PLANIF_COORD_STATUTS[c]) === sU) { coordCounts[PLANIF_COORD_STATUTS[c]] = (coordCounts[PLANIF_COORD_STATUTS[c]] || 0) + 1; break; } }
+                for (var p = 0; p < PLANIF_PROD_STATUTS.length; p++) { if (planifStatutNorm(PLANIF_PROD_STATUTS[p]) === sU) { prodCounts[PLANIF_PROD_STATUTS[p]] = (prodCounts[PLANIF_PROD_STATUTS[p]] || 0) + 1; break; } }
+                if (planifInGroup(sU, PLANIF_REALISE_COORD)) realiseCoord++;
+                if (planifInGroup(sU, PLANIF_FINIS_PROD)) finisProd++;
+            }
+            planifPie('hcPLCoordPie', PLANIF_COORD_STATUTS, coordCounts);
+            planifPie('hcPLProdPie', PLANIF_PROD_STATUTS, prodCounts);
+            planifBar('hcPLCoordBar', total, realiseCoord, 'Réalisé');
+            planifBar('hcPLProdBar', total, finisProd, 'Finis');
+            ReflowDashCharts(['hcPLCoordPie', 'hcPLCoordBar', 'hcPLProdPie', 'hcPLProdBar']);
+            dashValid.PL = true;
+        }
+        function planifPie(id, order, counts) {
+            var cont = document.getElementById(id); if (!cont) return;
+            var data = [], hasData = false;
+            for (var i = 0; i < order.length; i++) { var v = counts[order[i]] || 0; if (v > 0) { data.push({ name: order[i], y: v }); hasData = true; } }
+            if (!hasData || typeof Highcharts === 'undefined') { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
+            try {
+                hcDraw(id, {
+                    chart: hcChart('pie', [4, 2, 4, 2]),
+                    title: { text: null }, credits: { enabled: false }, colors: PIE_COLORS,
+                    tooltip: { formatter: function () { return '<b>' + this.point.name + '</b><br/>' + this.point.y + ' OF · ' + Highcharts.numberFormat(this.percentage, 0) + '%'; } },
+                    legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemStyle: { fontSize: '11px', color: '#334155', fontWeight: 'normal' } },
+                    plotOptions: { pie: { animation: false, showInLegend: true, size: '80%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -20, style: { color: '#ffffff', fontSize: '11px', fontWeight: 'bold', textOutline: 'none' } } } },
+                    series: [{ name: 'Statut', data: data }]
+                });
+            } catch (e) { hcErr(cont); }
+        }
+        function planifBar(id, total, done, doneLabel) {
+            var cont = document.getElementById(id); if (!cont) return;
+            if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
+            var pct = total ? Math.round(done / total * 100) : 0;
+            try {
+                hcDraw(id, {
+                    chart: hcChart('column', [10, 6, 2, 6]),
+                    title: { text: null }, subtitle: { text: 'Réalisation : <b>' + pct + '%</b>', useHTML: true, style: { color: '#0C447C', fontSize: '13px' } },
+                    credits: { enabled: false }, legend: { enabled: false },
+                    xAxis: { categories: ['Planifié', doneLabel], labels: { style: { color: '#334155', fontWeight: '600', fontSize: '13px' } } },
+                    yAxis: { title: { text: null }, min: 0, allowDecimals: false },
+                    tooltip: { formatter: function () { return '<b>' + this.x + '</b> : ' + this.y + ' OF' + (this.point.index === 0 ? '' : '<br/>' + pct + '% du planifié'); } },
+                    plotOptions: { column: { animation: false, borderRadius: 3, pointPadding: 0.08, groupPadding: 0.12, dataLabels: { enabled: true, style: { fontSize: '14px', fontWeight: 'bold', color: '#334155', textOutline: 'none' } } } },
+                    series: [{ name: 'OF', data: [{ y: total, color: '#0C447C' }, { y: done, color: '#16a34a' }] }]
+                });
+            } catch (e) { hcErr(cont); }
         }
         function ShowDashSub(s) {
             var subs = { NC: 'dashSubNC', OF: 'dashSubOF', IC: 'dashSubIC', PL: 'dashSubPL' };
@@ -4380,9 +4444,39 @@
                                         <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
                                     </span>
                                 </div>
-                                <div style="font-size:17px; font-weight:700; color:#334155; margin-bottom:8px;">Planification - à venir</div>
-                                <div style="font-size:14px; color:#64748b; margin-bottom:22px;">Importe le CSV hebdomadaire du planning depuis <b>Extraction &rsaquo; Planification</b> pour afficher le volume planifié et les statuts prod.</div>
+                                <div style="font-size:17px; font-weight:700; color:#334155; margin-bottom:8px;">Aucune planification chargée</div>
+                                <div style="font-size:14px; color:#64748b; margin-bottom:22px;">Importe le CSV hebdomadaire depuis <b>Extraction &rsaquo; Planification</b> pour afficher les graphiques.</div>
                                 <button class="btn-toolbar" onclick="ShowPage('pageAnalyse'); ShowExtractSub('PL');">Aller à la planification</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dashPLCharts" style="display:none;">
+                        <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
+                            <div style="display:table-cell; width:40%; padding-right:8px; vertical-align:top;">
+                                <div class="card dashCardPL">
+                                    <h3>Coordination - Répartition des statuts</h3>
+                                    <div id="hcPLCoordPie" class="dashChartPL"></div>
+                                </div>
+                            </div>
+                            <div style="display:table-cell; width:60%; padding-left:8px; vertical-align:top;">
+                                <div class="card dashCardPL">
+                                    <h3>Coordination - OF planifiés / réalisés</h3>
+                                    <div id="hcPLCoordBar" class="dashChartPL"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:table; width:100%; table-layout:fixed; margin-bottom:20px;">
+                            <div style="display:table-cell; width:40%; padding-right:8px; vertical-align:top;">
+                                <div class="card dashCardPL">
+                                    <h3>Production - Répartition des statuts</h3>
+                                    <div id="hcPLProdPie" class="dashChartPL"></div>
+                                </div>
+                            </div>
+                            <div style="display:table-cell; width:60%; padding-left:8px; vertical-align:top;">
+                                <div class="card dashCardPL">
+                                    <h3>Production - OF planifiés / finis</h3>
+                                    <div id="hcPLProdBar" class="dashChartPL"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
