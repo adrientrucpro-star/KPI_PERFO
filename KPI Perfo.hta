@@ -76,7 +76,7 @@
         .btn-green { background-color: #10b981; } .btn-green:hover { background-color: #059669; }
         .btn-grey { background-color: #64748b; } .btn-grey:hover { background-color: #475569; }
         .btn-disabled { background-color: #94a3b8 !important; cursor: wait !important; color: #f1f5f9 !important; }
-        .input-date { border: 1px solid #c5d5de; padding: 8px 12px; height: 38px; border-radius: 6px; font-family: inherit; font-size: 14px; color: #1e293b; background-color: #fff; width: 140px; box-sizing: border-box; cursor: pointer; text-align: center; }
+        .input-date { border: 1px solid #c5d5de; padding: 8px 12px; height: 38px; border-radius: 6px; font-family: inherit; font-size: 14px; color: #1e293b; background-color: #fff; width: 120px; box-sizing: border-box; cursor: pointer; text-align: center; }
         .input-text { border: 1px solid #c5d5de; padding: 8px 12px; height: 38px; border-radius: 6px; font-family: inherit; font-size: 14px; color: #1e293b; background-color: #fff; box-sizing: border-box; }
         .input-text:focus { border-color: #006698; outline: none; background-color: #fffbeb; }
 
@@ -4411,7 +4411,7 @@
                                     <span class="date-wrap"><input type="text" id="extractDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('extractDateFin', event)" title="Effacer">&times;</button></span>
                                 </td>
                                 <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
-                                    <button id="btnExtract" class="btn-toolbar" style="vertical-align:bottom; padding:0 10px; min-width:130px;" onclick="LancerExtractionSAP()">Extract NC</button>
+                                    <button id="btnExtract" class="btn-toolbar" style="vertical-align:bottom; padding:0 10px; min-width:100px;" onclick="LancerExtractionSAP()">Extract NC</button>
                                 </td>
                                 <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; white-space:nowrap;">
                                     <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractNC()" title="Réinitialiser l'extraction de cet onglet (efface les NC)">Vider</button>
@@ -4427,11 +4427,11 @@
                             <table style="border:none; width:100%;"><tr>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
-                                    <span class="date-wrap"><input type="text" id="filtreDateDebut" data-filter="1" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateDebut', event)" title="Effacer">&times;</button></span>
+                                    <span class="date-wrap"><input type="text" id="filtreDateDebut" data-filter="1" class="input-date" style="width:120px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateDebut', event)" title="Effacer">&times;</button></span>
                                 </td>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
-                                    <span class="date-wrap"><input type="text" id="filtreDateFin" data-filter="1" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateFin', event)" title="Effacer">&times;</button></span>
+                                    <span class="date-wrap"><input type="text" id="filtreDateFin" data-filter="1" class="input-date" style="width:120px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('filtreDateFin', event)" title="Effacer">&times;</button></span>
                                 </td>
                                 <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                     <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
@@ -4466,7 +4466,7 @@
                                         <span class="date-wrap"><input type="text" id="ofDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofDateFin', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
-                                        <button id="btnOF" class="btn-toolbar" style="padding:0 10px; min-width:130px;" onclick="LancerExtractOFTout()">Extract OF</button>
+                                        <button id="btnOF" class="btn-toolbar" style="padding:0 10px; min-width:100px;" onclick="LancerExtractOFTout()">Extract OF</button>
                                     </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; white-space:nowrap;">
                                         <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractOF()" title="Réinitialiser l'extraction de cet onglet (efface les OF)">Vider</button>
@@ -4482,11 +4482,11 @@
                                 <table style="border:none; width:100%;"><tr>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
-                                        <span class="date-wrap"><input type="text" id="ofFiltreDateDebut" data-filter="of" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateDebut', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="ofFiltreDateDebut" data-filter="of" class="input-date" style="width:120px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateDebut', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
-                                        <span class="date-wrap"><input type="text" id="ofFiltreDateFin" data-filter="of" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateFin', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="ofFiltreDateFin" data-filter="of" class="input-date" style="width:120px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('ofFiltreDateFin', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
@@ -4520,7 +4520,7 @@
                                         <span class="date-wrap"><input type="text" id="icDateFin" class="input-date" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icDateFin', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
-                                        <button id="btnICExtract" class="btn-toolbar" style="vertical-align:bottom; padding:0 10px; min-width:130px;" onclick="LancerExtractIC()">Extract IC</button>
+                                        <button id="btnICExtract" class="btn-toolbar" style="vertical-align:bottom; padding:0 10px; min-width:100px;" onclick="LancerExtractIC()">Extract IC</button>
                                     </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; white-space:nowrap;">
                                         <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractIC()" title="Réinitialiser l'extraction de cet onglet (efface les IC)">Vider</button>
@@ -4536,11 +4536,11 @@
                                 <table style="border:none; width:100%;"><tr>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
-                                        <span class="date-wrap"><input type="text" id="icFiltreDateDebut" data-filter="ic" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateDebut', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="icFiltreDateDebut" data-filter="ic" class="input-date" style="width:120px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateDebut', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
-                                        <span class="date-wrap"><input type="text" id="icFiltreDateFin" data-filter="ic" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateFin', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="icFiltreDateFin" data-filter="ic" class="input-date" style="width:120px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('icFiltreDateFin', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
@@ -4584,11 +4584,11 @@
                                 <table style="border:none; width:100%;"><tr>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer à partir du</label>
-                                        <span class="date-wrap"><input type="text" id="planifFiltreDateDebut" data-filter="planif" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('planifFiltreDateDebut', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="planifFiltreDateDebut" data-filter="planif" class="input-date" style="width:120px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('planifFiltreDateDebut', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Filtrer jusqu'au</label>
-                                        <span class="date-wrap"><input type="text" id="planifFiltreDateFin" data-filter="planif" class="input-date" style="width:124px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('planifFiltreDateFin', event)" title="Effacer">&times;</button></span>
+                                        <span class="date-wrap"><input type="text" id="planifFiltreDateFin" data-filter="planif" class="input-date" style="width:120px;" placeholder="JJ/MM/AAAA" onclick="showCalendar(this, event)" readonly="readonly"><button type="button" class="btn-clear-date" onclick="clearDate('planifFiltreDateFin', event)" title="Effacer">&times;</button></span>
                                     </td>
                                     <td style="border:none; padding:0 14px 0 0; vertical-align:bottom; width:100%;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Recherche</label>
