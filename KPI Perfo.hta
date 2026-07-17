@@ -1217,6 +1217,7 @@
             UpdateExtractButtons();   // maj état grisé des boutons d'export même si le tableau est en cache
             if (s === 'NC') EgaliserHauteursExtraction();
             AjusterHauteurTables();
+            ResizeEmptyCards();   // re-dimensionne l'état vide maintenant que le pane est visible (corrige un pré-rendu fait à l'état masqué)
             ResetTblScroll();   // le tableau du sous-onglet s'affiche tout en haut
         }
         function msnFromOTP(s) {
@@ -2335,7 +2336,7 @@
         var dashRow1Height = 280;
         function ComputeAvailHeight(containerId) {
             var charts = document.getElementById(containerId), contentEl = document.getElementById('content');
-            if (!charts) return null;
+            if (!charts || !charts.offsetParent) return null;   // conteneur masqué (onglet inactif) -> pas de dimensionnement (top=0 -> cadre surdimensionné)
             if (contentEl) contentEl.scrollTop = 0;   // mesure toujours en haut (un #content défilé fausse la position -> cadre surdimensionné)
             var top = charts.getBoundingClientRect().top;   // position viewport du conteneur (base fiable en IE10, comme AjusterHauteurTables)
             var avail = window.innerHeight - top - 30;      // marge basse > padding bas de #content (25px)
