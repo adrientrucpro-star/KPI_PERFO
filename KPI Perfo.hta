@@ -2629,8 +2629,10 @@
                 var pane = document.getElementById(subs[kk]); if (pane) pane.style.display = (kk === s) ? "block" : "none";
                 var tab = document.getElementById(tabs[kk]); if (tab) tab.className = (kk === s) ? "subtab active" : "subtab";
             }
-            var eb = document.getElementById('dashExportNC');   // bouton export : NC uniquement, et seulement si des graphiques sont présents
+            var eb = document.getElementById('dashExportNC');   // bouton export NC : onglet NC actif et graphiques présents
             if (eb) { var dcv = document.getElementById('dashCharts'); eb.style.display = (s === 'NC' && dcv && dcv.style.display !== 'none') ? '' : 'none'; }
+            var ebO = document.getElementById('dashExportOF');   // bouton export OF : onglet OF actif et graphiques présents
+            if (ebO) { var dcvO = document.getElementById('dashOFCharts'); ebO.style.display = (s === 'OF' && dcvO && dcvO.style.display !== 'none') ? '' : 'none'; }
             if (!dashValid[s]) RenderDashSub(s);
         }
         function RenderActiveDashboardSub() { RenderDashSub(activeDashSub()); }
@@ -2644,16 +2646,19 @@
         }
         function RenderDashboardOF() {
             var fbar = document.getElementById('dashFilterBar'); if (fbar) fbar.innerHTML = dashRespFilterBar();
+            var ebO = document.getElementById('dashExportOF');
             var rows = getOFTeamRows('cree').concat(getOFTeamRows('clot'));
             if (!rows.length) {
                 var empOF = document.getElementById('dashOFEmpty');
                 empOF.style.display = "block";
                 document.getElementById('dashOFCharts').style.display = "none";
+                if (ebO) ebO.style.display = 'none';
                 var avOF = ComputeAvailHeight('dashOFEmpty'); if (avOF != null) empOF.style.height = avOF + "px";
                 dashValid.OF = true;
                 return;
             }
             document.getElementById('dashOFEmpty').style.display = "none";
+            if (ebO) ebO.style.display = '';   // données présentes -> bouton d'export visible
             var dc = document.getElementById('dashOFCharts'); dc.style.display = "block";
             var ct = document.getElementById('content'); if (ct) ct.style.overflowY = 'hidden';
             SetDashCardHeight('dashRowStyleOF', 'dashCardOF', 2, dc.getBoundingClientRect().top);
@@ -3468,6 +3473,37 @@
             if (tmp.parentNode) tmp.parentNode.removeChild(tmp);
             return out;
         }
+        // Re-rend un graphique ligne OF (données du graphique vivant) à une taille contrôlée, renvoie le SVG. showLegend=false pour les courbes "Total".
+        function ofLineExportSVG(id, w, h, showLegend) {
+            var live = window.hcRefs[id];
+            if (!live || !live.series || !live.series.length) return "";
+            var cats = (live.xAxis && live.xAxis[0] && live.xAxis[0].categories) ? live.xAxis[0].categories : [];
+            var series = [];
+            for (var i = 0; i < live.series.length; i++) {
+                var s = live.series[i], od = (s.options && s.options.data) ? s.options.data : [], data = [];
+                for (var k = 0; k < od.length; k++) { var d = od[k]; data.push((d && typeof d === 'object') ? d.y : d); }
+                series.push({ name: s.name, data: data, color: s.color });
+            }
+            var tmp = document.createElement('div');
+            tmp.style.position = 'absolute'; tmp.style.left = '-10000px'; tmp.style.top = '0'; tmp.style.width = w + 'px'; tmp.style.height = h + 'px';
+            document.body.appendChild(tmp);
+            var out = "";
+            try {
+                var ch = Highcharts.chart(tmp, {
+                    chart: { type: 'line', width: w, height: h, backgroundColor: '#ffffff', spacing: [6, 4, 2, 2], style: { fontFamily: "'Segoe UI',Arial,sans-serif" } },
+                    title: { text: null }, credits: { enabled: false }, tooltip: { enabled: false },
+                    legend: showLegend ? { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', margin: 2, padding: 0, itemMarginTop: 0, itemMarginBottom: 0, itemStyle: { fontSize: '10px' } } : { enabled: false },
+                    xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
+                    yAxis: { title: { text: null }, min: 0, allowDecimals: false },
+                    plotOptions: { line: { animation: false, marker: { radius: 3 }, lineWidth: 2 }, series: { connectNulls: true } },
+                    series: series
+                });
+                out = serializeSVG(tmp.getElementsByTagName('svg')[0]);
+                ch.destroy();
+            } catch (e) {}
+            if (tmp.parentNode) tmp.parentNode.removeChild(tmp);
+            return out;
+        }
         function dashExportPeriodLabel() {
             var s = dashPeriodState(), lbl = (s && s.idx >= 0) ? s.label(s.items[s.idx]) : "";
             var g = dashFilter.gran;
@@ -3609,6 +3645,39 @@
             var html = buildDashboardNCReportHtml();
             if (html == null) { AfficherErreur("Aucune donnée à exporter. Lance une extraction NC."); return; }
             startPdfExport(html, "KPI-PERFO_NC_" + dashExportFileTag());
+        }
+        // Rapport PDF du tableau de bord OF : 4 courbes (créés/clôturés, par membre + total) en grille 2x2, paysage A4.
+        function buildDashboardOFReportHtml() {
+            var dc = document.getElementById('dashOFCharts');
+            if (!dc || dc.style.display === 'none') return null;
+            var GH = 240;   // hauteur commune des graphiques (px)
+            function chart(id, showLegend) { var s = ofLineExportSVG(id, 580, GH, showLegend); return s || "<div class='nodata'>Aucune donnée</div>"; }
+            var cCreeUser = chart('hcOFCreeUser', true), cCreeTot = chart('hcOFCreeTotal', false);
+            var cClotUser = chart('hcOFClotUser', true), cClotTot = chart('hcOFClotTotal', false);
+            var now = new Date();
+            var css = "*{box-sizing:border-box;} body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;margin:8px;font-size:11px;}"
+                + ".hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #0C447C;padding-bottom:5px;margin-bottom:8px;}"
+                + ".ttl{font-size:15px;font-weight:700;color:#0C447C;} .sub{font-size:11px;color:#475569;text-align:right;line-height:1.4;}"
+                + ".row{display:flex;align-items:stretch;margin-bottom:8px;} .cell{padding:0 4px;}"
+                + ".box{border:1px solid #e2e8f0;border-radius:6px;padding:5px 7px;height:100%;display:flex;flex-direction:column;text-align:center;}"
+                + ".secttl{font-size:12px;font-weight:700;color:#0C447C;margin-bottom:4px;text-align:left;flex:0 0 auto;}"
+                + ".content{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;}"
+                + ".ofc svg{height:" + GH + "px;width:auto;max-width:100%;}"
+                + ".nodata{color:#94a3b8;font-style:italic;padding:90px 0;}"
+                + "@page{size:A4 landscape;margin:7mm;} @media print{body{margin:0;}}";
+            function cell(w, title, content) { return "<div class='cell' style='width:" + w + "'><div class='box'><div class='secttl'>" + title + "</div><div class='content'>" + content + "</div></div></div>"; }
+            return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>KPI-PERFO_OF_" + dashExportFileTag() + "</title><style>" + css + "</style></head><body>"
+                + "<div class='hd'><div class='ttl'>KPI PERFO - Tableau de bord (Ordre de Fabrication)</div>"
+                + "<div class='sub'>" + escapeHtml(dashExportPeriodLabel()) + "<br>Généré le " + FormatDateString(now) + " " + fmtHM(now) + "</div></div>"
+                + "<div class='row'>" + cell("50%", "OF créés - Équipe ST", "<div class='ofc'>" + cCreeUser + "</div>") + cell("50%", "Total du nombre OF créés", "<div class='ofc'>" + cCreeTot + "</div>") + "</div>"
+                + "<div class='row'>" + cell("50%", "OF clôturés - Équipe IQ", "<div class='ofc'>" + cClotUser + "</div>") + cell("50%", "Total du nombre OF clôturés", "<div class='ofc'>" + cClotTot + "</div>") + "</div>"
+                + "</body></html>";
+        }
+        function ExportDashboardOF() {
+            if (pdfExporting) return;
+            var html = buildDashboardOFReportHtml();
+            if (html == null) { AfficherErreur("Aucune donnée à exporter. Lance une extraction OF."); return; }
+            startPdfExport(html, "KPI-PERFO_OF_" + dashExportFileTag());
         }
         // Tente de générer le PDF via Edge headless. Renvoie "" si lancé, sinon le motif d'échec (pour diagnostic).
         function tryDirectPdf(html, base) {
@@ -3890,6 +3959,7 @@
                     <button id="dashSubtabOF" class="subtab" onclick="ShowDashSub('OF')">Ordre de Fabrication</button>
                     <button id="dashSubtabIC" class="subtab" onclick="ShowDashSub('IC')">Intervention Card</button>
                     <button id="dashExportNC" onclick="ExportDashboardNC()" title="Exporter le tableau de bord NC en PDF" style="display:none; float:right; margin:4px 0 4px 12px; height:34px; padding:0 14px; border:none; border-radius:6px; background:#0C447C; color:#fff; font-size:13px; font-weight:600; cursor:pointer; box-sizing:border-box;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Exporter PDF</button>
+                    <button id="dashExportOF" onclick="ExportDashboardOF()" title="Exporter le tableau de bord OF en PDF" style="display:none; float:right; margin:4px 0 4px 12px; height:34px; padding:0 14px; border:none; border-radius:6px; background:#0C447C; color:#fff; font-size:13px; font-weight:600; cursor:pointer; box-sizing:border-box;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle; margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Exporter PDF</button>
                     <span id="dashFilterBar" style="float:right; margin:4px 0;"></span>
                 </div>
 
