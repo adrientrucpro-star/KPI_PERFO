@@ -1687,6 +1687,10 @@
             }
             return v;
         }
+        var PLANIF_EXCL_TEAM = ['SAFRAN', 'P59', 'FUSE', 'JLL', 'QLS', 'ST', 'RLQ'];   // valeurs de la colonne TEAM à exclure
+        var PLANIF_EXCL_PRIO = ['ANNULE', 'ADMIN'];   // valeurs de la colonne PRIO à exclure (sans accent : ANNULÉ -> ANNULE)
+        function planifNormEx(s) { return NettoyerChaine(s).toUpperCase().replace(/[ÀÂÄÁ]/g, 'A').replace(/[ÉÈÊË]/g, 'E').replace(/[ÎÏÍÌ]/g, 'I').replace(/[ÔÖÓÒ]/g, 'O').replace(/[ÛÜÙÚ]/g, 'U').replace(/Ç/g, 'C'); }
+        function planifInList(v, list) { for (var i = 0; i < list.length; i++) { if (list[i] === v) return true; } return false; }
         function ParsePlanifCSV(text) {
             var grid = parseCSVText(text, planifSniffSep(text));
             if (!grid.length) return { rows: [], found: {} };
@@ -1715,8 +1719,8 @@
             for (var r2 = hdrIdx + 1; r2 < grid.length; r2++) {
                 var ln = grid[r2]; if (!ln) continue;
                 var g = function (idx) { return (idx >= 0 && idx < ln.length) ? NettoyerChaine(ln[idx]) : ""; };
-                var team = g(iTEAM).toUpperCase();
-                if (team === 'QLS' || team === 'ST') continue;   // exclusion demandée : lignes QLS / ST
+                if (planifInList(planifNormEx(g(iTEAM)), PLANIF_EXCL_TEAM)) continue;   // exclusion par valeur TEAM
+                if (iPRIO >= 0 && planifInList(planifNormEx(g(iPRIO)), PLANIF_EXCL_PRIO)) continue;   // exclusion par valeur PRIO
                 var msnRaw = g(iMSN);
                 if (msnRaw === "" && iPRIO >= 0) { var pv = planifFmtNum(g(iPRIO)); if (/^\d{3}$/.test(pv)) msnRaw = pv; }   // MSN parfois saisi dans la colonne PRIO
                 var ofnc = planifFmtNum(g(iOF)), msn = planifFmtNum(msnRaw), sujet = g(iSUJ), statut = g(iSTA), date = planifFmtDate(g(iDAT)), vac = g(iVAC);
