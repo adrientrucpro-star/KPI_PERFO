@@ -1505,8 +1505,19 @@
             AlerteExtract(msg);
         }
         // Lecture texte : ADODB.Stream en UTF-8 (export Google Sheets), repli FSO ANSI.
+        function adodbReadText(path, charset) {
+            try { var st = new ActiveXObject("ADODB.Stream"); st.Type = 2; st.Charset = charset; st.Open(); st.LoadFromFile(path); var t = st.ReadText(); st.Close(); return t; } catch (e) { return null; }
+        }
+        // Lecture robuste : UTF-8 (Google Sheets) ou Windows-1252/ANSI (Excel FR). Si l'UTF-8 contient un caractère de
+        // remplacement (octets invalides), le fichier n'est pas de l'UTF-8 -> on relit en Windows-1252 (accents corrects).
         function readPlanifFile(path) {
-            try { var st = new ActiveXObject("ADODB.Stream"); st.Type = 2; st.Charset = "UTF-8"; st.Open(); st.LoadFromFile(path); var t = st.ReadText(); st.Close(); return t; } catch (e) {}
+            var utf8 = adodbReadText(path, "UTF-8");
+            if (utf8 != null && utf8.indexOf('�') === -1) return utf8;   // UTF-8 valide (pas de caractère de remplacement)
+            var ansi = adodbReadText(path, "Windows-1252");
+            if (ansi != null) return ansi;
+            ansi = adodbReadText(path, "iso-8859-1");
+            if (ansi != null) return ansi;
+            if (utf8 != null) return utf8;   // dernier repli
             try { var fso = new ActiveXObject("Scripting.FileSystemObject"); var ts = fso.OpenTextFile(path, 1, false, 0); var c = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close(); return c; } catch (e2) {}
             return null;
         }
