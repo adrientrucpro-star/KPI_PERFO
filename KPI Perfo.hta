@@ -1488,14 +1488,25 @@
             if (inp) { inp.value = ""; inp.click(); }   // reset -> onchange se déclenche même si on rechoisit le même fichier
         }
         function OnPlanifFileChosen(inp) {
-            var firstPath = (inp && inp.value) ? inp.value : "";   // en HTA, .value = chemin complet du 1er fichier
-            if (!firstPath) return;
-            var paths = [], files = inp.files;
-            if (files && files.length) {   // API File dispo : résout le chemin réel de chaque fichier (files[i].name = nom seul OU chemin complet selon IE)
-                var dir = firstPath.replace(/[^\\\/]*$/, "");
-                for (var f = 0; f < files.length; f++) { paths.push(planifResolvePath(dir, files[f].name || files[f].fileName || "")); }
-            }
-            if (!paths.length) paths.push(firstPath);
+            var path = (inp && inp.value) ? inp.value : "";   // en HTA, .value = chemin complet du fichier
+            if (path) ImporterPlanifFichiers([path]);
+        }
+        // Sélection d'un dossier (Shell.Application, repli sur saisie du chemin) -> importe tous les .tsv/.txt/.csv qu'il contient.
+        function ChargerPlanifDossier() {
+            var folder = "";
+            try { var sh = new ActiveXObject("Shell.Application"); var f = sh.BrowseForFolder(0, "Choisis le dossier contenant les fichiers de planification :", 0); if (f && f.Self) folder = f.Self.Path; }
+            catch (e) { folder = prompt("Colle le chemin du dossier contenant les fichiers de planification :", ""); if (folder == null) return; }
+            folder = NettoyerChaine(folder); if (!folder) return;
+            var fso; try { fso = new ActiveXObject("Scripting.FileSystemObject"); } catch (e2) { AfficherErreur("FileSystemObject indisponible."); return; }
+            if (!fso.FolderExists(folder)) { AfficherErreur("Dossier introuvable :\n" + folder); return; }
+            var paths = [];
+            try { var ef = new Enumerator(fso.GetFolder(folder).Files); for (; !ef.atEnd(); ef.moveNext()) { var fi = ef.item(); if (/\.(tsv|txt|csv)$/i.test(fi.Name)) paths.push(fi.Path); } }
+            catch (e3) { AfficherErreur("Lecture du dossier impossible : " + e3.message); return; }
+            if (!paths.length) { AfficherErreur("Aucun fichier .tsv / .txt / .csv trouvé dans ce dossier."); return; }
+            ImporterPlanifFichiers(paths);
+        }
+        // Importe une liste de fichiers (chacun = une semaine, stockée/remplacée). Sauvegarde + rendu + récap combiné une seule fois.
+        function ImporterPlanifFichiers(paths) {
             var imported = [], skipped = [], errors = [], missing = {};
             for (var p = 0; p < paths.length; p++) {
                 var nm = paths[p].replace(/^.*[\\\/]/, "");
@@ -1537,14 +1548,6 @@
             var out = [], wk = appData.planifWeeks || {};
             for (var k in wk) { if (wk.hasOwnProperty(k) && wk[k] && wk[k].rows) { for (var i = 0; i < wk[k].rows.length; i++) out.push(wk[k].rows[i]); } }
             return out;
-        }
-        // Résout le vrai chemin d'un fichier sélectionné : files[i].name peut être un nom seul ou un chemin complet (quirk IE). On teste les candidats via FileExists.
-        function planifResolvePath(dir, rawName) {
-            var fso; try { fso = new ActiveXObject("Scripting.FileSystemObject"); } catch (e) { return dir + rawName.replace(/^.*[\\\/]/, ""); }
-            var base = rawName.replace(/^.*[\\\/]/, "");
-            var cand = [rawName, dir + rawName, dir + base];
-            for (var i = 0; i < cand.length; i++) { try { if (cand[i] && fso.FileExists(cand[i])) return cand[i]; } catch (e2) {} }
-            return dir + base;   // meilleur essai
         }
         // Importe UN fichier planning dans appData.planifWeeks (sans SaveData ni rendu). Renvoie {wk, replaced, missing[]} ou {error} / {teamMissing}.
         function importOnePlanifFile(path) {
@@ -4893,8 +4896,9 @@
                                 <table style="border:none; width:100%;"><tr>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Fichier de planification</label>
-                                        <button id="btnPlanif" class="btn-toolbar" style="min-width:190px;" onclick="ChargerPlanifCSV()">Charger un fichier TSV</button>
-                                        <input type="file" id="planifFileInput" accept=".tsv,.csv,.txt" multiple style="display:none;" onchange="OnPlanifFileChosen(this)">
+                                        <button id="btnPlanif" class="btn-toolbar" style="padding:0 16px;" onclick="ChargerPlanifCSV()" title="Charger un seul fichier TSV">Fichier</button>
+                                        <button class="btn-toolbar" style="padding:0 16px; margin-left:6px;" onclick="ChargerPlanifDossier()" title="Importer tous les fichiers TSV d'un dossier">Dossier</button>
+                                        <input type="file" id="planifFileInput" accept=".tsv,.csv,.txt" style="display:none;" onchange="OnPlanifFileChosen(this)">
                                     </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; white-space:nowrap;">
                                         <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractPlanif()" title="Réinitialiser la planification (efface le fichier chargé)">Vider</button>
