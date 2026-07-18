@@ -1742,12 +1742,12 @@
             var badge = document.getElementById('planifWeekBadge');
             if (badge) { var weeks = planifWeeksSorted(); badge.title = weeks.length ? ("Semaines chargées :\n" + weeks.map(function (w) { return 'S' + w.week + ' (' + w.year + ') - ' + (w.file || '?') + ' - ' + (w.import || ''); }).join('\n')) : ''; }
         }
-        // Type de la ligne planning d'après le n° : commence par 1 -> OF, par 2 -> NC.
-        function planifTypeBadge(ofnc) {
-            var d = NettoyerChaine(ofnc).charAt(0);
-            if (d === '1') return "<span style='display:inline-block; padding:2px 9px; border-radius:10px; font-size:11px; font-weight:700; background:#E6F1FB; color:#0C447C;'>OF</span>";
-            if (d === '2') return "<span style='display:inline-block; padding:2px 9px; border-radius:10px; font-size:11px; font-weight:700; background:#fef3c7; color:#92400e;'>NC</span>";
-            return "-";
+        // Ouvre l'OF/NC du planning dans SAP PEA selon le 1er chiffre : 1 -> OF (CO03), 2 -> NC/avis (QM03).
+        function OuvrirPlanifSap(ofnc, btn) {
+            var s = NettoyerChaine(ofnc), d = s.charAt(0);
+            if (d === '1') OuvrirOFSap(s, btn);
+            else if (d === '2') OuvrirNCSap(s, btn);
+            else AfficherErreur("Numéro non reconnu (ni OF ni NC) : " + s);
         }
         function RenderPlanif() {
             extractValid.PL = true;
@@ -1777,17 +1777,18 @@
             var rows = "";
             for (var i = 0; i < data.length; i++) {
                 var r = data[i];
-                rows += "<tr><td style='text-align:center; font-weight:700;'>" + (r.ofnc ? escapeHtml(r.ofnc) : "-") + "</td>"
-                    + "<td style='text-align:center;'>" + planifTypeBadge(r.ofnc) + "</td>"
+                var eye = r.ofnc ? "<button type='button' class='btn-view' onclick=\"OuvrirPlanifSap('" + escapeHtml(r.ofnc) + "', this)\" title=\"Afficher l'OF/NC dans SAP PEA\"></button>" : "";
+                rows += "<tr><td style='text-align:center;'>" + eye + "</td>"
+                    + "<td style='text-align:center; font-weight:700;'>" + (r.ofnc ? escapeHtml(r.ofnc) : "-") + "</td>"
                     + "<td style='text-align:center;'>" + (r.msn ? escapeHtml(r.msn) : "-") + "</td>"
-                    + "<td>" + (r.sujet ? escapeHtml(r.sujet) : "-") + "</td>"
                     + "<td style='text-align:center;'>" + (r.statut ? escapeHtml(r.statut) : "-") + "</td>"
                     + "<td style='text-align:center;'>" + (r.date ? escapeHtml(r.date) : "-") + "</td>"
-                    + "<td style='text-align:center;'>" + (r.vac ? escapeHtml(r.vac) : "-") + "</td></tr>";
+                    + "<td style='text-align:center;'>" + (r.vac ? escapeHtml(r.vac) : "-") + "</td>"
+                    + "<td>" + (r.sujet ? escapeHtml(r.sujet) : "-") + "</td></tr>";
             }
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
                 + "<table class='data-table'><thead><tr>"
-                + "<th width='13%'>OF/NC</th><th width='8%'>Type</th><th width='8%'>MSN</th><th>Sujet</th><th width='13%'>Statut</th><th width='11%'>Date</th><th width='9%'>Vacation</th>"
+                + "<th width='4%'></th><th width='12%'>OF/NC</th><th width='12%'>MSN</th><th width='12%'>Statut</th><th width='12%'>Date</th><th width='12%'>Vacation</th><th>Sujet</th>"
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
         }
