@@ -578,11 +578,13 @@
             if (!appData.planif) appData.planif = [];        // Planification (combiné de toutes les semaines) : [{ofnc,msn,sujet,statut,date,vac}]
             if (!appData.planifFile) appData.planifFile = "";   // nom du dernier CSV chargé
             if (!appData.planifImport) appData.planifImport = "";
+            if (!appData.planifLastKey) appData.planifLastKey = "";   // clé de la dernière semaine importée (badge)
             if (!appData.planifWeeks) appData.planifWeeks = {};   // imports par semaine : { "AAAA-SS": {week,year,rows,file,import} }
             var pwEmpty = true; for (var pwK in appData.planifWeeks) { if (appData.planifWeeks.hasOwnProperty(pwK)) { pwEmpty = false; break; } }
             if (pwEmpty && appData.planif.length) {   // migration ancien format (planif seul) -> une entrée semaine
                 var wkMig = planifWeekKeyOf(appData.planif), keyMig = wkMig ? wkMig.key : 'import-1';
                 appData.planifWeeks[keyMig] = { week: wkMig ? wkMig.week : null, year: wkMig ? wkMig.year : null, rows: appData.planif, file: appData.planifFile, import: appData.planifImport };
+                appData.planifLastKey = keyMig;
             }
             appData.planif = planifRebuildCombined();   // combiné dérivé des semaines stockées
             if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
@@ -619,6 +621,7 @@
                 icRows: appData.icRows || [],
                 lastICImport: appData.lastICImport || "",
                 planifWeeks: appData.planifWeeks || {},
+                planifLastKey: appData.planifLastKey || "",
                 planifFile: appData.planifFile || "",
                 planifImport: appData.planifImport || "",
                 msnByAvis: appData.msnByAvis || {},
@@ -1497,6 +1500,7 @@
             appData.planifWeeks[key] = { week: wk ? wk.week : null, year: wk ? wk.year : null, rows: rows,
                 file: path.replace(/^.*[\\\/]/, ""), import: FormatDateString(new Date()) + " " + new Date().toLocaleTimeString() };
             appData.planif = planifRebuildCombined();   // combiné de toutes les semaines (tableau + tableau de bord)
+            appData.planifLastKey = key;   // dernière semaine importée (pour le badge)
             appData.planifFile = appData.planifWeeks[key].file; appData.planifImport = appData.planifWeeks[key].import;
             SaveData();
             InvalidateDash();       // le tableau de bord Planification pourra exploiter ces données
@@ -1647,10 +1651,12 @@
         }
         function PlanifMajBadge() {
             var lw = document.getElementById('lastPlanifWeek'); if (!lw) return;
-            var weeks = planifWeeksSorted();
-            lw.innerText = weeks.length ? weeks.map(function (w) { return 'S' + w.week; }).join(', ') : '-';
+            var wk = appData.planifWeeks || {};
+            var last = (appData.planifLastKey && wk[appData.planifLastKey]) ? wk[appData.planifLastKey] : null;
+            if (!last) { for (var k in wk) { if (wk.hasOwnProperty(k) && wk[k]) { last = wk[k]; } } }   // repli : dernière entrée disponible
+            lw.innerText = (last && last.week != null) ? ("Semaine " + last.week + " le " + (last.import || "")) : "-";
             var badge = document.getElementById('planifWeekBadge');
-            if (badge) badge.title = weeks.length ? weeks.map(function (w) { return 'S' + w.week + ' (' + w.year + ') - ' + (w.file || '?') + ' - ' + (w.import || ''); }).join('\n') : '';
+            if (badge) { var weeks = planifWeeksSorted(); badge.title = weeks.length ? ("Semaines chargées :\n" + weeks.map(function (w) { return 'S' + w.week + ' (' + w.year + ') - ' + (w.file || '?') + ' - ' + (w.import || ''); }).join('\n')) : ''; }
         }
         function RenderPlanif() {
             extractValid.PL = true;
@@ -1722,7 +1728,7 @@
         }
         function ResetExtractPlanif() {
             if (!confirm("Réinitialiser la Planification ?\nToutes les semaines chargées seront effacées.")) return;
-            appData.planif = []; appData.planifWeeks = {}; appData.planifFile = ""; appData.planifImport = "";
+            appData.planif = []; appData.planifWeeks = {}; appData.planifLastKey = ""; appData.planifFile = ""; appData.planifImport = "";
             SaveData(); InvalidateDash();
             RenderPlanif();
         }
@@ -4751,7 +4757,7 @@
                                         <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractPlanif()" title="Réinitialiser la planification (efface le CSV chargé)">Vider</button>
                                     </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
-                                        <span id="planifWeekBadge" style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Semaines chargées : <b id="lastPlanifWeek">-</b></span>
+                                        <span id="planifWeekBadge" style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Dernière extraction : <b id="lastPlanifWeek">-</b></span>
                                     </td>
                                 </tr></table>
                             </div>
