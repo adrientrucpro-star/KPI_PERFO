@@ -2883,6 +2883,8 @@
         var PLANIF_PROD_STATUTS = ['TFS', 'Dépose OK', 'QARJ', 'ADMIN', 'CERT'];
         var PLANIF_REALISE_COORD = ['TFS', 'Dépose OK', 'QARJ', 'CERT', 'ADMIN'];
         var PLANIF_FINIS_PROD = ['QARJ', 'CERT', 'ADMIN'];
+        var PLANIF_OBJECTIF = 80;   // objectif de taux de réalisation (%) - ligne repère sur l'histogramme
+        function planifVacKind(v) { var s = NettoyerChaine(v).toUpperCase(); if (s.indexOf('JOUR') !== -1) return 'jour'; if (s.indexOf('SOIR') !== -1) return 'soir'; return null; }
         function planifStatutNorm(s) { return NettoyerChaine(s).toUpperCase(); }
         function planifInGroup(sU, group) { for (var i = 0; i < group.length; i++) { if (planifStatutNorm(group[i]) === sU) return true; } return false; }
         function planifFilteredRows() {
@@ -2909,19 +2911,17 @@
             var ct = document.getElementById('content'); if (ct) ct.style.overflowY = 'hidden';
             SetDashCardHeight('dashRowStylePL', 'dashCardPL', 2, charts.getBoundingClientRect().top);
             var data = planifFilteredRows();
-            var coordCounts = {}, prodCounts = {}, total = data.length, realiseCoord = 0, finisProd = 0;
+            var coordCounts = {}, prodCounts = {};
             for (var i = 0; i < data.length; i++) {
                 var sU = planifStatutNorm(data[i].statut);
-                if (!sU) continue;   // (sans statut) : compté dans le total mais dans aucun camembert
+                if (!sU) continue;   // (sans statut) : dans aucun camembert
                 for (var c = 0; c < PLANIF_COORD_STATUTS.length; c++) { if (planifStatutNorm(PLANIF_COORD_STATUTS[c]) === sU) { coordCounts[PLANIF_COORD_STATUTS[c]] = (coordCounts[PLANIF_COORD_STATUTS[c]] || 0) + 1; break; } }
                 for (var p = 0; p < PLANIF_PROD_STATUTS.length; p++) { if (planifStatutNorm(PLANIF_PROD_STATUTS[p]) === sU) { prodCounts[PLANIF_PROD_STATUTS[p]] = (prodCounts[PLANIF_PROD_STATUTS[p]] || 0) + 1; break; } }
-                if (planifInGroup(sU, PLANIF_REALISE_COORD)) realiseCoord++;
-                if (planifInGroup(sU, PLANIF_FINIS_PROD)) finisProd++;
             }
             planifPie('hcPLCoordPie', PLANIF_COORD_STATUTS, coordCounts);
             planifPie('hcPLProdPie', PLANIF_PROD_STATUTS, prodCounts);
-            planifBar('hcPLCoordBar', total, realiseCoord, 'Réalisé');
-            planifBar('hcPLProdBar', total, finisProd, 'Finis');
+            planifRateChart('hcPLCoordBar', data, PLANIF_REALISE_COORD);
+            planifRateChart('hcPLProdBar', data, PLANIF_FINIS_PROD);
             ReflowDashCharts(['hcPLCoordPie', 'hcPLCoordBar', 'hcPLProdPie', 'hcPLProdBar']);
             dashValid.PL = true;
         }
@@ -2941,20 +2941,41 @@
                 });
             } catch (e) { hcErr(cont); }
         }
-        function planifBar(id, total, done, doneLabel) {
+        // Histogramme groupé par semaine : taux d'OF réalisés/finis (%) par vacation (VAC JOUR / VAC SOIR) + ligne Objectif.
+        function planifRateChart(id, rows, doneGroup) {
             var cont = document.getElementById(id); if (!cont) return;
             if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
-            var pct = total ? Math.round(done / total * 100) : 0;
+            var weeks = {};
+            for (var i = 0; i < rows.length; i++) {
+                var d = parseOFDateObj(rows[i].date); if (!d) continue;
+                var vac = planifVacKind(rows[i].vac); if (!vac) continue;   // vacation autre que Jour/Soir -> ignorée
+                var w = isoWeek(d), y = d.getFullYear(), k = y + '-' + w;
+                if (!weeks[k]) weeks[k] = { week: w, year: y, jour: { t: 0, d: 0 }, soir: { t: 0, d: 0 } };
+                var b = weeks[k][vac]; b.t++;
+                if (planifInGroup(planifStatutNorm(rows[i].statut), doneGroup)) b.d++;
+            }
+            var keys = []; for (var kk in weeks) { if (weeks.hasOwnProperty(kk)) keys.push(weeks[kk]); }
+            keys.sort(function (a, b2) { return (a.year - b2.year) || (a.week - b2.week); });
+            if (!keys.length) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
+            var cats = [], jour = [], soir = [];
+            for (var j = 0; j < keys.length; j++) {
+                var o = keys[j]; cats.push('S' + o.week);
+                jour.push(o.jour.t ? Math.round(o.jour.d / o.jour.t * 100) : 0);
+                soir.push(o.soir.t ? Math.round(o.soir.d / o.soir.t * 100) : 0);
+            }
             try {
                 hcDraw(id, {
                     chart: hcChart('column', [10, 6, 2, 6]),
-                    title: { text: null }, subtitle: { text: 'Réalisation : <b>' + pct + '%</b>', useHTML: true, style: { color: '#0C447C', fontSize: '13px' } },
-                    credits: { enabled: false }, legend: { enabled: false },
-                    xAxis: { categories: ['Planifié', doneLabel], labels: { style: { color: '#334155', fontWeight: '600', fontSize: '13px' } } },
-                    yAxis: { title: { text: null }, min: 0, allowDecimals: false },
-                    tooltip: { formatter: function () { return '<b>' + this.x + '</b> : ' + this.y + ' OF' + (this.point.index === 0 ? '' : '<br/>' + pct + '% du planifié'); } },
-                    plotOptions: { column: { animation: false, borderRadius: 3, pointPadding: 0.08, groupPadding: 0.12, dataLabels: { enabled: true, style: { fontSize: '14px', fontWeight: 'bold', color: '#334155', textOutline: 'none' } } } },
-                    series: [{ name: 'OF', data: [{ y: total, color: '#0C447C' }, { y: done, color: '#16a34a' }] }]
+                    title: { text: null }, credits: { enabled: false },
+                    legend: { enabled: true, align: 'center', verticalAlign: 'top', margin: 4, itemStyle: { fontSize: '11px', color: '#334155' } },
+                    xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600', fontSize: '12px' } } },
+                    yAxis: {
+                        title: { text: null }, min: 0, max: 100, tickInterval: 20, labels: { format: '{value}%' },
+                        plotLines: [{ value: PLANIF_OBJECTIF, color: '#94a3b8', width: 2, zIndex: 4, label: { text: 'Objectif ' + PLANIF_OBJECTIF + '%', align: 'right', x: -4, style: { color: '#64748b', fontSize: '11px' } } }]
+                    },
+                    tooltip: { formatter: function () { return '<b>' + this.series.name + '</b> - ' + this.x + '<br/>Taux : ' + this.y + '%'; } },
+                    plotOptions: { column: { animation: false, borderRadius: 2, pointPadding: 0.05, groupPadding: 0.15, dataLabels: { enabled: cats.length <= 10, format: '{y}%', style: { fontSize: '11px', fontWeight: 'bold', color: '#334155', textOutline: 'none' } } } },
+                    series: [{ name: 'VAC JOUR', color: '#4472C4', data: jour }, { name: 'VAC SOIR', color: '#ED7D31', data: soir }]
                 });
             } catch (e) { hcErr(cont); }
         }
@@ -4511,7 +4532,7 @@
                             </div>
                             <div style="display:table-cell; width:60%; padding-left:8px; vertical-align:top;">
                                 <div class="card dashCardPL">
-                                    <h3>Coordination - OF planifiés / réalisés</h3>
+                                    <h3>Coordination - Taux d'OF réalisés par vacation</h3>
                                     <div id="hcPLCoordBar" class="dashChartPL"></div>
                                 </div>
                             </div>
@@ -4525,7 +4546,7 @@
                             </div>
                             <div style="display:table-cell; width:60%; padding-left:8px; vertical-align:top;">
                                 <div class="card dashCardPL">
-                                    <h3>Production - OF planifiés / finis</h3>
+                                    <h3>Production - Taux d'OF finis par vacation</h3>
                                     <div id="hcPLProdBar" class="dashChartPL"></div>
                                 </div>
                             </div>
