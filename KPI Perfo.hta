@@ -1494,6 +1494,7 @@
             if (content == null) { AfficherErreur("Impossible de lire le fichier."); return; }
             var res = ParsePlanifCSV(content), rows = res.rows;
             if (!rows.length) { AfficherErreur("Aucune donnée exploitable (en-tête MSN / OF / VAC introuvable dans le fichier ?)."); return; }
+            if (!res.found.team) { AfficherErreur("En-tête « Team » introuvable : importation annulée.\nAjoute la colonne Team (T1/T2/T3, QLS, ST...) dans le fichier, puis réimporte."); return; }
             var wk = planifWeekKeyOf(rows), key = wk ? wk.key : ('sans-date-' + nowStamp());
             if (!appData.planifWeeks) appData.planifWeeks = {};
             var replaced = !!appData.planifWeeks[key];   // même semaine déjà importée -> on garde ce dernier extract
@@ -1505,7 +1506,7 @@
             SaveData();
             InvalidateDash();       // le tableau de bord Planification pourra exploiter ces données
             RenderPlanif();
-            PlanifReportColonnes(res.found, rows.length, wk, replaced);   // récap colonnes + semaine + avertissements
+            PlanifReportColonnes(res.found, wk, replaced);   // récap : semaine + avertissement colonnes manquantes
         }
         // Clé "AAAA-SS" de la semaine ISO dominante d'un lot de lignes (null si aucune date exploitable).
         function planifWeekKeyOf(rows) {
@@ -1524,17 +1525,14 @@
             for (var k in wk) { if (wk.hasOwnProperty(k) && wk[k] && wk[k].rows) { for (var i = 0; i < wk[k].rows.length; i++) out.push(wk[k].rows[i]); } }
             return out;
         }
-        // Récapitulatif à l'import : liste les colonnes reconnues par en-tête et avertit si un intitulé attendu est introuvable.
-        function PlanifReportColonnes(found, nb, wk, replaced) {
+        // Récapitulatif à l'import : semaine importée + avertissement si une colonne d'affichage est introuvable (Team traité en amont).
+        function PlanifReportColonnes(found, wk, replaced) {
             found = found || {};
             var disp = [['of', 'OF/NC'], ['msn', 'MSN'], ['sujet', 'Sujet'], ['statut', 'Statut'], ['date', 'Date'], ['vac', 'Vacation']];
-            var ok = [], miss = [];
-            for (var i = 0; i < disp.length; i++) { if (found[disp[i][0]]) ok.push(disp[i][1]); else miss.push(disp[i][1]); }
-            if (found.team) ok.push('Team');
-            var head = wk ? ("Semaine " + wk.week + " - " + wk.year + (replaced ? " (import précédent remplacé)" : "") + " : ") : "";
-            var msg = head + nb + " ligne" + (nb > 1 ? "s" : "") + " chargée" + (nb > 1 ? "s" : "") + ".\n\nColonnes reconnues par en-tête : " + (ok.length ? ok.join(", ") : "aucune") + ".";
+            var miss = [];
+            for (var i = 0; i < disp.length; i++) { if (!found[disp[i][0]]) miss.push(disp[i][1]); }
+            var msg = wk ? ("Semaine " + wk.week + " - " + wk.year + (replaced ? " (import précédent remplacé)" : "") + " importée.") : "Import terminé.";
             if (miss.length) msg += "\n\n⚠ En-tête introuvable : " + miss.join(", ") + " - ces colonnes resteront vides. Vérifie les intitulés dans le fichier.";
-            if (!found.team) msg += "\n\n⚠ En-tête « Team » introuvable : l'exclusion QLS / ST est appliquée par position (colonne juste avant PRIO). Vérifie l'intitulé.";
             AlerteExtract(msg);
         }
         // Lecture texte : ADODB.Stream en UTF-8 (export Google Sheets), repli FSO ANSI.
