@@ -1541,16 +1541,44 @@
         function adodbReadText(path, charset) {
             try { var st = new ActiveXObject("ADODB.Stream"); st.Type = 2; st.Charset = charset; st.Open(); st.LoadFromFile(path); var t = st.ReadText(); st.Close(); return t; } catch (e) { return null; }
         }
-        // Lecture robuste : UTF-8 (Google Sheets) ou Windows-1252/ANSI (Excel FR). Si l'UTF-8 contient un caractère de
-        // remplacement (octets invalides), le fichier n'est pas de l'UTF-8 -> on relit en Windows-1252 (accents corrects).
+        // Lit les octets bruts du fichier (tableau de valeurs 0-255) via ADODB.Stream binaire.
+        function planifReadBytes(path) {
+            try {
+                var st = new ActiveXObject("ADODB.Stream");
+                st.Type = 1; st.Open(); st.LoadFromFile(path);
+                var data = st.Read(); st.Close();
+                return new VBArray(data).toArray();
+            } catch (e) { return null; }
+        }
+        // Vrai si la séquence d'octets est de l'UTF-8 valide contenant au moins un caractère multi-octets (ou un BOM UTF-8).
+        function planifBytesAreUTF8(b) {
+            var i = 0, n = b.length, multi = false;
+            if (n >= 3 && b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return true;   // BOM UTF-8
+            while (i < n) {
+                var c = b[i];
+                if (c < 0x80) { i++; continue; }
+                var need;
+                if (c >= 0xC2 && c <= 0xDF) need = 1;
+                else if (c >= 0xE0 && c <= 0xEF) need = 2;
+                else if (c >= 0xF0 && c <= 0xF4) need = 3;
+                else return false;   // octet de tête invalide (0x80-0xBF isolé, 0xC0-0xC1, 0xF5-0xFF)
+                for (var j = 1; j <= need; j++) { if (i + j >= n) return false; var cc = b[i + j]; if (cc < 0x80 || cc > 0xBF) return false; }
+                multi = true; i += need + 1;
+            }
+            return multi;
+        }
+        // Lecture robuste : détecte l'encodage sur les octets (UTF-8 vs Windows-1252/ANSI Excel FR) puis lit avec le bon charset.
         function readPlanifFile(path) {
-            var utf8 = adodbReadText(path, "UTF-8");
-            if (utf8 != null && utf8.indexOf('�') === -1) return utf8;   // UTF-8 valide (pas de caractère de remplacement)
+            var bytes = planifReadBytes(path);
+            if (bytes != null && bytes.length) {
+                var t = adodbReadText(path, planifBytesAreUTF8(bytes) ? "UTF-8" : "Windows-1252");
+                if (t != null) return t;
+            }
+            var utf8 = adodbReadText(path, "UTF-8");   // replis si la détection octet a échoué
+            if (utf8 != null && utf8.indexOf('�') === -1) return utf8;
             var ansi = adodbReadText(path, "Windows-1252");
             if (ansi != null) return ansi;
-            ansi = adodbReadText(path, "iso-8859-1");
-            if (ansi != null) return ansi;
-            if (utf8 != null) return utf8;   // dernier repli
+            if (utf8 != null) return utf8;
             try { var fso = new ActiveXObject("Scripting.FileSystemObject"); var ts = fso.OpenTextFile(path, 1, false, 0); var c = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close(); return c; } catch (e2) {}
             return null;
         }
