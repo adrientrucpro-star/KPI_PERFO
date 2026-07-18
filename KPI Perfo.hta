@@ -1491,9 +1491,9 @@
             var path = (inp && inp.value) ? inp.value : "";   // en HTA, .value = chemin complet du fichier choisi
             if (!path) return;
             var content = readPlanifFile(path);
-            if (content == null) { AfficherErreur("Impossible de lire le fichier CSV."); return; }
+            if (content == null) { AfficherErreur("Impossible de lire le fichier."); return; }
             var res = ParsePlanifCSV(content), rows = res.rows;
-            if (!rows.length) { AfficherErreur("Aucune donnée exploitable (en-tête MSN / OF / VAC introuvable dans le CSV ?)."); return; }
+            if (!rows.length) { AfficherErreur("Aucune donnée exploitable (en-tête MSN / OF / VAC introuvable dans le fichier ?)."); return; }
             var wk = planifWeekKeyOf(rows), key = wk ? wk.key : ('sans-date-' + nowStamp());
             if (!appData.planifWeeks) appData.planifWeeks = {};
             var replaced = !!appData.planifWeeks[key];   // même semaine déjà importée -> on garde ce dernier extract
@@ -1692,7 +1692,7 @@
             var cont = document.getElementById('planifTable'); if (!cont) return;
             var all = appData.planif || [], totalRows = all.length;
             if (!totalRows) {
-                showEmptyExtract('planifTable', "Aucun fichier chargé", "Clique sur « Charger un fichier CSV » pour importer le planning de la semaine.");
+                showEmptyExtract('planifTable', "Aucun fichier chargé", "Clique sur « Charger un fichier TSV » pour importer le planning de la semaine.");
                 return;
             }
             var fE1 = document.getElementById('planifFiltreDateDebut'), fE2 = document.getElementById('planifFiltreDateFin'), fER = document.getElementById('planifFiltreRecherche');
@@ -4562,7 +4562,7 @@
                                     </span>
                                 </div>
                                 <div style="font-size:17px; font-weight:700; color:#334155; margin-bottom:8px;">Aucune planification chargée</div>
-                                <div style="font-size:14px; color:#64748b; margin-bottom:22px;">Importe le CSV hebdomadaire depuis <b>Extraction &rsaquo; Planification</b> pour afficher les graphiques.</div>
+                                <div style="font-size:14px; color:#64748b; margin-bottom:22px;">Importe le TSV hebdomadaire depuis <b>Extraction &rsaquo; Planification</b> pour afficher les graphiques.</div>
                                 <button class="btn-toolbar" onclick="ShowPage('pageAnalyse'); ShowExtractSub('PL');">Aller à la planification</button>
                             </div>
                         </div>
@@ -4778,11 +4778,11 @@
                                 <table style="border:none; width:100%;"><tr>
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Fichier de planification</label>
-                                        <button id="btnPlanif" class="btn-toolbar" style="min-width:190px;" onclick="ChargerPlanifCSV()">Charger un fichier CSV</button>
-                                        <input type="file" id="planifFileInput" accept=".csv" style="display:none;" onchange="OnPlanifFileChosen(this)">
+                                        <button id="btnPlanif" class="btn-toolbar" style="min-width:190px;" onclick="ChargerPlanifCSV()">Charger un fichier TSV</button>
+                                        <input type="file" id="planifFileInput" accept=".tsv,.csv,.txt" style="display:none;" onchange="OnPlanifFileChosen(this)">
                                     </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; white-space:nowrap;">
-                                        <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractPlanif()" title="Réinitialiser la planification (efface le CSV chargé)">Vider</button>
+                                        <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractPlanif()" title="Réinitialiser la planification (efface le fichier chargé)">Vider</button>
                                     </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
                                         <span id="planifWeekBadge" style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Dernière extraction : <b id="lastPlanifWeek">-</b></span>
@@ -4816,7 +4816,7 @@
                             </div>
                         </div>
                     </div>
-                    <div id="planifTable"><div class="msg-box msg-info">Aucun fichier chargé. Clique sur « Charger un fichier CSV » pour importer le planning de la semaine.</div></div>
+                    <div id="planifTable"><div class="msg-box msg-info">Aucun fichier chargé. Clique sur « Charger un fichier TSV » pour importer le planning de la semaine.</div></div>
                 </div><!-- /extractSubPL -->
             </div>
 
