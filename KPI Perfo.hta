@@ -2945,23 +2945,33 @@
         function planifRateChart(id, rows, doneGroup) {
             var cont = document.getElementById(id); if (!cont) return;
             if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
-            var weeks = {};
+            var msnMode = (dashFilter.gran === 'msn'), mode = granBucketMode();   // Année->mois, Mois->semaine, Semaine->jour, MSN->par MSN
+            var buckets = {}, presentSet = {};
             for (var i = 0; i < rows.length; i++) {
-                var d = parseOFDateObj(rows[i].date); if (!d) continue;
                 var vac = planifVacKind(rows[i].vac); if (!vac) continue;   // vacation autre que Jour/Soir -> ignorée
-                var w = isoWeek(d), y = d.getFullYear(), k = y + '-' + w;
-                if (!weeks[k]) weeks[k] = { week: w, year: y, jour: { t: 0, d: 0 }, soir: { t: 0, d: 0 } };
-                var b = weeks[k][vac]; b.t++;
-                if (planifInGroup(planifStatutNorm(rows[i].statut), doneGroup)) b.d++;
+                var key;
+                if (msnMode) { key = msnBucketKey(rows[i].msn); }
+                else { var d = parseOFDateObj(rows[i].date); if (!d) continue; key = bucketTsForMode(d, mode); }
+                presentSet[key] = true;
+                if (!buckets[key]) buckets[key] = { jour: { t: 0, d: 0 }, soir: { t: 0, d: 0 } };
+                var bk = buckets[key][vac]; bk.t++;
+                if (planifInGroup(planifStatutNorm(rows[i].statut), doneGroup)) bk.d++;
             }
-            var keys = []; for (var kk in weeks) { if (weeks.hasOwnProperty(kk)) keys.push(weeks[kk]); }
-            keys.sort(function (a, b2) { return (a.year - b2.year) || (a.week - b2.week); });
+            var keys, labeler;
+            if (msnMode) {
+                keys = []; for (var w in presentSet) { if (presentSet.hasOwnProperty(w)) keys.push(w); } msnSortKeys(keys);
+                labeler = function (k) { return (k === '-') ? 'Sans MSN' : k; };
+            } else {
+                keys = bucketKeysForMode(mode, presentSet);
+                labeler = function (k) { return bucketLabelForMode(k, mode); };
+            }
             if (!keys.length) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
             var cats = [], jour = [], soir = [];
             for (var j = 0; j < keys.length; j++) {
-                var o = keys[j]; cats.push('S' + o.week);
-                jour.push(o.jour.t ? Math.round(o.jour.d / o.jour.t * 100) : 0);
-                soir.push(o.soir.t ? Math.round(o.soir.d / o.soir.t * 100) : 0);
+                var kb = keys[j], bb = buckets[kb];
+                cats.push(labeler(kb));
+                jour.push((bb && bb.jour.t) ? Math.round(bb.jour.d / bb.jour.t * 100) : 0);
+                soir.push((bb && bb.soir.t) ? Math.round(bb.soir.d / bb.soir.t * 100) : 0);
             }
             try {
                 hcDraw(id, {
