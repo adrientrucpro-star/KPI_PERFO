@@ -575,9 +575,16 @@
             if (!appData.lastOFImport) appData.lastOFImport = "";   // date/heure de la dernière extraction OF
             if (!appData.icRows) appData.icRows = [];        // Interventions Cards : [{ic,user,dfa,hfa,dc,hc}]
             if (!appData.lastICImport) appData.lastICImport = "";
-            if (!appData.planif) appData.planif = [];        // Planification (CSV hebdo) : [{ofnc,msn,sujet,statut,date,vac}]
+            if (!appData.planif) appData.planif = [];        // Planification (combiné de toutes les semaines) : [{ofnc,msn,sujet,statut,date,vac}]
             if (!appData.planifFile) appData.planifFile = "";   // nom du dernier CSV chargé
             if (!appData.planifImport) appData.planifImport = "";
+            if (!appData.planifWeeks) appData.planifWeeks = {};   // imports par semaine : { "AAAA-SS": {week,year,rows,file,import} }
+            var pwEmpty = true; for (var pwK in appData.planifWeeks) { if (appData.planifWeeks.hasOwnProperty(pwK)) { pwEmpty = false; break; } }
+            if (pwEmpty && appData.planif.length) {   // migration ancien format (planif seul) -> une entrée semaine
+                var wkMig = planifWeekKeyOf(appData.planif), keyMig = wkMig ? wkMig.key : 'import-1';
+                appData.planifWeeks[keyMig] = { week: wkMig ? wkMig.week : null, year: wkMig ? wkMig.year : null, rows: appData.planif, file: appData.planifFile, import: appData.planifImport };
+            }
+            appData.planif = planifRebuildCombined();   // combiné dérivé des semaines stockées
             if (!appData.cfg) appData.cfg = {};             // réglages éditables (codes SAP)
             if (!NettoyerChaine(appData.cfg.clot)) appData.cfg.clot = CLOTURE_CODE;
             if (!NettoyerChaine(appData.cfg.dec)) appData.cfg.dec = DECISION_CODE;
@@ -611,7 +618,7 @@
                 lastOFImport: appData.lastOFImport || "",
                 icRows: appData.icRows || [],
                 lastICImport: appData.lastICImport || "",
-                planif: appData.planif || [],
+                planifWeeks: appData.planifWeeks || {},
                 planifFile: appData.planifFile || "",
                 planifImport: appData.planifImport || "",
                 msnByAvis: appData.msnByAvis || {},
@@ -1484,22 +1491,44 @@
             if (content == null) { AfficherErreur("Impossible de lire le fichier CSV."); return; }
             var res = ParsePlanifCSV(content), rows = res.rows;
             if (!rows.length) { AfficherErreur("Aucune donnée exploitable (en-tête MSN / OF / VAC introuvable dans le CSV ?)."); return; }
-            appData.planif = rows;
-            appData.planifFile = path.replace(/^.*[\\\/]/, "");   // nom de fichier seul
-            appData.planifImport = FormatDateString(new Date()) + " " + new Date().toLocaleTimeString();
+            var wk = planifWeekKeyOf(rows), key = wk ? wk.key : ('sans-date-' + nowStamp());
+            if (!appData.planifWeeks) appData.planifWeeks = {};
+            var replaced = !!appData.planifWeeks[key];   // même semaine déjà importée -> on garde ce dernier extract
+            appData.planifWeeks[key] = { week: wk ? wk.week : null, year: wk ? wk.year : null, rows: rows,
+                file: path.replace(/^.*[\\\/]/, ""), import: FormatDateString(new Date()) + " " + new Date().toLocaleTimeString() };
+            appData.planif = planifRebuildCombined();   // combiné de toutes les semaines (tableau + tableau de bord)
+            appData.planifFile = appData.planifWeeks[key].file; appData.planifImport = appData.planifWeeks[key].import;
             SaveData();
             InvalidateDash();       // le tableau de bord Planification pourra exploiter ces données
             RenderPlanif();
-            PlanifReportColonnes(res.found, rows.length);   // récap colonnes + avertissement en-têtes manquants
+            PlanifReportColonnes(res.found, rows.length, wk, replaced);   // récap colonnes + semaine + avertissements
+        }
+        // Clé "AAAA-SS" de la semaine ISO dominante d'un lot de lignes (null si aucune date exploitable).
+        function planifWeekKeyOf(rows) {
+            var counts = {}, best = null, bn = 0;
+            for (var i = 0; i < rows.length; i++) {
+                var d = parseOFDateObj(rows[i].date); if (!d) continue;
+                var w = isoWeek(d), y = d.getFullYear(), k = y + "-" + w;
+                counts[k] = (counts[k] || 0) + 1;
+                if (counts[k] > bn) { bn = counts[k]; best = { week: w, year: y, key: k }; }
+            }
+            return best;
+        }
+        // Concatène les lignes de toutes les semaines stockées (source unique pour le tableau et le tableau de bord).
+        function planifRebuildCombined() {
+            var out = [], wk = appData.planifWeeks || {};
+            for (var k in wk) { if (wk.hasOwnProperty(k) && wk[k] && wk[k].rows) { for (var i = 0; i < wk[k].rows.length; i++) out.push(wk[k].rows[i]); } }
+            return out;
         }
         // Récapitulatif à l'import : liste les colonnes reconnues par en-tête et avertit si un intitulé attendu est introuvable.
-        function PlanifReportColonnes(found, nb) {
+        function PlanifReportColonnes(found, nb, wk, replaced) {
             found = found || {};
             var disp = [['of', 'OF/NC'], ['msn', 'MSN'], ['sujet', 'Sujet'], ['statut', 'Statut'], ['date', 'Date'], ['vac', 'Vacation']];
             var ok = [], miss = [];
             for (var i = 0; i < disp.length; i++) { if (found[disp[i][0]]) ok.push(disp[i][1]); else miss.push(disp[i][1]); }
             if (found.team) ok.push('Team');
-            var msg = nb + " ligne" + (nb > 1 ? "s" : "") + " chargée" + (nb > 1 ? "s" : "") + ".\n\nColonnes reconnues par en-tête : " + (ok.length ? ok.join(", ") : "aucune") + ".";
+            var head = wk ? ("Semaine " + wk.week + " - " + wk.year + (replaced ? " (import précédent remplacé)" : "") + " : ") : "";
+            var msg = head + nb + " ligne" + (nb > 1 ? "s" : "") + " chargée" + (nb > 1 ? "s" : "") + ".\n\nColonnes reconnues par en-tête : " + (ok.length ? ok.join(", ") : "aucune") + ".";
             if (miss.length) msg += "\n\n⚠ En-tête introuvable : " + miss.join(", ") + " - ces colonnes resteront vides. Vérifie les intitulés dans le fichier.";
             if (!found.team) msg += "\n\n⚠ En-tête « Team » introuvable : l'exclusion QLS / ST est appliquée par position (colonne juste avant PRIO). Vérifie l'intitulé.";
             AlerteExtract(msg);
@@ -1610,22 +1639,18 @@
             }
             return { rows: out, found: found };
         }
-        // Semaine ISO dominante des dates du planning chargé (badge "Dernière semaine extraite").
-        function planifDominantWeek() {
-            var data = appData.planif || [], counts = {}, best = null, bestN = 0;
-            for (var i = 0; i < data.length; i++) {
-                var d = parseOFDateObj(data[i].date); if (!d) continue;
-                var w = isoWeek(d), y = d.getFullYear(), key = y + "-" + w;
-                counts[key] = (counts[key] || 0) + 1;
-                if (counts[key] > bestN) { bestN = counts[key]; best = { week: w, year: y }; }
-            }
-            return best;
+        function planifWeeksSorted() {
+            var wk = appData.planifWeeks || {}, out = [];
+            for (var k in wk) { if (wk.hasOwnProperty(k) && wk[k] && wk[k].week != null) out.push(wk[k]); }
+            out.sort(function (a, b) { return (a.year - b.year) || (a.week - b.week); });
+            return out;
         }
         function PlanifMajBadge() {
             var lw = document.getElementById('lastPlanifWeek'); if (!lw) return;
-            var n = (appData.planif || []).length, wk = planifDominantWeek();
-            lw.innerText = n ? (wk ? ("Semaine " + wk.week + " - " + wk.year) : "?") : "-";
-            var badge = document.getElementById('planifWeekBadge'); if (badge) badge.title = appData.planifFile ? ("Fichier : " + appData.planifFile) : "";
+            var weeks = planifWeeksSorted();
+            lw.innerText = weeks.length ? weeks.map(function (w) { return 'S' + w.week; }).join(', ') : '-';
+            var badge = document.getElementById('planifWeekBadge');
+            if (badge) badge.title = weeks.length ? weeks.map(function (w) { return 'S' + w.week + ' (' + w.year + ') - ' + (w.file || '?') + ' - ' + (w.import || ''); }).join('\n') : '';
         }
         function RenderPlanif() {
             extractValid.PL = true;
@@ -1696,8 +1721,8 @@
             RenderICTable(); UpdateExtractButtons();
         }
         function ResetExtractPlanif() {
-            if (!confirm("Réinitialiser la Planification ?\nLe planning chargé sera effacé.")) return;
-            appData.planif = []; appData.planifFile = ""; appData.planifImport = "";
+            if (!confirm("Réinitialiser la Planification ?\nToutes les semaines chargées seront effacées.")) return;
+            appData.planif = []; appData.planifWeeks = {}; appData.planifFile = ""; appData.planifImport = "";
             SaveData(); InvalidateDash();
             RenderPlanif();
         }
@@ -4694,7 +4719,7 @@
                                         <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractPlanif()" title="Réinitialiser la planification (efface le CSV chargé)">Vider</button>
                                     </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; width:100%;">
-                                        <span id="planifWeekBadge" style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Dernière semaine extraite : <b id="lastPlanifWeek">-</b></span>
+                                        <span id="planifWeekBadge" style="display:block; width:100%; padding:0 12px; height:38px; line-height:36px; border:1px solid #86efac; border-radius:6px; background:#dcfce3; color:#166534; font-size:13px; box-sizing:border-box; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Semaines chargées : <b id="lastPlanifWeek">-</b></span>
                                     </td>
                                 </tr></table>
                             </div>
