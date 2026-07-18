@@ -1541,14 +1541,28 @@
         function adodbReadText(path, charset) {
             try { var st = new ActiveXObject("ADODB.Stream"); st.Type = 2; st.Charset = charset; st.Open(); st.LoadFromFile(path); var t = st.ReadText(); st.Close(); return t; } catch (e) { return null; }
         }
-        // Lit les octets bruts du fichier (tableau de valeurs 0-255) via ADODB.Stream binaire.
+        // Lit les octets bruts du fichier (tableau de valeurs 0-255). Méthode 1 : ADODB binaire + VBArray. Méthode 2 : lecture Latin-1 (charCodeAt = octet).
         function planifReadBytes(path) {
             try {
                 var st = new ActiveXObject("ADODB.Stream");
                 st.Type = 1; st.Open(); st.LoadFromFile(path);
                 var data = st.Read(); st.Close();
-                return new VBArray(data).toArray();
-            } catch (e) { return null; }
+                var arr = new VBArray(data).toArray();
+                if (arr && arr.length) return arr;
+            } catch (e) {}
+            try {
+                var bin = adodbReadText(path, "iso-8859-1");
+                if (bin != null) { var out = []; for (var i = 0; i < bin.length; i++) out.push(bin.charCodeAt(i) & 0xFF); return out; }
+            } catch (e2) {}
+            return null;
+        }
+        // Encodage détecté sur les octets : UTF-16 LE/BE (BOM), UTF-8 (BOM ou séquences valides), sinon Windows-1252 (ANSI Excel FR).
+        function planifDetectCharset(b) {
+            var n = b.length;
+            if (n >= 2 && b[0] === 0xFF && b[1] === 0xFE) return "unicode";        // UTF-16 LE (Excel « Texte Unicode »)
+            if (n >= 2 && b[0] === 0xFE && b[1] === 0xFF) return "unicodeFFFE";    // UTF-16 BE
+            if (planifBytesAreUTF8(b)) return "utf-8";
+            return "windows-1252";
         }
         // Vrai si la séquence d'octets est de l'UTF-8 valide contenant au moins un caractère multi-octets (ou un BOM UTF-8).
         function planifBytesAreUTF8(b) {
@@ -1567,11 +1581,13 @@
             }
             return multi;
         }
-        // Lecture robuste : détecte l'encodage sur les octets (UTF-8 vs Windows-1252/ANSI Excel FR) puis lit avec le bon charset.
+        // Lecture robuste : détecte l'encodage sur les octets (UTF-16, UTF-8, Windows-1252) puis lit avec le bon charset.
         function readPlanifFile(path) {
             var bytes = planifReadBytes(path);
             if (bytes != null && bytes.length) {
-                var t = adodbReadText(path, planifBytesAreUTF8(bytes) ? "UTF-8" : "Windows-1252");
+                var cs = planifDetectCharset(bytes);
+                var t = adodbReadText(path, cs);
+                if (t == null && cs === "unicode") t = adodbReadText(path, "utf-16");   // nom alternatif UTF-16 LE
                 if (t != null) return t;
             }
             var utf8 = adodbReadText(path, "UTF-8");   // replis si la détection octet a échoué
