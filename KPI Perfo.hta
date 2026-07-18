@@ -1491,10 +1491,11 @@
             var firstPath = (inp && inp.value) ? inp.value : "";   // en HTA, .value = chemin complet du 1er fichier
             if (!firstPath) return;
             var paths = [], files = inp.files;
-            if (files && files.length > 1) {   // sélection multiple : même dossier -> dossier commun + nom de chaque fichier
+            if (files && files.length) {   // API File dispo : résout le chemin réel de chaque fichier (files[i].name = nom seul OU chemin complet selon IE)
                 var dir = firstPath.replace(/[^\\\/]*$/, "");
-                for (var f = 0; f < files.length; f++) { paths.push(dir + (files[f].name || files[f].fileName || "")); }
-            } else { paths.push(firstPath); }
+                for (var f = 0; f < files.length; f++) { paths.push(planifResolvePath(dir, files[f].name || files[f].fileName || "")); }
+            }
+            if (!paths.length) paths.push(firstPath);
             var imported = [], skipped = [], errors = [], missing = {};
             for (var p = 0; p < paths.length; p++) {
                 var nm = paths[p].replace(/^.*[\\\/]/, "");
@@ -1536,6 +1537,14 @@
             var out = [], wk = appData.planifWeeks || {};
             for (var k in wk) { if (wk.hasOwnProperty(k) && wk[k] && wk[k].rows) { for (var i = 0; i < wk[k].rows.length; i++) out.push(wk[k].rows[i]); } }
             return out;
+        }
+        // Résout le vrai chemin d'un fichier sélectionné : files[i].name peut être un nom seul ou un chemin complet (quirk IE). On teste les candidats via FileExists.
+        function planifResolvePath(dir, rawName) {
+            var fso; try { fso = new ActiveXObject("Scripting.FileSystemObject"); } catch (e) { return dir + rawName.replace(/^.*[\\\/]/, ""); }
+            var base = rawName.replace(/^.*[\\\/]/, "");
+            var cand = [rawName, dir + rawName, dir + base];
+            for (var i = 0; i < cand.length; i++) { try { if (cand[i] && fso.FileExists(cand[i])) return cand[i]; } catch (e2) {} }
+            return dir + base;   // meilleur essai
         }
         // Importe UN fichier planning dans appData.planifWeeks (sans SaveData ni rendu). Renvoie {wk, replaced, missing[]} ou {error} / {teamMissing}.
         function importOnePlanifFile(path) {
