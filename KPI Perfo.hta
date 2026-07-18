@@ -2566,6 +2566,7 @@
         function hcChart(type, spacing) { return { type: type, backgroundColor: 'transparent', spacing: spacing, style: { fontFamily: 'inherit' } }; }
         function hcErr(c) { if (c) c.innerHTML = "<div class='msg-box msg-error'>Erreur graphique.</div>"; }
         window.hcRefs = window.hcRefs || {};
+        if (typeof Highcharts !== 'undefined') { try { Highcharts.setOptions({ legend: { verticalAlign: 'top' } }); } catch (e) {} }   // légende en haut par défaut sur tous les graphiques
         function hcDraw(id, config) {
             var el = document.getElementById(id);
             if (!el) return null;
@@ -2600,7 +2601,7 @@
                     chart: hcChart('line', [6, 2, 0, 2]),
                     title: { text: null },
                     credits: { enabled: false },
-                    legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemStyle: { fontSize: '12px' }, margin: 4, padding: 4, itemMarginTop: 0, itemMarginBottom: 0 },
+                    legend: { enabled: true, align: 'center', verticalAlign: 'top', layout: 'horizontal', itemStyle: { fontSize: '12px' }, margin: 4, padding: 4, itemMarginTop: 0, itemMarginBottom: 0 },
                     xAxis: { categories: cats, labels: { style: { color: '#334155', fontWeight: '600' } } },
                     yAxis: {
                         title: { text: null }, min: 0, tickInterval: 5,
@@ -2935,7 +2936,7 @@
                     chart: hcChart('pie', [4, 2, 4, 2]),
                     title: { text: null }, credits: { enabled: false }, colors: PIE_COLORS,
                     tooltip: { formatter: function () { return '<b>' + this.point.name + '</b><br/>' + this.point.y + ' OF · ' + Highcharts.numberFormat(this.percentage, 0) + '%'; } },
-                    legend: { enabled: true, align: 'center', verticalAlign: 'bottom', layout: 'horizontal', itemStyle: { fontSize: '11px', color: '#334155', fontWeight: 'normal' } },
+                    legend: { enabled: true, align: 'center', verticalAlign: 'top', layout: 'horizontal', itemStyle: { fontSize: '11px', color: '#334155', fontWeight: 'normal' } },
                     plotOptions: { pie: { animation: false, showInLegend: true, size: '80%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -20, style: { color: '#ffffff', fontSize: '11px', fontWeight: 'bold', textOutline: 'none' } } } },
                     series: [{ name: 'Statut', data: data }]
                 });
