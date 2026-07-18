@@ -1488,25 +1488,37 @@
             if (inp) { inp.value = ""; inp.click(); }   // reset -> onchange se déclenche même si on rechoisit le même fichier
         }
         function OnPlanifFileChosen(inp) {
-            var path = (inp && inp.value) ? inp.value : "";   // en HTA, .value = chemin complet du fichier choisi
-            if (!path) return;
-            var content = readPlanifFile(path);
-            if (content == null) { AfficherErreur("Impossible de lire le fichier."); return; }
-            var res = ParsePlanifCSV(content), rows = res.rows;
-            if (!rows.length) { AfficherErreur("Aucune donnée exploitable (en-tête MSN / OF / VAC introuvable dans le fichier ?)."); return; }
-            if (!res.found.team) { AfficherErreur("En-tête « Team » introuvable : importation annulée.\nAjoute la colonne Team (T1/T2/T3, QLS, ST...) dans le fichier, puis réimporte."); return; }
-            var wk = planifWeekKeyOf(rows), key = wk ? wk.key : ('sans-date-' + nowStamp());
-            if (!appData.planifWeeks) appData.planifWeeks = {};
-            var replaced = !!appData.planifWeeks[key];   // même semaine déjà importée -> on garde ce dernier extract
-            appData.planifWeeks[key] = { week: wk ? wk.week : null, year: wk ? wk.year : null, rows: rows,
-                file: path.replace(/^.*[\\\/]/, ""), import: FormatDateString(new Date()) + " " + new Date().toLocaleTimeString() };
-            appData.planif = planifRebuildCombined();   // combiné de toutes les semaines (tableau + tableau de bord)
-            appData.planifLastKey = key;   // dernière semaine importée (pour le badge)
-            appData.planifFile = appData.planifWeeks[key].file; appData.planifImport = appData.planifWeeks[key].import;
-            SaveData();
-            InvalidateDash();       // le tableau de bord Planification pourra exploiter ces données
-            RenderPlanif();
-            PlanifReportColonnes(res.found, wk, replaced);   // récap : semaine + avertissement colonnes manquantes
+            var firstPath = (inp && inp.value) ? inp.value : "";   // en HTA, .value = chemin complet du 1er fichier
+            if (!firstPath) return;
+            var paths = [], files = inp.files;
+            if (files && files.length > 1) {   // sélection multiple : même dossier -> dossier commun + nom de chaque fichier
+                var dir = firstPath.replace(/[^\\\/]*$/, "");
+                for (var f = 0; f < files.length; f++) { paths.push(dir + (files[f].name || files[f].fileName || "")); }
+            } else { paths.push(firstPath); }
+            var imported = [], skipped = [], errors = [], missing = {};
+            for (var p = 0; p < paths.length; p++) {
+                var nm = paths[p].replace(/^.*[\\\/]/, "");
+                var r = importOnePlanifFile(paths[p]);
+                if (r.error) errors.push(nm + " (" + r.error + ")");
+                else if (r.teamMissing) skipped.push(nm);
+                else { imported.push(r.wk); for (var m = 0; m < r.missing.length; m++) missing[r.missing[m]] = true; }
+            }
+            if (imported.length) {
+                appData.planif = planifRebuildCombined();
+                if (appData.planifLastKey && appData.planifWeeks[appData.planifLastKey]) { appData.planifFile = appData.planifWeeks[appData.planifLastKey].file; appData.planifImport = appData.planifWeeks[appData.planifLastKey].import; }
+                SaveData(); InvalidateDash(); RenderPlanif();
+            }
+            var lines = [];
+            if (imported.length) {
+                var ws = []; for (var i2 = 0; i2 < imported.length; i2++) { if (imported[i2] && imported[i2].week != null) ws.push('S' + imported[i2].week); }
+                lines.push(imported.length + " semaine" + (imported.length > 1 ? "s" : "") + " importée" + (imported.length > 1 ? "s" : "") + (ws.length ? " : " + ws.join(", ") : "") + ".");
+            }
+            var order = ['OF/NC', 'MSN', 'Sujet', 'Statut', 'Date', 'Vacation'], missList = [];
+            for (var d = 0; d < order.length; d++) { if (missing[order[d]]) missList.push(order[d]); }
+            if (missList.length) lines.push("⚠ En-tête introuvable : " + missList.join(", ") + " - colonnes vides. Vérifie les intitulés.");
+            if (skipped.length) lines.push("⚠ Ignoré" + (skipped.length > 1 ? "s" : "") + " (en-tête Team manquant) : " + skipped.join(", ") + ".");
+            if (errors.length) lines.push("⚠ Erreur" + (errors.length > 1 ? "s" : "") + " : " + errors.join(", ") + ".");
+            AlerteExtract(lines.length ? lines.join("\n\n") : "Aucun fichier importé.");
         }
         // Clé "AAAA-SS" de la semaine ISO dominante d'un lot de lignes (null si aucune date exploitable).
         function planifWeekKeyOf(rows) {
@@ -1525,15 +1537,22 @@
             for (var k in wk) { if (wk.hasOwnProperty(k) && wk[k] && wk[k].rows) { for (var i = 0; i < wk[k].rows.length; i++) out.push(wk[k].rows[i]); } }
             return out;
         }
-        // Récapitulatif à l'import : semaine importée + avertissement si une colonne d'affichage est introuvable (Team traité en amont).
-        function PlanifReportColonnes(found, wk, replaced) {
-            found = found || {};
-            var disp = [['of', 'OF/NC'], ['msn', 'MSN'], ['sujet', 'Sujet'], ['statut', 'Statut'], ['date', 'Date'], ['vac', 'Vacation']];
-            var miss = [];
-            for (var i = 0; i < disp.length; i++) { if (!found[disp[i][0]]) miss.push(disp[i][1]); }
-            var msg = wk ? ("Semaine " + wk.week + " - " + wk.year + (replaced ? " (import précédent remplacé)" : "") + " importée.") : "Import terminé.";
-            if (miss.length) msg += "\n\n⚠ En-tête introuvable : " + miss.join(", ") + " - ces colonnes resteront vides. Vérifie les intitulés dans le fichier.";
-            AlerteExtract(msg);
+        // Importe UN fichier planning dans appData.planifWeeks (sans SaveData ni rendu). Renvoie {wk, replaced, missing[]} ou {error} / {teamMissing}.
+        function importOnePlanifFile(path) {
+            var content = readPlanifFile(path);
+            if (content == null) return { error: "lecture impossible" };
+            var res = ParsePlanifCSV(content), rows = res.rows;
+            if (!rows.length) return { error: "aucune donnée exploitable" };
+            if (!res.found.team) return { teamMissing: true };
+            var wk = planifWeekKeyOf(rows), key = wk ? wk.key : ('sans-date-' + nowStamp() + '-' + Math.floor(Math.random() * 100000));
+            if (!appData.planifWeeks) appData.planifWeeks = {};
+            var replaced = !!appData.planifWeeks[key];
+            appData.planifWeeks[key] = { week: wk ? wk.week : null, year: wk ? wk.year : null, rows: rows,
+                file: path.replace(/^.*[\\\/]/, ""), import: FormatDateString(new Date()) + " " + new Date().toLocaleTimeString() };
+            appData.planifLastKey = key;
+            var missing = [], disp = [['of', 'OF/NC'], ['msn', 'MSN'], ['sujet', 'Sujet'], ['statut', 'Statut'], ['date', 'Date'], ['vac', 'Vacation']];
+            for (var i = 0; i < disp.length; i++) { if (!res.found[disp[i][0]]) missing.push(disp[i][1]); }
+            return { wk: wk, replaced: replaced, missing: missing };
         }
         // Lecture texte : ADODB.Stream en UTF-8 (export Google Sheets), repli FSO ANSI.
         function adodbReadText(path, charset) {
@@ -4866,7 +4885,7 @@
                                     <td style="border:none; padding:0; vertical-align:bottom; white-space:nowrap;">
                                         <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:5px;">Fichier de planification</label>
                                         <button id="btnPlanif" class="btn-toolbar" style="min-width:190px;" onclick="ChargerPlanifCSV()">Charger un fichier TSV</button>
-                                        <input type="file" id="planifFileInput" accept=".tsv,.csv,.txt" style="display:none;" onchange="OnPlanifFileChosen(this)">
+                                        <input type="file" id="planifFileInput" accept=".tsv,.csv,.txt" multiple style="display:none;" onchange="OnPlanifFileChosen(this)">
                                     </td>
                                     <td style="border:none; padding:0 0 0 10px; vertical-align:bottom; white-space:nowrap;">
                                         <button class="btn-toolbar" style="background:#dc2626; padding:0 14px;" onclick="ResetExtractPlanif()" title="Réinitialiser la planification (efface le fichier chargé)">Vider</button>
