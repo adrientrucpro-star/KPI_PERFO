@@ -1774,6 +1774,15 @@
                 showEmptyExtract('planifTable', "Aucune ligne ne correspond aux filtres", "Modifie ou réinitialise les filtres.");
                 return;
             }
+            var sc = planifSort.col, sd = planifSort.dir;
+            if (sc) {
+                data.sort(function (a, b) {
+                    var va, vb;
+                    if (sc === 'date') { va = dateToNum(a.date) || 0; vb = dateToNum(b.date) || 0; }
+                    else { va = NettoyerChaine(a[sc]).toUpperCase(); vb = NettoyerChaine(b[sc]).toUpperCase(); }
+                    return (va < vb ? -1 : (va > vb ? 1 : 0)) * sd;
+                });
+            }
             var cap = extractCap('nbLignesPlanif');
             if (data.length > cap) data = data.slice(0, cap);
             var rows = "";
@@ -1789,10 +1798,21 @@
                     + "<td>" + (r.sujet ? escapeHtml(r.sujet) : "-") + "</td></tr>";
             }
             cont.innerHTML = "<div class='tbl-scroll' style='overflow-y:auto; padding-bottom:14px;'>"
-                + "<table class='data-table'><thead><tr>"
-                + "<th width='4%'></th><th width='12%'>OF/NC</th><th width='12%'>MSN</th><th width='12%'>Statut</th><th width='12%'>Date</th><th width='12%'>Vacation</th><th>Sujet</th>"
+                + "<table class='data-table'><thead><tr><th width='4%'></th>"
+                + planifTh('ofnc', 'OF/NC', '12%') + planifTh('msn', 'MSN', '12%') + planifTh('statut', 'Statut', '12%')
+                + planifTh('date', 'Date', '12%') + planifTh('vac', 'Vacation', '12%') + planifTh('sujet', 'Sujet', '')
                 + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
             AjusterHauteurTables();
+        }
+        var planifSort = { col: 'date', dir: -1 };   // tri par défaut : date décroissante
+        function planifTh(col, label, w) {
+            var arrow = (planifSort.col === col) ? (planifSort.dir === 1 ? " &#9650;" : " &#9660;") : " <span style='color:#cbd5e1;'>&#8645;</span>";
+            var wAttr = w ? (" width='" + w + "'") : "";
+            return "<th" + wAttr + " style='cursor:pointer; -ms-user-select:none; user-select:none;' onclick=\"SortPlanif('" + col + "')\" title='Trier'>" + label + arrow + "</th>";
+        }
+        function SortPlanif(col) {
+            if (planifSort.col === col) planifSort.dir = -planifSort.dir; else { planifSort.col = col; planifSort.dir = 1; }
+            RenderPlanif();
         }
         function ResetPlanifFiltres() {
             var ids = ['planifFiltreDateDebut', 'planifFiltreDateFin', 'planifFiltreRecherche'];
