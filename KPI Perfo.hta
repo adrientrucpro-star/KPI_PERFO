@@ -1581,6 +1581,38 @@
             }
             return multi;
         }
+        // Windows-1252 : caractère -> octet pour la plage 0x80-0x9F (ailleurs, code & 0xFF = octet).
+        var WIN1252_REV = { 8364: 128, 8218: 130, 402: 131, 8222: 132, 8230: 133, 8224: 134, 8225: 135, 710: 136, 8240: 137, 352: 138, 8249: 139, 338: 140, 381: 142, 8216: 145, 8217: 146, 8220: 147, 8221: 148, 8226: 149, 8211: 150, 8212: 151, 732: 152, 8482: 153, 353: 154, 8250: 155, 339: 156, 382: 158, 376: 159 };
+        function win1252CharToByte(code) { return (WIN1252_REV[code] != null) ? WIN1252_REV[code] : (code & 0xFF); }
+        // Décode une séquence d'octets UTF-8 en chaîne (sans ADODB).
+        function decodeUTF8(b) {
+            var out = "", i = 0, n = b.length;
+            if (n >= 3 && b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) i = 3;   // BOM
+            while (i < n) {
+                var c = b[i];
+                if (c < 0x80) { out += String.fromCharCode(c); i++; }
+                else if (c >= 0xC2 && c <= 0xDF && i + 1 < n) { out += String.fromCharCode(((c & 0x1F) << 6) | (b[i + 1] & 0x3F)); i += 2; }
+                else if (c >= 0xE0 && c <= 0xEF && i + 2 < n) { out += String.fromCharCode(((c & 0x0F) << 12) | ((b[i + 1] & 0x3F) << 6) | (b[i + 2] & 0x3F)); i += 3; }
+                else if (c >= 0xF0 && c <= 0xF4 && i + 3 < n) { var cp = (((c & 0x07) << 18) | ((b[i + 1] & 0x3F) << 12) | ((b[i + 2] & 0x3F) << 6) | (b[i + 3] & 0x3F)) - 0x10000; out += String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 0x3FF)); i += 4; }
+                else { out += String.fromCharCode(c); i++; }
+            }
+            return out;
+        }
+        // Lecture SANS ADODB (poste verrouillé) via FileSystemObject. Gère UTF-16 (BOM -> relecture Unicode), UTF-8 (reconstruction des octets + décodage) et ANSI/Windows-1252.
+        function readPlanifFileFSO(path) {
+            var fso; try { fso = new ActiveXObject("Scripting.FileSystemObject"); } catch (e) { return null; }
+            var ansi = null; try { var ts = fso.OpenTextFile(path, 1, false, 0); ansi = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close(); } catch (e2) {}
+            if (ansi == null) return null;
+            if (ansi.length >= 2) {
+                var c0 = ansi.charCodeAt(0), c1 = ansi.charCodeAt(1);
+                if ((c0 === 0xFF && c1 === 0xFE) || (c0 === 0xFE && c1 === 0xFF)) {   // BOM UTF-16 -> relecture en Unicode (FSO le gère)
+                    try { var t2 = fso.OpenTextFile(path, 1, false, -1); var u = t2.AtEndOfStream ? "" : t2.ReadAll(); t2.Close(); return u; } catch (e3) {}
+                }
+            }
+            var by = []; for (var k = 0; k < ansi.length; k++) by.push(win1252CharToByte(ansi.charCodeAt(k)));
+            if (planifBytesAreUTF8(by)) return decodeUTF8(by);   // fichier UTF-8 lu en ANSI -> on reconstruit et on décode
+            return ansi;   // ANSI/Windows-1252 : déjà correct
+        }
         // Lecture robuste : détecte l'encodage sur les octets (UTF-16, UTF-8, Windows-1252) puis lit avec le bon charset.
         function readPlanifFile(path) {
             var bytes = planifReadBytes(path);
@@ -1590,13 +1622,21 @@
                 if (t == null && cs === "unicode") t = adodbReadText(path, "utf-16");   // nom alternatif UTF-16 LE
                 if (t != null) return t;
             }
-            var utf8 = adodbReadText(path, "UTF-8");   // replis si la détection octet a échoué
-            if (utf8 != null && utf8.indexOf('�') === -1) return utf8;
-            var ansi = adodbReadText(path, "Windows-1252");
-            if (ansi != null) return ansi;
-            if (utf8 != null) return utf8;
-            try { var fso = new ActiveXObject("Scripting.FileSystemObject"); var ts = fso.OpenTextFile(path, 1, false, 0); var c = ts.AtEndOfStream ? "" : ts.ReadAll(); ts.Close(); return c; } catch (e2) {}
-            return null;
+            if (bytes != null && bytes.length) return planifDecodeBytesManual(bytes);   // ADODB a donné les octets mais pas le texte -> décodage manuel
+            return readPlanifFileFSO(path);   // ADODB indisponible (poste verrouillé) -> lecture FileSystemObject
+        }
+        // Décode des octets déjà lus, sans ADODB, selon l'encodage détecté.
+        function planifDecodeBytesManual(bytes) {
+            var cs = planifDetectCharset(bytes);
+            if (cs === "unicode" || cs === "unicodeFFFE") {   // UTF-16
+                var le = (cs === "unicode"), out = "", i = (bytes.length >= 2 ? 2 : 0), n = bytes.length;
+                for (; i + 1 < n; i += 2) { out += String.fromCharCode(le ? (bytes[i] | (bytes[i + 1] << 8)) : ((bytes[i] << 8) | bytes[i + 1])); }
+                return out;
+            }
+            if (cs === "utf-8") return decodeUTF8(bytes);
+            var s = "";   // Windows-1252
+            for (var j = 0; j < bytes.length; j++) { var bb = bytes[j], rev = null; for (var cc in WIN1252_REV) { if (WIN1252_REV[cc] === bb) { rev = parseInt(cc, 10); break; } } s += String.fromCharCode(rev != null ? rev : bb); }
+            return s;
         }
         // Détecte le séparateur sur la 1re ligne : ',' (Google), ';' (Excel FR) ou tabulation.
         function planifSniffSep(text) {
