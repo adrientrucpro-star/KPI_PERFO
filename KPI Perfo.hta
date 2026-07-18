@@ -1685,7 +1685,7 @@
                     if (c === '"') { if (text.charAt(i + 1) === '"') { field += '"'; i += 2; continue; } inQ = false; i++; continue; }
                     field += c; i++; continue;
                 }
-                if (c === '"') { inQ = true; i++; continue; }
+                if (c === '"' && field === "") { inQ = true; i++; continue; }   // guillemet ouvrant seulement en début de champ ; un " au milieu d'un mot (ex. l"avion) reste littéral
                 if (c === sep) { row.push(field); field = ""; i++; continue; }
                 if (c === '\r') { i++; continue; }
                 if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
