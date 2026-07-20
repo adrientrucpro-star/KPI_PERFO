@@ -3049,6 +3049,10 @@
             var num = capa.group ? vb.c : vb.t;   // group défini => OF réalisés (comptage du groupe) ; sinon OF planifiés
             return denom > 0 ? Math.round(num / denom * 100) : 0;
         }
+        // Point de données charge capa : { y: taux %, nb: nombre d'OF du numérateur, lbl: libellé } — nb affiché dans l'infobulle.
+        function planifCapaPoint(vb, capa) {
+            return { y: planifCapaRate(vb, capa), nb: (capa.group ? vb.c : vb.t), lbl: (capa.group ? 'OF réalisés' : 'OF planifiés') };
+        }
         function planifVacKind(v) { var s = NettoyerChaine(v).toUpperCase(); if (s.indexOf('JOUR') !== -1) return 'jour'; if (s.indexOf('SOIR') !== -1) return 'soir'; return null; }
         function planifStatutNorm(s) { return NettoyerChaine(s).toUpperCase(); }
         // Regroupe TFS et TVS sous une même catégorie « TFS/TVS » (comparaison + affichage camemberts/histogrammes).
@@ -3146,18 +3150,18 @@
             for (var j = 0; j < keys.length; j++) {
                 var kb = keys[j], bb = buckets[kb];
                 cats.push(labeler(kb));
-                if (opts.bar) {   // barres = taux de charge capa (numérateur/capacité)
-                    jour.push(bb ? planifCapaRate(bb.jour, opts.bar) : 0);
-                    soir.push(bb ? planifCapaRate(bb.soir, opts.bar) : 0);
+                if (opts.bar) {   // barres = taux de charge capa (numérateur/capacité) -> points {y,nb,lbl}
+                    jour.push(bb ? planifCapaPoint(bb.jour, opts.bar) : { y: 0, nb: 0 });
+                    soir.push(bb ? planifCapaPoint(bb.soir, opts.bar) : { y: 0, nb: 0 });
                 } else {          // barres = taux réalisés/finis (réalisés/planifiés)
                     jour.push((bb && bb.jour.t) ? Math.round(bb.jour.d / bb.jour.t * 100) : 0);
                     soir.push((bb && bb.soir.t) ? Math.round(bb.soir.d / bb.soir.t * 100) : 0);
                 }
-                if (opts.curve) { capaJour.push(bb ? planifCapaRate(bb.jour, opts.curve) : 0); capaSoir.push(bb ? planifCapaRate(bb.soir, opts.curve) : 0); }
+                if (opts.curve) { capaJour.push(bb ? planifCapaPoint(bb.jour, opts.curve) : { y: 0, nb: 0 }); capaSoir.push(bb ? planifCapaPoint(bb.soir, opts.curve) : { y: 0, nb: 0 }); }
             }
             var yMax = 100;   // les taux réalisés vont de 0 à 100 % ; la charge capa peut dépasser 100 % (sur-charge) -> l'axe s'étend
             var allV = jour.concat(soir).concat(capaJour).concat(capaSoir);
-            for (var q = 0; q < allV.length; q++) { if (allV[q] > yMax) yMax = allV[q]; }
+            for (var q = 0; q < allV.length; q++) { var vv = (allV[q] && typeof allV[q] === 'object') ? allV[q].y : allV[q]; if (vv > yMax) yMax = vv; }
             yMax = Math.ceil(yMax / 20) * 20;
             var series = [{ name: 'VAC JOUR', color: '#4472C4', data: jour }, { name: 'VAC SOIR', color: '#ED7D31', data: soir }];
             if (opts.curve) {
@@ -3174,7 +3178,7 @@
                         title: { text: null }, min: 0, max: yMax, tickInterval: 20, labels: { format: '{value}%' },
                         plotLines: [{ value: PLANIF_OBJECTIF, color: '#94a3b8', width: 2, zIndex: 4, label: { text: 'Objectif ' + PLANIF_OBJECTIF + '%', align: 'right', x: -4, style: { color: '#64748b', fontSize: '11px' } } }]
                     },
-                    tooltip: { formatter: function () { return '<b>' + this.series.name + '</b> - ' + this.x + '<br/>Taux : ' + this.y + '%'; } },
+                    tooltip: { formatter: function () { var s = '<b>' + this.series.name + '</b> - ' + this.x + '<br/>Taux : ' + this.y + '%'; if (this.point && this.point.nb != null) s += '<br/>' + this.point.nb + ' ' + (this.point.lbl || 'OF'); return s; } },
                     plotOptions: { column: { animation: false, borderRadius: 2, pointPadding: 0.05, groupPadding: 0.15, dataLabels: { enabled: cats.length <= 10, format: '{y}%', style: { fontSize: '11px', fontWeight: 'bold', color: '#334155', textOutline: 'none' } } }, line: { animation: false } },
                     series: series
                 });
