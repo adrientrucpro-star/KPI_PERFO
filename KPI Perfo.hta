@@ -3033,13 +3033,15 @@
         }
         // Groupes de statuts (planification). "Réalisé" côté coordination = statuts production ; "Finis" côté production = QARJ/CERT/ADMIN.
         var PLANIF_COORD_STATUTS = ['Non commencé', 'Blq accès', 'Blq AR', 'RETP', 'Mqt pièce', 'Retour CT', 'IC refusée'];
-        var PLANIF_PROD_STATUTS = ['TFS', 'Dépose OK', 'QARJ', 'ADMIN', 'CERT'];
-        var PLANIF_REALISE_COORD = ['TFS', 'TVS', 'Dépose OK', 'QARJ', 'CERT', 'ADMIN'];
+        var PLANIF_PROD_STATUTS = ['TFS/TVS', 'Dépose OK', 'QARJ', 'ADMIN', 'CERT'];
+        var PLANIF_REALISE_COORD = ['TFS/TVS', 'Dépose OK', 'QARJ', 'CERT', 'ADMIN'];
         var PLANIF_FINIS_PROD = ['QARJ', 'CERT', 'ADMIN'];
         var PLANIF_OBJECTIF = 80;   // objectif de taux de réalisation (%) - ligne repère sur l'histogramme
         function planifVacKind(v) { var s = NettoyerChaine(v).toUpperCase(); if (s.indexOf('JOUR') !== -1) return 'jour'; if (s.indexOf('SOIR') !== -1) return 'soir'; return null; }
         function planifStatutNorm(s) { return NettoyerChaine(s).toUpperCase(); }
-        function planifInGroup(sU, group) { for (var i = 0; i < group.length; i++) { if (planifStatutNorm(group[i]) === sU) return true; } return false; }
+        // Regroupe TFS et TVS sous une même catégorie « TFS/TVS » (comparaison + affichage camemberts/histogrammes).
+        function planifStatutCanon(s) { var u = planifStatutNorm(s); return (u === 'TFS' || u === 'TVS' || u === 'TFS/TVS') ? 'TFS/TVS' : u; }
+        function planifInGroup(sU, group) { var c = planifStatutCanon(sU); for (var i = 0; i < group.length; i++) { if (planifStatutCanon(group[i]) === c) return true; } return false; }
         function planifFilteredRows() {
             var all = appData.planif || [], out = [], msnMode = (dashFilter.gran === 'msn');
             for (var i = 0; i < all.length; i++) {
@@ -3066,10 +3068,10 @@
             var data = planifFilteredRows();
             var coordCounts = {}, prodCounts = {};
             for (var i = 0; i < data.length; i++) {
-                var sU = planifStatutNorm(data[i].statut);
+                var sU = planifStatutCanon(data[i].statut);   // TFS et TVS -> même catégorie « TFS/TVS »
                 if (!sU) continue;   // (sans statut) : dans aucun camembert
-                for (var c = 0; c < PLANIF_COORD_STATUTS.length; c++) { if (planifStatutNorm(PLANIF_COORD_STATUTS[c]) === sU) { coordCounts[PLANIF_COORD_STATUTS[c]] = (coordCounts[PLANIF_COORD_STATUTS[c]] || 0) + 1; break; } }
-                for (var p = 0; p < PLANIF_PROD_STATUTS.length; p++) { if (planifStatutNorm(PLANIF_PROD_STATUTS[p]) === sU) { prodCounts[PLANIF_PROD_STATUTS[p]] = (prodCounts[PLANIF_PROD_STATUTS[p]] || 0) + 1; break; } }
+                for (var c = 0; c < PLANIF_COORD_STATUTS.length; c++) { if (planifStatutCanon(PLANIF_COORD_STATUTS[c]) === sU) { coordCounts[PLANIF_COORD_STATUTS[c]] = (coordCounts[PLANIF_COORD_STATUTS[c]] || 0) + 1; break; } }
+                for (var p = 0; p < PLANIF_PROD_STATUTS.length; p++) { if (planifStatutCanon(PLANIF_PROD_STATUTS[p]) === sU) { prodCounts[PLANIF_PROD_STATUTS[p]] = (prodCounts[PLANIF_PROD_STATUTS[p]] || 0) + 1; break; } }
             }
             planifPie('hcPLCoordPie', PLANIF_COORD_STATUTS, coordCounts);
             planifPie('hcPLProdPie', PLANIF_PROD_STATUTS, prodCounts);
