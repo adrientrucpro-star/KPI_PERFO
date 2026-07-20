@@ -3037,6 +3037,15 @@
         var PLANIF_REALISE_COORD = ['TFS/TVS', 'Dépose OK', 'QARJ', 'CERT', 'ADMIN'];
         var PLANIF_FINIS_PROD = ['QARJ', 'CERT', 'ADMIN'];
         var PLANIF_OBJECTIF = 80;   // objectif de taux de réalisation (%) - ligne repère sur l'histogramme
+        var PLANIF_NB_OPERATEURS = 5;   // nombre d'opérateurs par vacation (courbe « taux de charge capa »)
+        var PLANIF_OBJ_OPERATEUR = 5;   // objectif d'OF réalisés par opérateur et par vacation (courbe « taux de charge capa »)
+        // Taux de charge capa d'une vacation d'un bucket : OF réalisés / (nb opérateurs x objectif x nombre de jours travaillés du bucket).
+        function planifCapaRate(vb) {
+            var nDays = 0; for (var k in vb.days) { if (vb.days.hasOwnProperty(k)) nDays++; }
+            if (nDays === 0) nDays = 1;   // repli (bucket sans date exploitable)
+            var capac = PLANIF_NB_OPERATEURS * PLANIF_OBJ_OPERATEUR * nDays;
+            return capac > 0 ? Math.round(vb.d / capac * 100) : 0;
+        }
         function planifVacKind(v) { var s = NettoyerChaine(v).toUpperCase(); if (s.indexOf('JOUR') !== -1) return 'jour'; if (s.indexOf('SOIR') !== -1) return 'soir'; return null; }
         function planifStatutNorm(s) { return NettoyerChaine(s).toUpperCase(); }
         // Regroupe TFS et TVS sous une même catégorie « TFS/TVS » (comparaison + affichage camemberts/histogrammes).
@@ -3075,7 +3084,7 @@
             }
             planifPie('hcPLCoordPie', PLANIF_COORD_STATUTS, coordCounts);
             planifPie('hcPLProdPie', PLANIF_PROD_STATUTS, prodCounts);
-            planifRateChart('hcPLCoordBar', data, PLANIF_REALISE_COORD);
+            planifRateChart('hcPLCoordBar', data, PLANIF_REALISE_COORD, true);   // + courbes « taux de charge capa » par vacation
             planifRateChart('hcPLProdBar', data, PLANIF_FINIS_PROD);
             ReflowDashCharts(['hcPLCoordPie', 'hcPLCoordBar', 'hcPLProdPie', 'hcPLProdBar']);
             dashValid.PL = true;
@@ -3097,19 +3106,22 @@
             } catch (e) { hcErr(cont); }
         }
         // Histogramme groupé par semaine : taux d'OF réalisés/finis (%) par vacation (VAC JOUR / VAC SOIR) + ligne Objectif.
-        function planifRateChart(id, rows, doneGroup) {
+        // withCapa : ajoute deux courbes « taux de charge capa » (réalisés / capacité) par vacation.
+        function planifRateChart(id, rows, doneGroup, withCapa) {
             var cont = document.getElementById(id); if (!cont) return;
             if (typeof Highcharts === 'undefined') { cont.innerHTML = "<div class='msg-box msg-info'>Graphique indisponible.</div>"; return; }
             var msnMode = (dashFilter.gran === 'msn'), mode = granBucketMode();   // Année->mois, Mois->semaine, Semaine->jour, MSN->par MSN
             var buckets = {}, presentSet = {};
             for (var i = 0; i < rows.length; i++) {
                 var vac = planifVacKind(rows[i].vac); if (!vac) continue;   // vacation autre que Jour/Soir -> ignorée
+                var d = parseOFDateObj(rows[i].date);   // toujours parsée : sert à compter les jours travaillés (capa)
                 var key;
                 if (msnMode) { key = msnBucketKey(rows[i].msn); }
-                else { var d = parseOFDateObj(rows[i].date); if (!d) continue; key = bucketTsForMode(d, mode); }
+                else { if (!d) continue; key = bucketTsForMode(d, mode); }
                 presentSet[key] = true;
-                if (!buckets[key]) buckets[key] = { jour: { t: 0, d: 0 }, soir: { t: 0, d: 0 } };
+                if (!buckets[key]) buckets[key] = { jour: { t: 0, d: 0, days: {} }, soir: { t: 0, d: 0, days: {} } };
                 var bk = buckets[key][vac]; bk.t++;
+                if (d) bk.days[d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()] = true;
                 if (planifInGroup(planifStatutNorm(rows[i].statut), doneGroup)) bk.d++;
             }
             var keys, labeler;
@@ -3121,12 +3133,18 @@
                 labeler = function (k) { return bucketLabelForMode(k, mode); };
             }
             if (!keys.length) { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
-            var cats = [], jour = [], soir = [];
+            var cats = [], jour = [], soir = [], capaJour = [], capaSoir = [];
             for (var j = 0; j < keys.length; j++) {
                 var kb = keys[j], bb = buckets[kb];
                 cats.push(labeler(kb));
                 jour.push((bb && bb.jour.t) ? Math.round(bb.jour.d / bb.jour.t * 100) : 0);
                 soir.push((bb && bb.soir.t) ? Math.round(bb.soir.d / bb.soir.t * 100) : 0);
+                if (withCapa) { capaJour.push(bb ? planifCapaRate(bb.jour) : 0); capaSoir.push(bb ? planifCapaRate(bb.soir) : 0); }
+            }
+            var series = [{ name: 'VAC JOUR', color: '#4472C4', data: jour }, { name: 'VAC SOIR', color: '#ED7D31', data: soir }];
+            if (withCapa) {
+                series.push({ name: 'Charge capa JOUR', type: 'line', color: '#264478', dashStyle: 'ShortDash', lineWidth: 2, marker: { enabled: true, radius: 3, symbol: 'circle' }, dataLabels: { enabled: false }, data: capaJour });
+                series.push({ name: 'Charge capa SOIR', type: 'line', color: '#9E480E', dashStyle: 'ShortDash', lineWidth: 2, marker: { enabled: true, radius: 3, symbol: 'circle' }, dataLabels: { enabled: false }, data: capaSoir });
             }
             try {
                 hcDraw(id, {
@@ -3139,8 +3157,8 @@
                         plotLines: [{ value: PLANIF_OBJECTIF, color: '#94a3b8', width: 2, zIndex: 4, label: { text: 'Objectif ' + PLANIF_OBJECTIF + '%', align: 'right', x: -4, style: { color: '#64748b', fontSize: '11px' } } }]
                     },
                     tooltip: { formatter: function () { return '<b>' + this.series.name + '</b> - ' + this.x + '<br/>Taux : ' + this.y + '%'; } },
-                    plotOptions: { column: { animation: false, borderRadius: 2, pointPadding: 0.05, groupPadding: 0.15, dataLabels: { enabled: cats.length <= 10, format: '{y}%', style: { fontSize: '11px', fontWeight: 'bold', color: '#334155', textOutline: 'none' } } } },
-                    series: [{ name: 'VAC JOUR', color: '#4472C4', data: jour }, { name: 'VAC SOIR', color: '#ED7D31', data: soir }]
+                    plotOptions: { column: { animation: false, borderRadius: 2, pointPadding: 0.05, groupPadding: 0.15, dataLabels: { enabled: cats.length <= 10, format: '{y}%', style: { fontSize: '11px', fontWeight: 'bold', color: '#334155', textOutline: 'none' } } }, line: { animation: false } },
+                    series: series
                 });
             } catch (e) { hcErr(cont); }
         }
