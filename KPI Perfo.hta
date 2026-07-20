@@ -3039,12 +3039,12 @@
         var PLANIF_OBJECTIF = 80;   // objectif de taux de réalisation (%) - ligne repère sur l'histogramme
         var PLANIF_NB_OPERATEURS = 5;   // nombre d'opérateurs par vacation (courbe « taux de charge capa »)
         var PLANIF_OBJ_OPERATEUR = 5;   // objectif d'OF réalisés par opérateur et par vacation (courbe « taux de charge capa »)
-        // Taux de charge capa d'une vacation d'un bucket : OF réalisés / (nb opérateurs x objectif x nombre de jours travaillés du bucket).
+        // Taux de charge capa d'une vacation d'un bucket : OF planifiés / (nb opérateurs x objectif x nombre de jours travaillés du bucket).
         function planifCapaRate(vb) {
             var nDays = 0; for (var k in vb.days) { if (vb.days.hasOwnProperty(k)) nDays++; }
             if (nDays === 0) nDays = 1;   // repli (bucket sans date exploitable)
             var capac = PLANIF_NB_OPERATEURS * PLANIF_OBJ_OPERATEUR * nDays;
-            return capac > 0 ? Math.round(vb.d / capac * 100) : 0;
+            return capac > 0 ? Math.round(vb.t / capac * 100) : 0;   // vb.t = OF planifiés (total de la vacation)
         }
         function planifVacKind(v) { var s = NettoyerChaine(v).toUpperCase(); if (s.indexOf('JOUR') !== -1) return 'jour'; if (s.indexOf('SOIR') !== -1) return 'soir'; return null; }
         function planifStatutNorm(s) { return NettoyerChaine(s).toUpperCase(); }
