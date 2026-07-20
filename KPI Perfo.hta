@@ -3034,7 +3034,7 @@
         // Groupes de statuts (planification). "Réalisé" côté coordination = statuts production ; "Finis" côté production = QARJ/CERT/ADMIN.
         var PLANIF_COORD_STATUTS = ['Non commencé', 'Blq accès', 'Blq AR', 'RETP', 'Mqt pièce', 'Retour CT', 'IC refusée'];
         var PLANIF_PROD_STATUTS = ['TFS', 'Dépose OK', 'QARJ', 'ADMIN', 'CERT'];
-        var PLANIF_REALISE_COORD = ['TFS', 'Dépose OK', 'QARJ', 'CERT', 'ADMIN'];
+        var PLANIF_REALISE_COORD = ['TFS', 'TVS', 'Dépose OK', 'QARJ', 'CERT', 'ADMIN'];
         var PLANIF_FINIS_PROD = ['QARJ', 'CERT', 'ADMIN'];
         var PLANIF_OBJECTIF = 80;   // objectif de taux de réalisation (%) - ligne repère sur l'histogramme
         function planifVacKind(v) { var s = NettoyerChaine(v).toUpperCase(); if (s.indexOf('JOUR') !== -1) return 'jour'; if (s.indexOf('SOIR') !== -1) return 'soir'; return null; }
