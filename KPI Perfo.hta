@@ -3034,8 +3034,17 @@
             else RenderDashboard();
         }
         // Groupes de statuts (planification). "Réalisé" côté coordination = statuts production ; "Finis" côté production = QARJ/CERT/ADMIN.
-        var PLANIF_COORD_STATUTS = ['Non commencé', 'Blq accès', 'Blq AR', 'RETP', 'Mqt pièce', 'Retour CT', 'IC refusée'];
-        var PLANIF_PROD_STATUTS = ['TFS/TVS', 'Dépose OK', 'QARJ', 'ADMIN', 'CERT'];
+        // Ordre = ordre des parts du camembert (dégradés regroupés pour un rendu contigu).
+        var PLANIF_COORD_STATUTS = ['Retour CT', 'Blq AR', 'Mqt pièce', 'RETP', 'IC refusée', 'Blq accès', 'Non commencé'];
+        var PLANIF_PROD_STATUTS = ['TFS/TVS', 'Dépose OK', 'ADMIN', 'QARJ', 'CERT'];
+        // Couleur fixe par statut (camemberts). Production : bleu TFS/TVS, dégradé orange Dépose OK>ADMIN>QARJ, vert CERT.
+        // Coordination : dégradé orange Retour CT>Blq AR, dégradé rouge Mqt pièce>RETP>IC refusée>Blq accès, violet Non commencé.
+        var PLANIF_STATUT_COLORS = {
+            'TFS/TVS': '#2E75B6', 'Dépose OK': '#C55A11', 'ADMIN': '#ED7D31', 'QARJ': '#F4B183', 'CERT': '#43A047',
+            'Retour CT': '#ED7D31', 'Blq AR': '#F4B183',
+            'Mqt pièce': '#9E1B1B', 'RETP': '#C0392B', 'IC refusée': '#E06666', 'Blq accès': '#F1A9A9',
+            'Non commencé': '#7030A0'
+        };
         var PLANIF_REALISE_COORD = ['TFS/TVS', 'Dépose OK', 'QARJ', 'CERT', 'ADMIN'];
         var PLANIF_FINIS_PROD = ['QARJ', 'CERT', 'ADMIN'];
         var PLANIF_OBJECTIF = 80;   // objectif de taux de réalisation (%) - ligne repère sur l'histogramme
@@ -3102,7 +3111,7 @@
         function planifPie(id, order, counts) {
             var cont = document.getElementById(id); if (!cont) return;
             var data = [], hasData = false;
-            for (var i = 0; i < order.length; i++) { var v = counts[order[i]] || 0; if (v > 0) { data.push({ name: order[i], y: v }); hasData = true; } }
+            for (var i = 0; i < order.length; i++) { var v = counts[order[i]] || 0; if (v > 0) { var pt = { name: order[i], y: v }; if (PLANIF_STATUT_COLORS[order[i]]) pt.color = PLANIF_STATUT_COLORS[order[i]]; data.push(pt); hasData = true; } }
             if (!hasData || typeof Highcharts === 'undefined') { hcDestroy(id); cont.innerHTML = emptyChartHtml(); return; }
             try {
                 hcDraw(id, {
@@ -3110,7 +3119,7 @@
                     title: { text: null }, credits: { enabled: false }, colors: PIE_COLORS,
                     tooltip: { formatter: function () { return '<b>' + this.point.name + '</b><br/>' + this.point.y + ' OF · ' + Highcharts.numberFormat(this.percentage, 0) + '%'; } },
                     legend: { enabled: true, align: 'center', verticalAlign: 'top', layout: 'horizontal', itemStyle: { fontSize: '11px', color: '#334155', fontWeight: 'normal' } },
-                    plotOptions: { pie: { animation: false, showInLegend: true, size: '80%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -20, style: { color: '#ffffff', fontSize: '11px', fontWeight: 'bold', textOutline: 'none' } } } },
+                    plotOptions: { pie: { animation: false, showInLegend: true, size: '80%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -20, style: { color: '#ffffff', fontSize: '11px', fontWeight: 'bold', textOutline: '1px rgba(0,0,0,0.55)' } } } },
                     series: [{ name: 'Statut', data: data }]
                 });
             } catch (e) { hcErr(cont); }
