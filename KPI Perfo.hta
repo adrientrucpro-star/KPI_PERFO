@@ -1485,11 +1485,16 @@
         // ======================= PLANIFICATION (CSV hebdomadaire) =======================
         function ChargerPlanifCSV() {
             var inp = document.getElementById('planifFileInput');
-            if (inp) { inp.value = ""; inp.click(); }   // reset -> onchange se déclenche même si on rechoisit le même fichier
+            if (!inp) return;
+            inp.value = "";
+            inp.click();               // en HTA la boîte de dialogue est modale : au retour, inp.value contient déjà le chemin choisi
+            OnPlanifFileChosen(inp);   // import direct et fiable ; si jamais le click n'était pas bloquant, l'événement onchange prendra le relais
         }
         function OnPlanifFileChosen(inp) {
             var path = (inp && inp.value) ? inp.value : "";   // en HTA, .value = chemin complet du fichier
-            if (path) ImporterPlanifFichiers([path]);
+            if (!path) return;
+            inp.value = "";            // vidé immédiatement -> évite un double import (click modal + onchange qui se déclenche ensuite)
+            ImporterPlanifFichiers([path]);
         }
         // Sélection d'un dossier (Shell.Application, repli sur saisie du chemin) -> importe tous les .tsv/.txt/.csv qu'il contient.
         function ChargerPlanifDossier() {
