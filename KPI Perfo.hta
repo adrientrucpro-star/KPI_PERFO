@@ -3042,7 +3042,7 @@
         var PLANIF_STATUT_COLORS = {
             'TFS/TVS': '#2E75B6', 'Dépose OK': '#C55A11', 'ADMIN': '#ED7D31', 'QARJ': '#F4B183', 'CERT': '#43A047',
             'Retour CT': '#ED7D31', 'Blq AR': '#F4B183',
-            'Mqt pièce': '#9E1B1B', 'RETP': '#C0392B', 'IC refusée': '#E06666', 'Blq accès': '#F1A9A9',
+            'Mqt pièce': '#F1A9A9', 'RETP': '#E06666', 'IC refusée': '#C0392B', 'Blq accès': '#9E1B1B',
             'Non commencé': '#7030A0'
         };
         var PLANIF_REALISE_COORD = ['TFS/TVS', 'Dépose OK', 'QARJ', 'CERT', 'ADMIN'];
@@ -3119,7 +3119,7 @@
                     title: { text: null }, credits: { enabled: false }, colors: PIE_COLORS,
                     tooltip: { formatter: function () { return '<b>' + this.point.name + '</b><br/>' + this.point.y + ' OF · ' + Highcharts.numberFormat(this.percentage, 0) + '%'; } },
                     legend: { enabled: true, align: 'center', verticalAlign: 'top', layout: 'horizontal', itemStyle: { fontSize: '11px', color: '#334155', fontWeight: 'normal' } },
-                    plotOptions: { pie: { animation: false, showInLegend: true, size: '80%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -20, style: { color: '#ffffff', fontSize: '11px', fontWeight: 'bold', textOutline: '1px rgba(0,0,0,0.55)' } } } },
+                    plotOptions: { pie: { animation: false, showInLegend: true, size: '80%', dataLabels: { enabled: true, format: '{percentage:.0f}%', distance: -20, style: { color: 'contrast', fontSize: '11px', fontWeight: 'bold', textOutline: 'none' } } } },
                     series: [{ name: 'Statut', data: data }]
                 });
             } catch (e) { hcErr(cont); }
