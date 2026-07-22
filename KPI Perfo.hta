@@ -1798,6 +1798,7 @@
             var data = [];
             for (var k = 0; k < all.length; k++) {
                 var rw = all[k];
+                if (NettoyerChaine(rw.ofnc) === "") continue;   // sécurité : ligne sans OF/NC jamais affichée (même importée avant la règle)
                 if (nd || nf) { var rnum = dateToNum(rw.date); if (rnum != null) { if (nd && rnum < nd) continue; if (nf && rnum > nf) continue; } }
                 if (fr && (NettoyerChaine(rw.ofnc) + " " + NettoyerChaine(rw.msn) + " " + NettoyerChaine(rw.sujet) + " " + NettoyerChaine(rw.statut) + " " + NettoyerChaine(rw.vac)).toUpperCase().indexOf(fr) === -1) continue;
                 data.push(rw);
@@ -3062,6 +3063,7 @@
         function planifFilteredRows() {
             var all = appData.planif || [], out = [], msnMode = (dashFilter.gran === 'msn');
             for (var i = 0; i < all.length; i++) {
+                if (NettoyerChaine(all[i].ofnc) === "") continue;   // sécurité : ligne sans OF/NC jamais comptée (même importée avant la règle)
                 var d = parseOFDateObj(all[i].date);
                 if (!inSelectedPeriod(d)) continue;   // filtre période (Année/Mois/Semaine ; MSN & all -> toutes)
                 if (msnMode && !msnSelected(msnBucketKey(all[i].msn))) continue;   // filtre MSN
