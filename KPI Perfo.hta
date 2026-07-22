@@ -2324,43 +2324,53 @@
         }
         // Réglages « charge capa » (objectif + grille opérateurs 52 semaines x jour/soir) - éditables uniquement en mode Modifier.
         function RenderPlanifParams() {
-            var cont = document.getElementById('planifParamsPanel'); if (!cont) return;
+            var sp = document.getElementById('planifStatPanel'), op = document.getElementById('planifOpsPanel');
+            if (!sp && !op) return;
             var ed = isEditingParams, dis = ed ? "" : " disabled";
-            var lbl = "display:inline-block; width:260px; font-size:13px; font-weight:600; color:#475569; vertical-align:middle;";
-            var inpS = "width:64px; padding:6px 8px; font-size:13px; border:1px solid #c5d5de; border-radius:6px; text-align:center; vertical-align:middle;" + (ed ? "" : " background:#f1f5f9; color:#64748b;");
-            var h = "<div style='margin-bottom:16px;'><label style='" + lbl + "'>Objectif par opérateur (OF / vacation)</label>"
-                + "<input type='number' min='1' step='1' value='" + planifObj() + "'" + dis + " onchange=\"UpdatePlanifParam('planifObj', this.value)\" style='" + inpS + "'></div>";
-            // Statuts comptés comme « réalisés » (graphique Coordination) / « terminés » (graphique Production)
-            h += "<div style='font-size:13px; font-weight:600; color:#475569; margin-bottom:8px;'>Statuts prod comptés comme...</div>";
-            h += "<table class='data-table' style='width:100%; max-width:440px; margin:0 0 22px 0;'><thead><tr>"
-                + "<th style='width:40%;'>Statut</th>"
-                + "<th style='width:30%;'>Réalisé<br><span style='font-weight:normal; font-size:11px; color:#94a3b8;'>Coordination</span></th>"
-                + "<th style='width:30%;'>Terminé<br><span style='font-weight:normal; font-size:11px; color:#94a3b8;'>Production</span></th></tr></thead><tbody>";
-            var real = planifRealise(), term = planifTermine();
-            for (var s = 0; s < PLANIF_PROD_STATUTS.length; s++) {
-                var st = PLANIF_PROD_STATUTS[s];
-                h += "<tr><td style='font-weight:600;'>" + escapeHtml(st) + "</td>"
-                    + "<td style='text-align:center;'><input type='checkbox'" + (planifInList(st, real) ? " checked" : "") + dis + " onclick=\"TogglePlanifStat('realise','" + st + "', this.checked)\"></td>"
-                    + "<td style='text-align:center;'><input type='checkbox'" + (planifInList(st, term) ? " checked" : "") + dis + " onclick=\"TogglePlanifStat('termine','" + st + "', this.checked)\"></td></tr>";
+            var inpS = "width:52px; padding:6px 4px; font-size:13px; border:1px solid #c5d5de; border-radius:6px; text-align:center; vertical-align:middle;" + (ed ? "" : " background:#f1f5f9; color:#64748b;");
+            // --- Volet gauche : objectif + statuts (réalisés/terminés) ---
+            if (sp) {
+                var h1 = "<div style='margin-bottom:18px;'><div style='font-size:13px; font-weight:600; color:#475569; margin-bottom:6px;'>Objectif par opérateur (OF / vacation)</div>"
+                    + "<input type='number' min='1' step='1' value='" + planifObj() + "'" + dis + " onchange=\"UpdatePlanifParam('planifObj', this.value)\" style='" + inpS + " width:72px;'></div>";
+                h1 += "<div style='font-size:13px; font-weight:600; color:#475569; margin-bottom:8px;'>Statuts prod comptés comme...</div>";
+                h1 += "<table class='data-table' style='width:100%; margin:0;'><thead><tr>"
+                    + "<th style='width:40%;'>Statut</th>"
+                    + "<th style='width:30%;'>Réalisé<br><span style='font-weight:normal; font-size:11px; color:#94a3b8;'>Coordination</span></th>"
+                    + "<th style='width:30%;'>Terminé<br><span style='font-weight:normal; font-size:11px; color:#94a3b8;'>Production</span></th></tr></thead><tbody>";
+                var real = planifRealise(), term = planifTermine();
+                for (var s = 0; s < PLANIF_PROD_STATUTS.length; s++) {
+                    var st = PLANIF_PROD_STATUTS[s];
+                    h1 += "<tr><td style='font-weight:600;'>" + escapeHtml(st) + "</td>"
+                        + "<td style='text-align:center;'><input type='checkbox'" + (planifInList(st, real) ? " checked" : "") + dis + " onclick=\"TogglePlanifStat('realise','" + st + "', this.checked)\"></td>"
+                        + "<td style='text-align:center;'><input type='checkbox'" + (planifInList(st, term) ? " checked" : "") + dis + " onclick=\"TogglePlanifStat('termine','" + st + "', this.checked)\"></td></tr>";
+                }
+                sp.innerHTML = h1 + "</tbody></table>";
             }
-            h += "</tbody></table>";
-            h += "<div style='font-size:13px; font-weight:600; color:#475569; margin-bottom:8px;'>Nombre d'opérateurs par semaine et vacation</div>";
-            if (ed) {
-                h += "<div style='margin-bottom:10px; padding:9px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:12px;'>"
-                    + "<span style='font-weight:600; color:#475569;'>Appliquer à toutes :</span> Jour "
-                    + "<input type='number' min='0' id='qfJour' value='" + planifNbOpFor(1, 'jour') + "' style='" + inpS + " width:56px;'> Soir "
-                    + "<input type='number' min='0' id='qfSoir' value='" + planifNbOpFor(1, 'soir') + "' style='" + inpS + " width:56px;'> "
-                    + "<button type='button' class='btn-toolbar btn-grey' style='padding:4px 12px; margin-left:6px;' onclick='PlanifOpsFillAll()'>Appliquer</button></div>";
+            // --- Volet droit : grille opérateurs 52 semaines en 4 colonnes de 13 ---
+            if (op) {
+                var h2 = "";
+                if (ed) {
+                    h2 += "<div style='margin-bottom:12px; padding:9px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:12px;'>"
+                        + "<span style='font-weight:600; color:#475569;'>Appliquer à toutes les semaines :</span> Jour "
+                        + "<input type='number' min='0' id='qfJour' value='" + planifNbOpFor(1, 'jour') + "' style='" + inpS + "'> Soir "
+                        + "<input type='number' min='0' id='qfSoir' value='" + planifNbOpFor(1, 'soir') + "' style='" + inpS + "'> "
+                        + "<button type='button' class='btn-toolbar btn-grey' style='padding:4px 12px; margin-left:6px;' onclick='PlanifOpsFillAll()'>Appliquer</button></div>";
+                }
+                h2 += "<table class='data-table' style='width:100%; margin:0;'><thead><tr>";
+                for (var g = 0; g < 4; g++) h2 += "<th>Sem.</th><th>Jour</th><th>Soir</th>";
+                h2 += "</tr></thead><tbody>";
+                for (var i = 1; i <= 13; i++) {
+                    h2 += "<tr>";
+                    for (var g2 = 0; g2 < 4; g2++) {
+                        var w = i + g2 * 13;
+                        h2 += "<td style='text-align:center; font-weight:600;'>S" + w + "</td>"
+                            + "<td style='text-align:center;'><input type='number' min='0' step='1' value='" + planifNbOpFor(w, 'jour') + "'" + dis + " onchange=\"UpdatePlanifOp(" + w + ",'jour',this.value)\" style='" + inpS + "'></td>"
+                            + "<td style='text-align:center;'><input type='number' min='0' step='1' value='" + planifNbOpFor(w, 'soir') + "'" + dis + " onchange=\"UpdatePlanifOp(" + w + ",'soir',this.value)\" style='" + inpS + "'></td>";
+                    }
+                    h2 += "</tr>";
+                }
+                op.innerHTML = h2 + "</tbody></table>";
             }
-            h += "<div style='max-height:320px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px;'>"
-                + "<table class='data-table' style='width:100%; margin:0;'><thead><tr>"
-                + "<th style='width:34%;'>Semaine</th><th style='width:33%;'>VAC JOUR</th><th style='width:33%;'>VAC SOIR</th></tr></thead><tbody>";
-            for (var w = 1; w <= 52; w++) {
-                h += "<tr><td style='text-align:center; font-weight:600;'>S" + w + "</td>"
-                    + "<td style='text-align:center;'><input type='number' min='0' step='1' value='" + planifNbOpFor(w, 'jour') + "'" + dis + " onchange=\"UpdatePlanifOp(" + w + ",'jour',this.value)\" style='" + inpS + "'></td>"
-                    + "<td style='text-align:center;'><input type='number' min='0' step='1' value='" + planifNbOpFor(w, 'soir') + "'" + dis + " onchange=\"UpdatePlanifOp(" + w + ",'soir',this.value)\" style='" + inpS + "'></td></tr>";
-            }
-            cont.innerHTML = h + "</tbody></table></div>";
         }
         function UpdatePlanifParam(key, val) {
             if (!isEditingParams) return;
@@ -5162,13 +5172,21 @@
                 </div>
 
                 <div id="paramSubPL" style="display:none;">
-                    <div class="card" style="padding:0; margin-bottom:0; max-width:560px;">
-                        <div class="card-title"><div class="param-ttl" style="color:#002d45;">Charge capa - capacité opérateurs</div></div>
-                        <div style="padding:20px;">
-                            <div id="planifParamsPanel"></div>
-                            <p style="color:#64748b; font-size:12px; line-height:1.5; margin:16px 0 0 0;">Capacité d'une vacation = <b>nombre d'opérateurs &times; objectif</b>. Sur une semaine, la capacité s'échelonne sur le nombre de jours travaillés (ex. 5 opérateurs &times; 1 objectif &times; 5 jours = 25 OF / semaine). Utilisé par les graphiques &laquo; taux de charge capa &raquo; du Tableau de bord &rsaquo; Planification.</p>
+                    <div style="font-size:0; margin:0 -8px;">
+                        <div style="display:inline-block; vertical-align:top; width:34%; padding:0 8px; box-sizing:border-box;">
+                            <div class="card" style="padding:0; margin-bottom:0;">
+                                <div class="card-title"><div class="param-ttl" style="color:#002d45;">Objectif &amp; statuts</div></div>
+                                <div style="padding:18px;"><div id="planifStatPanel"></div></div>
+                            </div>
+                        </div>
+                        <div style="display:inline-block; vertical-align:top; width:66%; padding:0 8px; box-sizing:border-box;">
+                            <div class="card" style="padding:0; margin-bottom:0;">
+                                <div class="card-title"><div class="param-ttl" style="color:#002d45;">Nombre d'opérateurs par semaine et vacation</div></div>
+                                <div style="padding:18px;"><div id="planifOpsPanel"></div></div>
+                            </div>
                         </div>
                     </div>
+                    <p style="color:#64748b; font-size:12px; line-height:1.5; margin:14px 8px 0 8px;">Capacité d'une vacation = <b>nombre d'opérateurs &times; objectif</b>. Sur une semaine, la capacité s'échelonne sur le nombre de jours travaillés (ex. 5 opérateurs &times; 1 objectif &times; 5 jours = 25 OF / semaine). Utilisé par les graphiques &laquo; taux de charge capa &raquo; du Tableau de bord &rsaquo; Planification.</p>
                 </div>
             </div>
 
