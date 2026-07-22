@@ -1757,7 +1757,6 @@
                 var ofnc = planifFmtNum(g(iOF)), msn = planifFmtNum(msnRaw), sujet = g(iSUJ), statut = g(iSTA), date = planifFmtDate(g(iDAT)), vac = g(iVAC);
                 if (ofnc === "" && msn === "" && sujet === "") continue;   // ligne vide
                 if (ofnc === "") continue;   // pas d'OF/NC -> ligne non prise en compte
-                if (NettoyerChaine(statut) === "") continue;   // statut prod vide -> OF non pris en compte
                 out.push({ ofnc: ofnc, msn: msn, sujet: sujet, statut: statut, date: date, vac: vac });
             }
             return { rows: out, found: found };
