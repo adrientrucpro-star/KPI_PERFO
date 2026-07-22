@@ -578,8 +578,8 @@
             if (!appData.planif) appData.planif = [];        // Planification (combiné de toutes les semaines) : [{ofnc,msn,sujet,statut,date,vac}]
             if (!appData.planifFile) appData.planifFile = "";   // nom du dernier CSV chargé
             if (!appData.planifImport) appData.planifImport = "";
-            if (!(parseInt(appData.planifNbOp, 10) > 0)) appData.planifNbOp = PLANIF_NB_OPERATEURS;   // charge capa : nb opérateurs / vacation
             if (!(parseInt(appData.planifObj, 10) > 0)) appData.planifObj = PLANIF_OBJ_DEF;           // charge capa : objectif OF / opérateur / vacation
+            if (!appData.planifOps) appData.planifOps = {};   // charge capa : { "<semaine 1-52>": { jour: N, soir: N } }
             if (!appData.planifLastKey) appData.planifLastKey = "";   // clé de la dernière semaine importée (badge)
             if (!appData.planifWeeks) appData.planifWeeks = {};   // imports par semaine : { "AAAA-SS": {week,year,rows,file,import} }
             var pwEmpty = true; for (var pwK in appData.planifWeeks) { if (appData.planifWeeks.hasOwnProperty(pwK)) { pwEmpty = false; break; } }
@@ -626,8 +626,8 @@
                 planifLastKey: appData.planifLastKey || "",
                 planifFile: appData.planifFile || "",
                 planifImport: appData.planifImport || "",
-                planifNbOp: planifNbOp(),
                 planifObj: planifObj(),
+                planifOps: appData.planifOps || {},
                 msnByAvis: appData.msnByAvis || {},
                 cfg: appData.cfg || {},
                 calc: appData.calc || {},
@@ -2318,24 +2318,52 @@
                 var tab = document.getElementById(tabs[kk]); if (tab) tab.className = (kk === s) ? "subtab active" : "subtab";
             }
         }
-        // Réglages « charge capa » (nombre d'opérateurs, objectif par opérateur) - éditables uniquement en mode Modifier.
+        // Réglages « charge capa » (objectif + grille opérateurs 52 semaines x jour/soir) - éditables uniquement en mode Modifier.
         function RenderPlanifParams() {
             var cont = document.getElementById('planifParamsPanel'); if (!cont) return;
             var ed = isEditingParams, dis = ed ? "" : " disabled";
-            var lbl = "display:inline-block; width:280px; font-size:13px; font-weight:600; color:#475569; vertical-align:middle;";
-            var inp = "width:90px; padding:7px 10px; font-size:14px; border:1px solid #c5d5de; border-radius:8px; vertical-align:middle;" + (ed ? "" : " background:#f1f5f9; color:#64748b;");
-            function row(id, label, val, key) {
-                return "<div style='margin-bottom:14px;'><label style='" + lbl + "'>" + label + "</label>"
-                    + "<input type='number' min='1' step='1' id='" + id + "' value='" + val + "'" + dis
-                    + " onchange=\"UpdatePlanifParam('" + key + "', this.value)\" style='" + inp + "'></div>";
+            var lbl = "display:inline-block; width:260px; font-size:13px; font-weight:600; color:#475569; vertical-align:middle;";
+            var inpS = "width:64px; padding:6px 8px; font-size:13px; border:1px solid #c5d5de; border-radius:6px; text-align:center; vertical-align:middle;" + (ed ? "" : " background:#f1f5f9; color:#64748b;");
+            var h = "<div style='margin-bottom:16px;'><label style='" + lbl + "'>Objectif par opérateur (OF / vacation)</label>"
+                + "<input type='number' min='1' step='1' value='" + planifObj() + "'" + dis + " onchange=\"UpdatePlanifParam('planifObj', this.value)\" style='" + inpS + "'></div>";
+            h += "<div style='font-size:13px; font-weight:600; color:#475569; margin-bottom:8px;'>Nombre d'opérateurs par semaine et vacation</div>";
+            if (ed) {
+                h += "<div style='margin-bottom:10px; padding:9px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:12px;'>"
+                    + "<span style='font-weight:600; color:#475569;'>Appliquer à toutes :</span> Jour "
+                    + "<input type='number' min='0' id='qfJour' value='" + planifNbOpFor(1, 'jour') + "' style='" + inpS + " width:56px;'> Soir "
+                    + "<input type='number' min='0' id='qfSoir' value='" + planifNbOpFor(1, 'soir') + "' style='" + inpS + " width:56px;'> "
+                    + "<button type='button' class='btn-toolbar btn-grey' style='padding:4px 12px; margin-left:6px;' onclick='PlanifOpsFillAll()'>Appliquer</button></div>";
             }
-            cont.innerHTML = row('inPlanifNbOp', "Nombre d'opérateurs", planifNbOp(), 'planifNbOp')
-                + row('inPlanifObj', "Objectif par opérateur (OF / vacation)", planifObj(), 'planifObj');
+            h += "<div style='max-height:320px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px;'>"
+                + "<table class='data-table' style='width:100%; margin:0;'><thead><tr>"
+                + "<th style='width:34%;'>Semaine</th><th style='width:33%;'>VAC JOUR</th><th style='width:33%;'>VAC SOIR</th></tr></thead><tbody>";
+            for (var w = 1; w <= 52; w++) {
+                h += "<tr><td style='text-align:center; font-weight:600;'>S" + w + "</td>"
+                    + "<td style='text-align:center;'><input type='number' min='0' step='1' value='" + planifNbOpFor(w, 'jour') + "'" + dis + " onchange=\"UpdatePlanifOp(" + w + ",'jour',this.value)\" style='" + inpS + "'></td>"
+                    + "<td style='text-align:center;'><input type='number' min='0' step='1' value='" + planifNbOpFor(w, 'soir') + "'" + dis + " onchange=\"UpdatePlanifOp(" + w + ",'soir',this.value)\" style='" + inpS + "'></td></tr>";
+            }
+            cont.innerHTML = h + "</tbody></table></div>";
         }
         function UpdatePlanifParam(key, val) {
             if (!isEditingParams) return;
             var n = parseInt(val, 10); if (isNaN(n) || n < 1) n = 1;
             appData[key] = n;
+        }
+        function UpdatePlanifOp(week, vacKind, val) {
+            if (!isEditingParams) return;
+            var n = parseInt(val, 10); if (isNaN(n) || n < 0) n = 0;
+            if (!appData.planifOps) appData.planifOps = {};
+            if (!appData.planifOps[week]) appData.planifOps[week] = {};
+            appData.planifOps[week][vacKind] = n;
+        }
+        function PlanifOpsFillAll() {
+            if (!isEditingParams) return;
+            var jf = document.getElementById('qfJour'), sf = document.getElementById('qfSoir');
+            var jv = jf ? parseInt(jf.value, 10) : 0, sv = sf ? parseInt(sf.value, 10) : 0;
+            if (isNaN(jv) || jv < 0) jv = 0; if (isNaN(sv) || sv < 0) sv = 0;
+            if (!appData.planifOps) appData.planifOps = {};
+            for (var w = 1; w <= 52; w++) appData.planifOps[w] = { jour: jv, soir: sv };
+            RenderPlanifParams();
         }
         function RenderCalcMode() {
             var cont = document.getElementById('calcModePanel');
@@ -2375,7 +2403,7 @@
                 teamTL: cloneObj(appData.teamTL),
                 teamIQ: cloneObj(appData.teamIQ),
                 calc: cloneObj(appData.calc),
-                planifNbOp: appData.planifNbOp, planifObj: appData.planifObj
+                planifObj: appData.planifObj, planifOps: cloneObj(appData.planifOps || {})
             };
             PARAM_EDIT_ROWS = computeParamRows();
             padRoleDesig(); padTeam("ST"); padTeam("TL"); padTeam("IQ");
@@ -2400,7 +2428,7 @@
                 appData.teamTL = paramsBackup.teamTL;
                 appData.teamIQ = paramsBackup.teamIQ;
                 appData.calc = paramsBackup.calc;
-                appData.planifNbOp = paramsBackup.planifNbOp; appData.planifObj = paramsBackup.planifObj;
+                appData.planifObj = paramsBackup.planifObj; appData.planifOps = paramsBackup.planifOps;
             }
             isEditingParams = false; paramsBackup = null;
             RenderParametres();
@@ -3089,22 +3117,30 @@
         var PLANIF_REALISE_COORD = ['TFS/TVS', 'Dépose OK', 'QARJ', 'CERT', 'ADMIN'];
         var PLANIF_FINIS_PROD = ['QARJ', 'CERT', 'ADMIN'];
         var PLANIF_OBJECTIF = 80;   // objectif de taux de réalisation (%) - ligne repère sur l'histogramme
-        var PLANIF_NB_OPERATEURS = 5;   // défaut : nombre d'opérateurs par vacation (réglable dans Paramètres > Planification)
-        var PLANIF_OBJ_DEF = 1;         // défaut : objectif d'OF par opérateur et par vacation (réglable dans Paramètres > Planification)
-        function planifNbOp() { var v = parseInt(appData.planifNbOp, 10); return (v > 0) ? v : PLANIF_NB_OPERATEURS; }
+        var PLANIF_NB_OPERATEURS = 5;   // défaut : nombre d'opérateurs par vacation si non renseigné
+        var PLANIF_OBJ_DEF = 1;         // défaut : objectif d'OF par opérateur et par vacation
+        // Nombre d'opérateurs pour une semaine ISO (1-52) et une vacation ('jour'/'soir'), depuis appData.planifOps, avec replis.
+        function planifNbOpFor(week, vacKind) {
+            var ops = appData.planifOps || {}, w = ops[week];
+            if (w) { var v = parseInt(w[vacKind], 10); if (!isNaN(v) && v >= 0) return v; }
+            var g = parseInt(appData.planifNbOp, 10); if (g > 0) return g;   // repli : ancien réglage global unique
+            return PLANIF_NB_OPERATEURS;
+        }
         function planifObj() { var v = parseInt(appData.planifObj, 10); return (v > 0) ? v : PLANIF_OBJ_DEF; }
         // Taux de charge capa d'une vacation d'un bucket : numérateur / (nb opérateurs x objectif x nombre de jours travaillés du bucket).
         // capa.num vaut vb.t (OF planifiés) ou vb.c (OF réalisés comptés via capa.group).
-        function planifCapaRate(vb, capa) {
-            var nDays = 0; for (var k in vb.days) { if (vb.days.hasOwnProperty(k)) nDays++; }
-            if (nDays === 0) nDays = 1;   // repli (bucket sans date exploitable)
-            var denom = capa.nb * capa.obj * nDays;
+        // Capacité = objectif x somme, sur chaque jour travaillé du bucket, du nombre d'opérateurs de la semaine/vacation de ce jour.
+        function planifCapaRate(vb, capa, vacKind) {
+            var opSum = 0, has = false;
+            for (var k in vb.days) { if (vb.days.hasOwnProperty(k)) { opSum += planifNbOpFor(vb.days[k], vacKind); has = true; } }   // vb.days[k] = n° de semaine ISO du jour
+            if (!has) opSum = planifNbOpFor(0, vacKind);   // repli (bucket sans jour daté)
+            var denom = capa.obj * opSum;
             var num = capa.group ? vb.c : vb.t;   // group défini => OF réalisés (comptage du groupe) ; sinon OF planifiés
             return denom > 0 ? Math.round(num / denom * 100) : 0;
         }
         // Point de données charge capa : { y: taux %, nb: nombre d'OF du numérateur, lbl: libellé } — nb affiché dans l'infobulle.
-        function planifCapaPoint(vb, capa) {
-            return { y: planifCapaRate(vb, capa), nb: (capa.group ? vb.c : vb.t), lbl: (capa.group ? 'OF réalisés' : 'OF planifiés') };
+        function planifCapaPoint(vb, capa, vacKind) {
+            return { y: planifCapaRate(vb, capa, vacKind), nb: (capa.group ? vb.c : vb.t), lbl: (capa.group ? 'OF réalisés' : 'OF planifiés') };
         }
         function planifVacKind(v) { var s = NettoyerChaine(v).toUpperCase(); if (s.indexOf('JOUR') !== -1) return 'jour'; if (s.indexOf('SOIR') !== -1) return 'soir'; return null; }
         function planifStatutNorm(s) { return NettoyerChaine(s).toUpperCase(); }
@@ -3145,8 +3181,8 @@
             }
             planifPie('hcPLCoordPie', PLANIF_COORD_STATUTS, coordCounts);
             planifPie('hcPLProdPie', PLANIF_PROD_STATUTS, prodCounts);
-            planifRateChart('hcPLCoordBar', data, PLANIF_REALISE_COORD, { curve: { nb: planifNbOp(), obj: planifObj(), group: null } });   // barres = réalisés/planifiés + courbe charge capa (planifiés)
-            planifRateChart('hcPLProdBar', data, null, { bar: { nb: planifNbOp(), obj: planifObj(), group: PLANIF_REALISE_COORD } });   // barres = charge capa (réalisés)
+            planifRateChart('hcPLCoordBar', data, PLANIF_REALISE_COORD, { curve: { obj: planifObj(), group: null } });   // barres = réalisés/planifiés + courbe charge capa (planifiés)
+            planifRateChart('hcPLProdBar', data, null, { bar: { obj: planifObj(), group: PLANIF_REALISE_COORD } });   // barres = charge capa (réalisés)
             ReflowDashCharts(['hcPLCoordPie', 'hcPLCoordBar', 'hcPLProdPie', 'hcPLProdBar']);
             dashValid.PL = true;
         }
@@ -3186,7 +3222,7 @@
                 presentSet[key] = true;
                 if (!buckets[key]) buckets[key] = { jour: { t: 0, d: 0, c: 0, days: {} }, soir: { t: 0, d: 0, c: 0, days: {} } };
                 var bk = buckets[key][vac]; bk.t++;
-                if (d) bk.days[d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()] = true;
+                if (d) bk.days[d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()] = isoWeek(d);   // jour -> n° semaine ISO (pour la capacité)
                 var sU = planifStatutNorm(rows[i].statut);
                 if (doneGroup && planifInGroup(sU, doneGroup)) bk.d++;
                 if (capaGroup && planifInGroup(sU, capaGroup)) bk.c++;   // numérateur capa = OF réalisés (groupe de statuts)
@@ -3205,13 +3241,13 @@
                 var kb = keys[j], bb = buckets[kb];
                 cats.push(labeler(kb));
                 if (opts.bar) {   // barres = taux de charge capa (numérateur/capacité) -> points {y,nb,lbl}
-                    jour.push(bb ? planifCapaPoint(bb.jour, opts.bar) : { y: 0, nb: 0 });
-                    soir.push(bb ? planifCapaPoint(bb.soir, opts.bar) : { y: 0, nb: 0 });
+                    jour.push(bb ? planifCapaPoint(bb.jour, opts.bar, 'jour') : { y: 0, nb: 0 });
+                    soir.push(bb ? planifCapaPoint(bb.soir, opts.bar, 'soir') : { y: 0, nb: 0 });
                 } else {          // barres = taux réalisés/finis (réalisés/planifiés)
                     jour.push((bb && bb.jour.t) ? Math.round(bb.jour.d / bb.jour.t * 100) : 0);
                     soir.push((bb && bb.soir.t) ? Math.round(bb.soir.d / bb.soir.t * 100) : 0);
                 }
-                if (opts.curve) { capaJour.push(bb ? planifCapaPoint(bb.jour, opts.curve) : { y: 0, nb: 0 }); capaSoir.push(bb ? planifCapaPoint(bb.soir, opts.curve) : { y: 0, nb: 0 }); }
+                if (opts.curve) { capaJour.push(bb ? planifCapaPoint(bb.jour, opts.curve, 'jour') : { y: 0, nb: 0 }); capaSoir.push(bb ? planifCapaPoint(bb.soir, opts.curve, 'soir') : { y: 0, nb: 0 }); }
             }
             var yMax = 100;   // les taux réalisés vont de 0 à 100 % ; la charge capa peut dépasser 100 % (sur-charge) -> l'axe s'étend
             var allV = jour.concat(soir).concat(capaJour).concat(capaSoir);
