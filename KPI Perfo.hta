@@ -2286,7 +2286,14 @@
     // ==========================================================
         var isEditingParams = false;
         var paramsBackup = null;
-        var PARAM_EDIT_ROWS = 15;   // nb de lignes (vides) affichées en mode édition (recalculé à l'entrée)
+        var PARAM_EDIT_ROWS = 15;   // nb de lignes (vides) de Responsables en mode édition (recalculé à l'entrée)
+        var PARAM_TEAM_ROWS = 12;   // nb de lignes des équipes = Responsables moins la hauteur du cadre « Mode de calcul »
+        // Les équipes commencent plus bas (sous le cadre « Mode de calcul ») : on leur met moins de lignes pour aligner le bas sur Responsables.
+        function computeTeamRows(fullRows) {
+            var mc = document.getElementById('paramModeCard');
+            var off = (mc && mc.offsetHeight) ? Math.ceil((mc.offsetHeight + 16) / 38) : 3;   // +16 = margin-bottom du cadre
+            return Math.max(3, fullRows - off);
+        }
         function computeParamRows() {
             var rc = document.getElementById('rolesContainer');
             var clientH = document.documentElement.clientHeight || window.innerHeight || 800;
@@ -2303,7 +2310,7 @@
         }
         function cloneObj(o) { return JSON.parse(toJSON(o)); }
         function padRoleDesig() { while (appData.roleDesig.length < PARAM_EDIT_ROWS) appData.roleDesig.push({ resp: "", nom: "", type: "" }); }
-        function padTeam(role) { var a = teamArr(role); while (a.length < PARAM_EDIT_ROWS) a.push({ user: "", nom: "" }); }
+        function padTeam(role) { var a = teamArr(role); while (a.length < PARAM_TEAM_ROWS) a.push({ user: "", nom: "" }); }
 
         function RenderParametres() {
             pageValid.parametres = true;   // rendu à jour (cache)
@@ -2312,16 +2319,6 @@
             RenderRolesTable();
             RenderTeam("ST"); RenderTeam("TL"); RenderTeam("IQ");
             RenderPlanifParams();
-            EqualizeParamCols();
-        }
-        // Aligne le bas de la carte Responsables sur celui de la colonne équipes (le cadre « Mode de calcul » décale les équipes vers le bas).
-        function EqualizeParamCols() {
-            var resp = document.getElementById('paramRespCard'), cell = document.getElementById('paramRightCell');
-            if (!resp || !cell) return;
-            resp.style.height = 'auto';
-            if (!cell.offsetHeight) return;   // panneau masqué : rien à mesurer
-            var h = cell.offsetHeight;
-            if (h > resp.offsetHeight) resp.style.height = h + 'px';
         }
         // Sous-onglets de Paramètres (Non-conformité / Planification).
         function ShowParamSub(s) {
@@ -2331,7 +2328,6 @@
                 var pane = document.getElementById(subs[kk]); if (pane) pane.style.display = (kk === s) ? "block" : "none";
                 var tab = document.getElementById(tabs[kk]); if (tab) tab.className = (kk === s) ? "subtab active" : "subtab";
             }
-            if (s === 'NC') EqualizeParamCols();   // recalcul de l'alignement une fois le volet visible
         }
         // Réglages « charge capa » (objectif + grille opérateurs 52 semaines x jour/soir) - éditables uniquement en mode Modifier.
         function RenderPlanifParams() {
@@ -2459,6 +2455,7 @@
                 planifRealise: cloneObj(appData.planifRealise || []), planifTermine: cloneObj(appData.planifTermine || [])
             };
             PARAM_EDIT_ROWS = computeParamRows();
+            PARAM_TEAM_ROWS = computeTeamRows(PARAM_EDIT_ROWS);   // équipes plus courtes (décalées par le cadre « Mode de calcul »)
             padRoleDesig(); padTeam("ST"); padTeam("TL"); padTeam("IQ");
             RenderParametres();
         }
@@ -5160,7 +5157,7 @@
                             </div>
                         </div>
                         <div id="paramRightCell" style="display:table-cell; width:69%; padding-left:8px; box-sizing:border-box; vertical-align:top;">
-                            <div class="card" style="margin-bottom:16px; padding:16px 20px; overflow:hidden;">
+                            <div id="paramModeCard" class="card" style="margin-bottom:16px; padding:16px 20px; overflow:hidden;">
                                 <h3 style="margin:0; display:inline-block; vertical-align:middle; margin-right:28px;">Mode de calcul des durées</h3>
                                 <div id="calcModePanel" style="display:inline-block; vertical-align:middle;"></div>
                             </div>
