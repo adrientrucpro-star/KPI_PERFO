@@ -1,0 +1,17 @@
+Case total point
+<span id="WD92B1" ct="TV" lsdata="{11:true}" tabindex="-1" ti="-1" class="lsTextView lsTextNoWrapping lsControl--noWrapping lsTextView--usedInTable lsTextView--design-standard  lsTextView--color" style="white-space:nowrap;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 177</span>
+
+Bouton Prévisualisation
+<div draggable="false" id="WD3D04" ct="B" lsdata="{0:'Pr\xe9visualisation',3:'155px'}" lsevents="{Press:[{ResponseData:'delta',ClientAction:'submit'},{}]}" tabindex="0" ti="0" class="lsControl--explicitwidth lsButton lsButton--base lsTbarBtnStd urInlineMetricTop lsButton--overflow urNoUserSelect urBtnRadius lsButton--active lsButton--focusable lsButton--up lsButton--design-standard" style="width:155px;" title=""><span id="WD3D04-cnt" class="urNoUserSelect lsButton--content lsControl--centeraligned" style="pointer-events:none;width:100%;"><span class="lsButton__text  lsButton__text--overflow" id="WD3D04-caption" style="white-space:nowrap;" title="">Prévisualisation</span></span></div>
+
+Case crée le
+<input id="WD3FBF" ct="I" lsdata="{0:'03.09.2026',1:true,2:'DATE',9:'dd.MM.yyyy',29:'WD3FBA'}" lsevents="{Change:[{ResponseData:'delta',EnqueueCardinality:'single'},{}],Enter:[{ResponseData:'delta',ClientAction:'submit'},{}],ClipboardTablePaste:[{ResponseData:'delta',ClientAction:'submit'},{}]}" type="text" size="10" maxlength="10" tabindex="0" ti="0" class="lsField__input" value="03.09.2026" autocomplete="off" autocorrect="off" name="WD3FBF" title="">
+
+Case crée au
+<input id="WD3FC3" ct="I" lsdata="{0:'19.10.2026',1:true,2:'DATE',9:'dd.MM.yyyy',29:'WD3FC1'}" lsevents="{Change:[{ResponseData:'delta',EnqueueCardinality:'single'},{}],Enter:[{ResponseData:'delta',ClientAction:'submit'},{}],ClipboardTablePaste:[{ResponseData:'delta',ClientAction:'submit'},{}]}" type="text" size="10" maxlength="10" tabindex="0" ti="0" class="lsField__input" value="19.10.2026" autocomplete="off" autocorrect="off" name="WD3FC3" title="">
+
+Case Fermé le
+<input id="WD3FD0" ct="I" lsdata="{1:true,2:'DATE',9:'dd.MM.yyyy',29:'WD3FCB'}" lsevents="{Change:[{ResponseData:'delta',EnqueueCardinality:'single'},{}],Enter:[{ResponseData:'delta',ClientAction:'submit'},{}],ClipboardTablePaste:[{ResponseData:'delta',ClientAction:'submit'},{}]}" type="text" size="10" maxlength="10" tabindex="0" ti="0" class="lsField__input" autocomplete="off" autocorrect="off" name="WD3FD0" title="">
+
+Case Fermé au
+<input id="WD3FD4" ct="I" lsdata="{1:true,2:'DATE',9:'dd.MM.yyyy',29:'WD3FD2'}" lsevents="{Change:[{ResponseData:'delta',EnqueueCardinality:'single'},{}],Enter:[{ResponseData:'delta',ClientAction:'submit'},{}],ClipboardTablePaste:[{ResponseData:'delta',ClientAction:'submit'},{}]}" type="text" size="10" maxlength="10" tabindex="0" ti="0" class="lsField__input" autocomplete="off" autocorrect="off" name="WD3FD4" title="">
